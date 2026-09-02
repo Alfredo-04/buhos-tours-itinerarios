@@ -1,10 +1,10 @@
 # 🗺️ Sistema Web de Itinerarios Turísticos Personalizados
 
-![Python](https://shields.io)
-![Flask](https://shields.io)
-![PostgreSQL](https://shields.io)
-![License](https://shields.io)
-![Status](https://shields.io)
+![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-2.3.x-green?logo=flask&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?logo=postgresql&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-yellow)
+![Status](https://img.shields.io/badge/Status-En%20Desarrollo-orange)
 
 ## 📖 Descripción del Proyecto
 
