@@ -5,6 +5,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    SECRET_KEY = os.getenv('SECRET_KEY', 'mi_clave_super_secreta_123')
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'postgresql://postgres:admin123@localhost:5432/buhos_db')
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'clave-secreta-para-desarrollo'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'postgresql://postgres:admin123@localhost:5432/buhos_tours'
     SQLALCHEMY_TRACK_MODIFICATIONS = False

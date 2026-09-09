@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Iniciar Sesión{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <div class="auth-card-header">
+      <div class="d-inline-flex align-items-center justify-content-center p-3 rounded-circle bg-white bg-opacity-10 mb-2">
+        <i class="bi bi-shield-lock-fill text-warning fs-3"></i>
+      </div>
+      <h1 class="brand-title brand-font">Búhos Tours</h1>
+      <p class="brand-subtitle">Plataforma de Itinerarios Turísticos</p>
+    </div>
+
+    <div class="auth-card-body">
+      <h2 class="h5 fw-bold text-center mb-4 text-dark">Acceso al Sistema</h2>
+
+      <form action="{{ url_for('auth.login', next=request.args.get('next', '')) }}" method="POST" novalidate id="loginForm">
+        <!-- Campo Email -->
+        <div class="mb-3">
+          <label for="email" class="form-label">Correo Electrónico</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-envelope-fill"></i></span>
+            <input 
+              type="email" 
+              class="form-control" 
+              id="email" 
+              name="email" 
+              placeholder="ejemplo@buhostours.com" 
+              value="{{ email or '' }}" 
+              required 
+              autocomplete="email"
+              autofocus
+            >
+          </div>
+        </div>
+
+        <!-- Campo Contraseña -->
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <label for="password" class="form-label">Contraseña</label>
+          </div>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-key-fill"></i></span>
+            <input 
+              type="password" 
+              class="form-control" 
+              id="password" 
+              name="password" 
+              placeholder="••••••••" 
+              required
+              autocomplete="current-password"
+            >
+            <button class="btn btn-toggle-password" type="button" id="togglePasswordBtn" title="Mostrar/Ocultar contraseña">
+              <i class="bi bi-eye-fill" id="togglePasswordIcon"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Recordar sesión -->
+        <div class="mb-4 form-check">
+          <input type="checkbox" class="form-check-input" id="remember" name="remember">
+          <label class="form-check-label text-muted small" for="remember">Mantener sesión iniciada</label>
+        </div>
+
+        <!-- Botón de Envío -->
+        <button type="submit" class="btn btn-primary-custom w-100 mb-3" id="btnLogin">
+          <i class="bi bi-box-arrow-in-right"></i> Iniciar Sesión
+        </button>
+      </form>
+
+      <div class="text-center pt-3 border-top">
+        <p class="text-muted small mb-0">
+          ¿No tienes una cuenta de agente? 
+          <a href="{{ url_for('auth.signup') }}" class="text-decoration-none fw-semibold" style="color: var(--color-primary-light);">
+            Regístrate aquí
+          </a>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const toggleBtn = document.getElementById('togglePasswordBtn');
+    const pwdInput = document.getElementById('password');
+    const toggleIcon = document.getElementById('togglePasswordIcon');
+
+    if (toggleBtn && pwdInput && toggleIcon) {
+      toggleBtn.addEventListener('click', function() {
+        if (pwdInput.type === 'password') {
+          pwdInput.type = 'text';
+          toggleIcon.classList.remove('bi-eye-fill');
+          toggleIcon.classList.add('bi-eye-slash-fill');
+        } else {
+          pwdInput.type = 'password';
+          toggleIcon.classList.remove('bi-eye-slash-fill');
+          toggleIcon.classList.add('bi-eye-fill');
+        }
+      });
+    }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,86 @@
+import os
+import sys
+
+# Agregar la raíz del proyecto al sys.path para ejecución directa
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+from app import db
+from app.models.usuario import Usuario
+
+SEED_USERS = [
+    {
+        "nombres": "Administrador",
+        "apellidos": "Sistema",
+        "email": "admin@buhostours.com",
+        "password": "Admin123!Secure",
+        "rol": "admin"
+    },
+    {
+        "nombres": "Carlos",
+        "apellidos": "Mendoza Ríos",
+        "email": "carlos.mendoza@buhostours.com",
+        "password": "Agente123!Pass",
+        "rol": "agente"
+    },
+    {
+        "nombres": "Valeria",
+        "apellidos": "Torres Vargas",
+        "email": "valeria.torres@buhostours.com",
+        "password": "Agente123!Pass",
+        "rol": "agente"
+    },
+    {
+        "nombres": "Diego",
+        "apellidos": "Quispe Huamán",
+        "email": "diego.quispe@buhostours.com",
+        "password": "Agente123!Pass",
+        "rol": "agente"
+    },
+    {
+        "nombres": "Lucía",
+        "apellidos": "Flores Salas",
+        "email": "lucia.flores@buhostours.com",
+        "password": "Agente123!Pass",
+        "rol": "agente"
+    }
+]
+
+def seed_usuarios():
+    """
+    Inserta o actualiza los 5 usuarios iniciales (1 Admin y 4 Agentes)
+    garantizando idempotencia.
+    """
+    creados = 0
+    actualizados = 0
+
+    for user_data in SEED_USERS:
+        usuario = Usuario.query.filter_by(email=user_data["email"]).first()
+        if not usuario:
+            nuevo_usuario = Usuario(
+                nombres=user_data["nombres"],
+                apellidos=user_data["apellidos"],
+                email=user_data["email"],
+                rol=user_data["rol"]
+            )
+            nuevo_usuario.set_password(user_data["password"])
+            db.session.add(nuevo_usuario)
+            creados += 1
+            print(f" [+] Creado {user_data['rol'].upper()}: {user_data['email']}")
+        else:
+            # Asegurar rol y sincronizar contraseña si es necesario
+            usuario.nombres = user_data["nombres"]
+            usuario.apellidos = user_data["apellidos"]
+            usuario.rol = user_data["rol"]
+            usuario.set_password(user_data["password"])
+            actualizados += 1
+            print(f" [~] Actualizado {user_data['rol'].upper()}: {user_data['email']}")
+
+    db.session.commit()
+    print(f"\n[OK] Proceso de Seeder finalizado: {creados} creados, {actualizados} actualizados.")
+    return creados, actualizados
+
+if __name__ == '__main__':
+    from app import create_app
+    app = create_app()
+    with app.app_context():
+        seed_usuarios()

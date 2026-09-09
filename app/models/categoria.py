@@ -1,0 +1,14 @@
+from app import db  
+# pyrefly: ignore [missing-import]
+from sqlalchemy.dialects.postgresql import UUID
+import uuid
+from datetime import datetime
+
+class Categoria(db.Model):
+    __tablename__ = 'categoria'
+    id_categoria = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(50), nullable=False)
+    descripcion = db.Column(db.String(200))
+
+    # Relación 1:N con ATRACTIVO (CLASIFICA)
+    atractivos = db.relationship('Atractivo', backref='categoria', lazy=True)

@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Usuarios{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+  <!-- Encabezado de Página -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small">
+          <li class="breadcrumb-item"><a href="{{ url_for('auth.dashboard') }}" class="text-decoration-none">Inicio</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Usuarios</li>
+        </ol>
+      </nav>
+      <h1 class="h3 fw-bold text-dark brand-font mb-0">Gestión de Usuarios</h1>
+      <p class="text-muted small mb-0">Directorio y control de accesos de agentes y administradores.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge bg-primary px-3 py-2" style="background-color: var(--color-primary) !important;">
+        <i class="bi bi-shield-check me-1"></i> Módulo exclusivo Administrador
+      </span>
+    </div>
+  </div>
+
+  <!-- Tarjetas de Métricas / Resumen -->
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-4">
+      <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100">
+        <div class="d-flex align-items-center gap-3">
+          <div class="feature-icon-badge mb-0" style="width: 44px; height: 44px;">
+            <i class="bi bi-people-fill fs-5"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Total de Usuarios</div>
+            <div class="h4 fw-bold mb-0 text-dark">{{ stats.total }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-4">
+      <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100">
+        <div class="d-flex align-items-center gap-3">
+          <div class="feature-icon-badge mb-0" style="width: 44px; height: 44px; background-color: rgba(244, 162, 97, 0.15); color: var(--color-secondary-hover);">
+            <i class="bi bi-person-badge-fill fs-5"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Administradores</div>
+            <div class="h4 fw-bold mb-0 text-dark">{{ stats.admins }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-4">
+      <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100">
+        <div class="d-flex align-items-center gap-3">
+          <div class="feature-icon-badge mb-0" style="width: 44px; height: 44px; background-color: rgba(26, 62, 96, 0.08); color: var(--color-primary);">
+            <i class="bi bi-briefcase-fill fs-5"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Agentes de Viajes</div>
+            <div class="h4 fw-bold mb-0 text-dark">{{ stats.agentes }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra de Filtros y Búsqueda -->
+  <div class="card border-0 shadow-sm rounded-3 p-3 mb-4 bg-white">
+    <form method="GET" action="{{ url_for('usuarios.index') }}" class="row g-2 align-items-center">
+      
+      <!-- Buscador de texto -->
+      <div class="col-md-5">
+        <div class="input-group">
+          <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+          <input 
+            type="text" 
+            class="form-control border-start-0" 
+            name="q" 
+            placeholder="Buscar por nombre, apellido o correo..." 
+            value="{{ search_query }}"
+            aria-label="Buscar usuarios"
+          >
+        </div>
+      </div>
+
+      <!-- Filtro por Rol -->
+      <div class="col-sm-6 col-md-3">
+        <select class="form-select" name="rol" aria-label="Filtrar por rol">
+          <option value="" {% if not rol_filtro %}selected{% endif %}>Todos los roles</option>
+          <option value="admin" {% if rol_filtro == 'admin' %}selected{% endif %}>Administrador</option>
+          <option value="agente" {% if rol_filtro == 'agente' %}selected{% endif %}>Agente de Viajes</option>
+        </select>
+      </div>
+
+      <!-- Ordenamiento -->
+      <div class="col-sm-6 col-md-2">
+        <select class="form-select" name="sort" aria-label="Ordenar por">
+          <option value="id_asc" {% if sort_by == 'id_asc' %}selected{% endif %}>ID (1 - 9)</option>
+          <option value="id_desc" {% if sort_by == 'id_desc' %}selected{% endif %}>ID (9 - 1)</option>
+          <option value="nombre_asc" {% if sort_by == 'nombre_asc' %}selected{% endif %}>Nombre (A-Z)</option>
+          <option value="fecha_desc" {% if sort_by == 'fecha_desc' %}selected{% endif %}>Más recientes</option>
+          <option value="fecha_asc" {% if sort_by == 'fecha_asc' %}selected{% endif %}>Más antiguos</option>
+        </select>
+      </div>
+
+      <!-- Botones de Acción -->
+      <div class="col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-primary-custom flex-grow-1" title="Aplicar búsqueda y filtros">
+          <i class="bi bi-funnel-fill"></i> Filtrar
+        </button>
+        {% if search_query or rol_filtro or sort_by != 'id_asc' %}
+          <a href="{{ url_for('usuarios.index') }}" class="btn btn-outline-secondary" title="Limpiar filtros">
+            <i class="bi bi-x-lg"></i>
+          </a>
+        {% endif %}
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Tabla de Usuarios -->
+  <div class="card border-0 shadow-sm rounded-3 overflow-hidden bg-white">
+    <div class="card-header bg-white py-3 px-4 d-flex justify-content-between align-items-center border-bottom">
+      <div class="fw-bold text-dark">
+        <i class="bi bi-list-ul me-1 text-primary"></i> 
+        Listado de Usuarios Registrados 
+        <span class="badge bg-light text-muted border ms-2">{{ usuarios|length }} resultados</span>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light text-muted small text-uppercase">
+          <tr>
+            <th scope="col" class="ps-4" style="width: 80px;">ID</th>
+            <th scope="col">Usuario</th>
+            <th scope="col">Rol</th>
+            <th scope="col">Fecha de Registro</th>
+            <th scope="col">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if usuarios %}
+            {% for u in usuarios %}
+              <tr>
+                <td class="ps-4 fw-bold text-muted">#{{ u.id_usuario }}</td>
+                <td>
+                  <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white shadow-sm" 
+                         style="width: 40px; height: 40px; font-size: 0.85rem; background: {% if u.rol == 'admin' %}linear-gradient(135deg, #1a3e60, #2c5985){% else %}linear-gradient(135deg, #f4a261, #e76f51){% endif %};">
+                      {{ u.nombres[:1]|upper }}{{ u.apellidos[:1]|upper }}
+                    </div>
+                    <div>
+                      <div class="fw-bold text-dark">{{ u.nombres }} {{ u.apellidos }}</div>
+                      <div class="small text-muted"><i class="bi bi-envelope me-1"></i>{{ u.email }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  {% if u.rol == 'admin' %}
+                    <span class="badge bg-primary px-2.5 py-1.5" style="background-color: var(--color-primary) !important;">
+                      <i class="bi bi-shield-fill-check me-1"></i> Administrador
+                    </span>
+                  {% else %}
+                    <span class="badge bg-warning text-dark px-2.5 py-1.5">
+                      <i class="bi bi-briefcase me-1"></i> Agente de Viajes
+                    </span>
+                  {% endif %}
+                </td>
+                <td class="text-muted small">
+                  <i class="bi bi-calendar3 me-1"></i> {{ u.fecha_registro.strftime('%d/%m/%Y') }}
+                </td>
+                <td>
+                  <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1">
+                    <i class="bi bi-check-circle-fill me-1"></i> Activo
+                  </span>
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="5" class="text-center py-5">
+                <div class="text-muted">
+                  <i class="bi bi-search fs-1 d-block mb-2 text-secondary"></i>
+                  <h6 class="fw-bold text-dark">No se encontraron usuarios</h6>
+                  <p class="small mb-3">No hay coincidencias con los términos de búsqueda o filtros seleccionados.</p>
+                  <a href="{{ url_for('usuarios.index') }}" class="btn btn-outline-custom btn-sm">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i> Restablecer filtros
+                  </a>
+                </div>
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card-footer bg-white py-3 px-4 border-top text-muted small d-flex justify-content-between align-items-center">
+      <span>Mostrando <strong>{{ usuarios|length }}</strong> de <strong>{{ stats.total }}</strong> usuarios registrados</span>
+      <span class="text-muted"><i class="bi bi-info-circle me-1"></i> Modo Solo Lectura</span>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
