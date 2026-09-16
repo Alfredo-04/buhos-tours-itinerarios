@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Panel Agente de Viajes{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+  
+  <!-- Encabezado de Página -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">Panel de Agente de Viajes</h1>
+      <p class="text-muted small mb-0">Planificación inteligente de itinerarios turísticos y atención a viajeros.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge" style="background-color: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; padding: 0.5rem 0.85rem; font-size: 0.82rem;">
+        <i class="bi bi-briefcase-fill me-1"></i> Rol: Agente de Viajes
+      </span>
+      {% if user.two_factor_enabled %}
+        <span class="badge" style="background-color: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; padding: 0.5rem 0.85rem; font-size: 0.82rem;">
+          <i class="bi bi-shield-check me-1"></i> 2FA Activo
+        </span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Fila de Módulos Principales de Agente -->
+  <div class="row g-3 mb-4">
+    
+    <!-- Módulo 1: Generador NSGA-II -->
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="module-card">
+        <div class="module-card-header">
+          <div class="module-icon-box module-icon-green">
+            <i class="bi bi-compass-fill"></i>
+          </div>
+          <h2 class="module-title">Generar Itinerario</h2>
+        </div>
+        <p class="module-desc">
+          Crea propuestas de viaje óptimas combinando tiempo, presupuesto y preferencias con NSGA-II.
+        </p>
+        <div>
+          <button class="btn-emerald btn-sm w-100 py-2">
+            <i class="bi bi-plus-circle me-1"></i> Nueva Optimización
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Módulo 2: Mis Itinerarios y Vouchers -->
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="module-card">
+        <div class="module-card-header">
+          <div class="module-icon-box module-icon-blue">
+            <i class="bi bi-journal-check"></i>
+          </div>
+          <h2 class="module-title">Itinerarios Activos</h2>
+        </div>
+        <p class="module-desc">
+          Consulta planes en borrador, propuestas confirmadas y emisión de vouchers para clientes.
+        </p>
+        <div>
+          <span class="module-badge" style="background-color: #E0F2FE; color: #0284C7; border: 1px solid #BAE6FD;">
+            <i class="bi bi-clock-history"></i> Gestión Activa
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Módulo 3: Turistas -->
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="module-card">
+        <div class="module-card-header">
+          <div class="module-icon-box module-icon-amber">
+            <i class="bi bi-people-fill"></i>
+          </div>
+          <h2 class="module-title">Registro de Turistas</h2>
+        </div>
+        <p class="module-desc">
+          Ficha de datos de viajeros, documentación legal, procedencia y preferencias turísticas.
+        </p>
+        <div>
+          <span class="module-badge badge-amber">
+            <i class="bi bi-person-lines-fill"></i> Directorio
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Módulo 4: Catálogo Atractivos -->
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="module-card">
+        <div class="module-card-header">
+          <div class="module-icon-box module-icon-emerald">
+            <i class="bi bi-geo-alt-fill"></i>
+          </div>
+          <h2 class="module-title">Atractivos</h2>
+        </div>
+        <p class="module-desc">
+          Consulta de tiempos de visita, costos de entrada y mapas de los sitios turísticos.
+        </p>
+        <div>
+          <span class="module-badge badge-emerald">
+            <i class="bi bi-pin-map-fill"></i> Catálogo
+          </span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Resumen de Cuenta del Agente -->
+  <div class="card-floating">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <div class="d-flex align-items-center gap-3">
+          <div class="user-avatar" style="width: 48px; height: 48px; font-size: 1.1rem; background: #16A085;">
+            {{ user.nombres[:1]|upper }}{{ user.apellidos[:1]|upper }}
+          </div>
+          <div>
+            <h2 class="h6 fw-bold mb-1" style="color: var(--color-text);">{{ user.nombre_completo }}</h2>
+            <p class="text-muted small mb-0">
+              ID #{{ user.id_usuario }} &bull; Correo: {{ user.email }} &bull; Agente Autorizado &bull; Registrado: {{ user.fecha_registro.strftime('%d/%m/%Y') }}
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 text-md-end mt-3 mt-md-0">
+        <a href="{{ url_for('agente.perfil') }}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-person-circle me-1"></i> Ver Mi Perfil & Seguridad
+        </a>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

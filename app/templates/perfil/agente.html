@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Mi Perfil - Agente{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+  
+  <!-- Encabezado de Página -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small">
+          <li class="breadcrumb-item"><a href="{{ url_for('agente.dashboard') }}" class="text-decoration-none">Dashboard Agente</a></li>
+          <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-muted);">Mi Perfil</li>
+        </ol>
+      </nav>
+      <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">Mi Perfil de Agente</h1>
+      <p class="text-muted small mb-0">Información de tu cuenta y estado de seguridad 2FA.</p>
+    </div>
+    <div>
+      <a href="{{ url_for('agente.dashboard') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+        <i class="bi bi-arrow-left me-1"></i> Volver al Dashboard
+      </a>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    
+    <!-- Tarjeta de Identidad -->
+    <div class="col-lg-4">
+      <div class="card-floating text-center p-4">
+        <div class="user-avatar mx-auto mb-3" style="width: 80px; height: 80px; font-size: 1.8rem; background: #16A085;">
+          {{ user.nombres[:1]|upper }}{{ user.apellidos[:1]|upper }}
+        </div>
+
+        <h2 class="h5 fw-bold mb-1" style="color: var(--color-text);">{{ user.nombre_completo }}</h2>
+        <p class="text-muted small mb-3">{{ user.email }}</p>
+
+        <div class="d-flex justify-content-center gap-2 mb-3">
+          <span class="module-badge badge-amber">
+            <i class="bi bi-briefcase-fill me-1"></i> Agente Autorizado
+          </span>
+          <span class="module-badge badge-emerald">
+            <i class="bi bi-check-circle-fill me-1"></i> Cuenta Activa
+          </span>
+        </div>
+
+        <div class="border-top pt-3 text-start small text-muted">
+          <div class="d-flex justify-content-between py-1">
+            <span>ID de Agente:</span>
+            <strong class="text-dark">#{{ user.id_usuario }}</strong>
+          </div>
+          <div class="d-flex justify-content-between py-1">
+            <span>Fecha de Registro:</span>
+            <strong class="text-dark">{{ user.fecha_registro.strftime('%d/%m/%Y') }}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tarjeta de Seguridad 2FA -->
+    <div class="col-lg-8">
+      <div class="card-floating p-4 mb-4">
+        <div class="d-flex align-items-center gap-3 mb-3 pb-3 border-bottom">
+          <div class="module-icon-box module-icon-green" style="width: 44px; height: 44px;">
+            <i class="bi bi-shield-lock-fill fs-5"></i>
+          </div>
+          <div>
+            <h3 class="h6 fw-bold mb-0" style="color: var(--color-text);">Seguridad de Dos Factores (2FA TOTP)</h3>
+            <span class="text-muted small">Protección obligatoria para agentes de viajes</span>
+          </div>
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between p-3 bg-light rounded border mb-3">
+          <div>
+            <div class="fw-bold text-dark">Estado del 2FA:</div>
+            <div class="small text-muted">
+              {% if user.two_factor_enabled %}
+                Verificación activa mediante aplicación autenticadora (Google Authenticator / Authy).
+              {% else %}
+                Pendiente de configuración.
+              {% endif %}
+            </div>
+          </div>
+          <div>
+            {% if user.two_factor_enabled %}
+              <span class="badge bg-success py-2 px-3">
+                <i class="bi bi-shield-check me-1"></i> 2FA Habilitado
+              </span>
+            {% else %}
+              <a href="{{ url_for('auth.configurar_2fa') }}" class="btn-emerald btn-sm">
+                <i class="bi bi-shield-plus me-1"></i> Configurar 2FA
+              </a>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="text-muted small">
+          <i class="bi bi-info-circle me-1"></i>
+          Para reconfigurar tu dispositivo 2FA o cambiar tu contraseña, contacta con el administrador del sistema.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

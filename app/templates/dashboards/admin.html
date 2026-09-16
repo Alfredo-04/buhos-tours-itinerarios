@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Panel Administrador{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+  
+  <!-- Encabezado de Página -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">Panel de Administración General</h1>
+      <p class="text-muted small mb-0">Gestión de usuarios, auditoría, configuración del algoritmo y control operativo.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge" style="background-color: #EEF2F6; color: #1E293B; border: 1px solid #CBD5E1; padding: 0.5rem 0.85rem; font-size: 0.82rem;">
+        <i class="bi bi-shield-fill-check text-primary me-1"></i> Sesión: Administrador
+      </span>
+      {% if user.two_factor_enabled %}
+        <span class="badge" style="background-color: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; padding: 0.5rem 0.85rem; font-size: 0.82rem;">
+          <i class="bi bi-lock-fill text-success me-1"></i> 2FA Activo
+        </span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Métricas de Usuarios y Sistema -->
+  <div class="row g-3 mb-4">
+    
+    <div class="col-sm-6 col-xl-3">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="module-icon-box module-icon-blue" style="width: 44px; height: 44px;">
+            <i class="bi bi-people-fill fs-5"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Total de Usuarios</div>
+            <div class="h4 fw-bold mb-0" style="color: var(--color-text);">{{ stats.total }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="module-icon-box module-icon-green" style="width: 44px; height: 44px;">
+            <i class="bi bi-briefcase-fill fs-5"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Agentes de Viajes</div>
+            <div class="h4 fw-bold mb-0" style="color: var(--color-text);">{{ stats.agentes }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="module-icon-box module-icon-emerald" style="width: 44px; height: 44px;">
+            <i class="bi bi-person-check-fill fs-5"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Turistas Registrados</div>
+            <div class="h4 fw-bold mb-0" style="color: var(--color-text);">{{ stats.turistas }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="module-icon-box module-icon-amber" style="width: 44px; height: 44px;">
+            <i class="bi bi-trash-fill fs-5"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Cuentas Desactivadas</div>
+            <div class="h4 fw-bold mb-0" style="color: var(--color-text);">{{ stats.eliminados }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Tarjeta de Gestión de Usuarios Destacada -->
+  <div class="card-floating mb-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+      <div>
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span class="module-badge" style="background-color: #EEF2F6; color: #334155; border: 1px solid #CBD5E1;">
+            <i class="bi bi-shield-lock-fill text-dark"></i> Control de Acceso
+          </span>
+          <span class="text-muted small">Módulo Central</span>
+        </div>
+        <h2 class="h5 fw-bold mb-1" style="color: var(--color-text);">Directorio y Gestión Integral de Usuarios</h2>
+        <p class="text-muted small mb-0">Crea nuevos agentes, gestiona contraseñas temporales, aplica bajas lógicas y audita el 2FA.</p>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{{ url_for('admin.usuarios') }}" class="btn-emerald">
+          <i class="bi bi-people-fill"></i> Directorio de Usuarios
+        </a>
+        <a href="{{ url_for('admin.usuario_crear') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+          <i class="bi bi-person-plus-fill"></i> Crear Usuario
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Módulos Operativos -->
+  <div class="row g-3 mb-4">
+    
+    <!-- Módulo 1: Motor NSGA-II -->
+    <div class="col-12 col-md-4">
+      <div class="module-card">
+        <div class="module-card-header">
+          <div class="module-icon-box module-icon-green">
+            <i class="bi bi-cpu-fill"></i>
+          </div>
+          <h2 class="module-title">Motor Algorítmico NSGA-II</h2>
+        </div>
+        <p class="module-desc">
+          Configuración de parámetros genéticos, funciones objetivo de tiempo/costo y pesos de satisfacción.
+        </p>
+        <div class="d-flex justify-content-between align-items-center">
+          <span class="module-badge badge-ai">
+            <i class="bi bi-check-circle"></i> pymoo 0.6.1.1
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Módulo 2: Atractivos Turísticos -->
+    <div class="col-12 col-md-4">
+      <div class="module-card">
+        <div class="module-card-header">
+          <div class="module-icon-box module-icon-emerald">
+            <i class="bi bi-geo-alt-fill"></i>
+          </div>
+          <h2 class="module-title">Catálogo de Atractivos</h2>
+        </div>
+        <p class="module-desc">
+          Mantenimiento de puntos de interés, coordenadas GPS, tarifas y horarios de visita.
+        </p>
+        <div>
+          <span class="module-badge badge-emerald">
+            <i class="bi bi-database-check"></i> Base de Datos
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Módulo 3: Transporte & Proveedores -->
+    <div class="col-12 col-md-4">
+      <div class="module-card">
+        <div class="module-card-header">
+          <div class="module-icon-box module-icon-blue">
+            <i class="bi bi-bus-front-fill"></i>
+          </div>
+          <h2 class="module-title">Transporte y Proveedores</h2>
+        </div>
+        <p class="module-desc">
+          Tarifarios por distancia/tiempo, contratos con empresas de transporte y servicios asociados.
+        </p>
+        <div>
+          <span class="module-badge" style="background-color: #E0F2FE; color: #0284C7; border: 1px solid #BAE6FD;">
+            <i class="bi bi-currency-dollar"></i> Tarifas
+          </span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Resumen de Cuenta del Administrador -->
+  <div class="card-floating">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <div class="d-flex align-items-center gap-3">
+          <div class="user-avatar" style="width: 48px; height: 48px; font-size: 1.1rem; background: #151C28;">
+            {{ user.nombres[:1]|upper }}{{ user.apellidos[:1]|upper }}
+          </div>
+          <div>
+            <h2 class="h6 fw-bold mb-1" style="color: var(--color-text);">{{ user.nombre_completo }}</h2>
+            <p class="text-muted small mb-0">
+              ID #{{ user.id_usuario }} &bull; Correo: {{ user.email }} &bull; Rol: <strong class="text-capitalize">{{ user.rol.nombre }}</strong> &bull; Registrado: {{ user.fecha_registro.strftime('%d/%m/%Y') }}
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 text-md-end mt-3 mt-md-0">
+        <span class="module-badge badge-emerald">
+          <i class="bi bi-check-circle-fill"></i> Administrador Activo
+        </span>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

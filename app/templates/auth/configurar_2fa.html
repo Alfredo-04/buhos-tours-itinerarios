@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Configurar Autenticación 2FA{% endblock %}
+
+{% block content_guest %}
+<div class="auth-wrapper">
+  <div class="auth-card auth-card-lg">
+    
+    <div class="auth-card-header">
+      <div class="d-inline-flex align-items-center justify-content-center p-3 rounded-circle mb-3" style="background: rgba(46, 204, 113, 0.15); color: #2ECC71;">
+        <i class="bi bi-qr-code-scan fs-2"></i>
+      </div>
+      <h1 class="h4 fw-bold text-white mb-1">Configuración de Seguridad 2FA</h1>
+      <p class="text-white-50 small mb-0">Protege el acceso a tu cuenta mediante autenticación de dos factores (TOTP)</p>
+    </div>
+
+    <div class="auth-card-body">
+      
+      <!-- Paso 1: Instrucciones -->
+      <div class="mb-4">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span class="badge bg-dark rounded-circle" style="width: 24px; height: 24px; line-height: 18px;">1</span>
+          <h6 class="fw-bold mb-0" style="color: var(--color-text);">Descarga una aplicación autenticadora</h6>
+        </div>
+        <p class="text-muted small ps-4 mb-0">
+          Instala en tu teléfono móvil una aplicación como <strong>Google Authenticator</strong>, <strong>Microsoft Authenticator</strong> o <strong>Authy</strong> (disponibles en Play Store y App Store).
+        </p>
+      </div>
+
+      <!-- Paso 2: Escaneo de QR y clave manual -->
+      <div class="mb-4">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span class="badge bg-dark rounded-circle" style="width: 24px; height: 24px; line-height: 18px;">2</span>
+          <h6 class="fw-bold mb-0" style="color: var(--color-text);">Escanea el código QR</h6>
+        </div>
+        <div class="ps-4">
+          <p class="text-muted small mb-3">
+            Abre tu aplicación, selecciona "Escanear código QR" y enfoca la siguiente imagen:
+          </p>
+          
+          <div class="text-center p-3 bg-light rounded border mb-3">
+            <img src="{{ qr_code_base64 }}" alt="Código QR 2FA" class="img-fluid rounded" style="max-width: 200px; border: 4px solid #ffffff; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+          </div>
+
+          <!-- Clave manual con botón de copiar -->
+          <div class="card p-3 bg-light border-0">
+            <div class="text-muted small mb-1">¿No puedes escanear el QR? Ingresa esta clave secreta manualmente:</div>
+            <div class="d-flex align-items-center gap-2">
+              <input type="text" class="form-control form-control-sm text-center font-monospace fw-bold" id="secretKeyText" value="{{ secret }}" readonly>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCopySecret" title="Copiar clave secreta">
+                <i class="bi bi-clipboard" id="copyIcon"></i> <span id="copyText">Copiar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paso 3: Confirmación -->
+      <div>
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span class="badge bg-dark rounded-circle" style="width: 24px; height: 24px; line-height: 18px;">3</span>
+          <h6 class="fw-bold mb-0" style="color: var(--color-text);">Ingresa el código de confirmación</h6>
+        </div>
+        
+        <form method="POST" action="{{ url_for('auth.configurar_2fa') }}" class="ps-4 mt-3">
+          <div class="form-field-wrapper mb-3">
+            <label for="codigo" class="form-label">Código de 6 dígitos mostrado en tu app:</label>
+            <div class="d-flex justify-content-start">
+              <input 
+                type="text" 
+                class="form-control text-center fw-bold fs-4" 
+                style="letter-spacing: 0.3em; max-width: 220px; font-family: monospace;" 
+                id="codigo" 
+                name="codigo" 
+                maxlength="6" 
+                pattern="[0-9]{6}" 
+                placeholder="123456" 
+                inputmode="numeric" 
+                required
+              >
+            </div>
+            <span class="form-helper-text">Ingresa el código generado para validar que la configuración es correcta.</span>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn-emerald py-2 px-4 flex-grow-1">
+              <i class="bi bi-shield-check me-1"></i> Confirmar y Activar 2FA
+            </button>
+            <a href="{{ url_for('auth.dashboard') }}" class="btn btn-outline-secondary py-2 px-3">
+              Cancelar
+            </a>
+          </div>
+        </form>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{# Si el usuario ya está autenticado (e.g. turista o admin configurando desde el panel) #}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="card-floating p-4">
+        <div class="d-flex align-items-center gap-3 mb-4 pb-3 border-bottom">
+          <div class="module-icon-box module-icon-green" style="width: 48px; height: 48px;">
+            <i class="bi bi-shield-lock-fill fs-4"></i>
+          </div>
+          <div>
+            <h1 class="h4 fw-bold mb-0" style="color: var(--color-text);">Configuración de Autenticación 2FA</h1>
+            <p class="text-muted small mb-0">Protege tu cuenta con verificación de dos pasos mediante TOTP.</p>
+          </div>
+        </div>
+
+        <!-- Paso 1 -->
+        <div class="mb-4">
+          <h6 class="fw-bold text-dark"><span class="badge bg-dark me-2">1</span> Instala una aplicación autenticadora</h6>
+          <p class="text-muted small ps-4 mb-0">
+            Descarga <strong>Google Authenticator</strong> o <strong>Authy</strong> en tu smartphone.
+          </p>
+        </div>
+
+        <!-- Paso 2 -->
+        <div class="mb-4">
+          <h6 class="fw-bold text-dark"><span class="badge bg-dark me-2">2</span> Escanea el código QR</h6>
+          <div class="ps-4">
+            <div class="text-center p-3 bg-light rounded border my-3">
+              <img src="{{ qr_code_base64 }}" alt="Código QR 2FA" class="img-fluid rounded" style="max-width: 220px; border: 4px solid #ffffff; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+            </div>
+            <div class="card p-3 bg-light border-0">
+              <div class="text-muted small mb-1">Clave secreta manual:</div>
+              <div class="d-flex align-items-center gap-2">
+                <input type="text" class="form-control form-control-sm text-center font-monospace fw-bold" id="secretKeyTextAuth" value="{{ secret }}" readonly>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCopySecretAuth">
+                  <i class="bi bi-clipboard"></i> Copiar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Paso 3 -->
+        <div>
+          <h6 class="fw-bold text-dark"><span class="badge bg-dark me-2">3</span> Confirma el código de 6 dígitos</h6>
+          <form method="POST" action="{{ url_for('auth.configurar_2fa') }}" class="ps-4 mt-3">
+            <div class="mb-3">
+              <input 
+                type="text" 
+                class="form-control text-center fw-bold fs-4" 
+                style="letter-spacing: 0.3em; max-width: 220px; font-family: monospace;" 
+                id="codigo_auth" 
+                name="codigo" 
+                maxlength="6" 
+                pattern="[0-9]{6}" 
+                placeholder="123456" 
+                inputmode="numeric" 
+                required
+              >
+            </div>
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn-emerald py-2 px-4">
+                <i class="bi bi-check-circle-fill me-1"></i> Activar 2FA
+              </button>
+              <a href="{{ url_for('auth.dashboard') }}" class="btn btn-outline-secondary py-2 px-3">
+                Volver
+              </a>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function copyToClipboard(inputId, btnId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    navigator.clipboard.writeText(input.value).then(() => {
+      const btn = document.getElementById(btnId);
+      if (btn) {
+        btn.classList.add('btn-success');
+        btn.classList.remove('btn-outline-secondary');
+        btn.innerHTML = '<i class="bi bi-check2"></i> ¡Copiado!';
+        setTimeout(() => {
+          btn.classList.remove('btn-success');
+          btn.classList.add('btn-outline-secondary');
+          btn.innerHTML = '<i class="bi bi-clipboard"></i> Copiar';
+        }, 2500);
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const btn1 = document.getElementById('btnCopySecret');
+    if (btn1) {
+      btn1.addEventListener('click', () => copyToClipboard('secretKeyText', 'btnCopySecret'));
+    }
+    const btn2 = document.getElementById('btnCopySecretAuth');
+    if (btn2) {
+      btn2.addEventListener('click', () => copyToClipboard('secretKeyTextAuth', 'btnCopySecretAuth'));
+    }
+  });
+</script>
+{% endblock %}

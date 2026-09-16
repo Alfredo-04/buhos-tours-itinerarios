@@ -3,24 +3,27 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
+from flask_mail import Mail
 from config import Config
 
 db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
+mail = Mail()
 
 @login_manager.user_loader
 def load_user(user_id):
     from app.models.usuario import Usuario
-    return Usuario.query.get(int(user_id))
+    return db.session.get(Usuario, int(user_id))
 
-def create_app():
+def create_app(config_class=Config):
     app = Flask(__name__)
-    app.config.from_object(Config)
+    app.config.from_object(config_class)
 
     # Inicializar extensiones
     db.init_app(app)
     migrate.init_app(app, db)
+    mail.init_app(app)
     
     # Configurar LoginManager
     login_manager.init_app(app)
@@ -37,10 +40,42 @@ def create_app():
 
     # Registrar blueprints
     from app.controllers.auth_controller import auth_bp
+    from app.controllers.admin_controller import admin_bp
+    from app.controllers.agente_controller import agente_bp
+    from app.controllers.turista_controller import turista_bp
     from app.controllers.usuario_controller import usuario_bp
     
     app.register_blueprint(auth_bp)
+    app.register_blueprint(admin_bp)
+    app.register_blueprint(agente_bp)
+    app.register_blueprint(turista_bp)
     app.register_blueprint(usuario_bp)
+
+    # Middleware de seguridad global
+    @app.before_request
+    def enforce_security_policies():
+        from flask_login import current_user
+        from flask import request, redirect, url_for, flash
+
+        if current_user.is_authenticated:
+            # 1. Forzar cambio de contraseña si está pendiente
+            if getattr(current_user, 'must_change_password', False):
+                exempt_endpoints = {'auth.cambiar_password_obligatorio', 'auth.logout', 'static'}
+                if request.endpoint and request.endpoint not in exempt_endpoints:
+                    flash('Debes cambiar tu contraseña temporal antes de continuar navegando.', 'warning')
+                    return redirect(url_for('auth.cambiar_password_obligatorio'))
+
+            # 2. Forzar configuración de 2FA para Agentes y Administradores
+            if current_user.rol and current_user.rol.nombre in ['admin', 'agente'] and not current_user.two_factor_enabled:
+                exempt_endpoints = {
+                    'auth.configurar_2fa',
+                    'auth.logout',
+                    'auth.cambiar_password_obligatorio',
+                    'static'
+                }
+                if request.endpoint and request.endpoint not in exempt_endpoints:
+                    flash('Como agente o administrador, debes configurar la autenticación de dos factores (2FA) para continuar.', 'warning')
+                    return redirect(url_for('auth.configurar_2fa'))
 
     # Comando CLI para ejecutar Seeder de Roles
     @app.cli.command("seed-roles")

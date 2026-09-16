@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Mi Panel de Viajero{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+  
+  <!-- Encabezado de Página -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">¡Hola, {{ user.nombres }}! ✈️</h1>
+      <p class="text-muted small mb-0">Bienvenido a tu panel de viajes. Planifica tu itinerario perfecto en Cusco.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge" style="background-color: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; padding: 0.5rem 0.85rem; font-size: 0.82rem;">
+        <i class="bi bi-person-badge-fill me-1"></i> Viajero Buhos Tours
+      </span>
+      {% if user.two_factor_enabled %}
+        <span class="badge" style="background-color: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; padding: 0.5rem 0.85rem; font-size: 0.82rem;">
+          <i class="bi bi-shield-check me-1"></i> 2FA Activo
+        </span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Banner de Recomendación 2FA para Turistas (Solo si no está activo) -->
+  {% if not user.two_factor_enabled %}
+    <div class="alert alert-warning alert-custom d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4 p-3 shadow-sm" role="alert" style="border-left: 4px solid #F59E0B; background-color: #FEF3C7;">
+      <div class="d-flex align-items-start gap-3">
+        <div class="p-2 rounded-circle bg-warning bg-opacity-25 text-warning-emphasis">
+          <i class="bi bi-shield-exclamation fs-4 text-warning"></i>
+        </div>
+        <div>
+          <h6 class="fw-bold mb-1 text-dark">¡Protege tu cuenta con la Autenticación en Dos Pasos (2FA)!</h6>
+          <p class="small text-muted mb-0">
+            Añade una capa extra de seguridad para que nadie pueda acceder a tus itinerarios y datos personales, incluso si conocen tu contraseña.
+          </p>
+        </div>
+      </div>
+      <div class="text-md-end flex-shrink-0">
+        <a href="{{ url_for('auth.configurar_2fa') }}" class="btn btn-warning btn-sm fw-semibold text-dark shadow-sm px-3 py-2">
+          <i class="bi bi-shield-lock-fill me-1"></i> Configurar 2FA Ahora
+        </a>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Banner Destacado para Planificar Viaje -->
+  <div class="card-floating mb-4" style="background: linear-gradient(135deg, #151C28 0%, #243144 100%); color: #FFFFFF;">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <span class="badge bg-success mb-2 px-3 py-1 text-white">
+          <i class="bi bi-cpu me-1"></i> Optimización con IA
+        </span>
+        <h2 class="h4 fw-bold text-white mb-2">Crea tu Itinerario Personalizado</h2>
+        <p class="text-white-50 small mb-0">
+          Nuestro algoritmo inteligente optimiza tus días de viaje, presupuesto y tiempos de visita para garantizar la mejor experiencia.
+        </p>
+      </div>
+      <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+        <button class="btn-emerald px-4 py-2">
+          <i class="bi bi-compass-fill me-1"></i> Comenzar a Planificar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tarjetas Rápidas de Turista -->
+  <div class="row g-3 mb-4">
+    
+    <div class="col-md-4">
+      <div class="module-card">
+        <div class="module-card-header">
+          <div class="module-icon-box module-icon-emerald">
+            <i class="bi bi-journal-text"></i>
+          </div>
+          <h2 class="module-title">Mis Itinerarios</h2>
+        </div>
+        <p class="module-desc">
+          Visualiza los planes guardados, descarga tus vouchers de viaje y revisa el cronograma día a día.
+        </p>
+        <div>
+          <button class="btn btn-outline-secondary btn-sm w-100">
+            <i class="bi bi-eye me-1"></i> Ver Mis Planes
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="module-card">
+        <div class="module-card-header">
+          <div class="module-icon-box module-icon-blue">
+            <i class="bi bi-person-vcard"></i>
+          </div>
+          <h2 class="module-title">Mi Perfil y Preferencias</h2>
+        </div>
+        <p class="module-desc">
+          Actualiza tus datos de contacto, nacionalidad y tipo de atractivos favoritos (cultural, aventura, naturaleza).
+        </p>
+        <div>
+          <a href="{{ url_for('turista.perfil') }}" class="btn btn-outline-secondary btn-sm w-100">
+            <i class="bi bi-pencil-square me-1"></i> Gestionar Perfil
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="module-card">
+        <div class="module-card-header">
+          <div class="module-icon-box module-icon-green">
+            <i class="bi bi-shield-lock-fill"></i>
+          </div>
+          <h2 class="module-title">Seguridad (2FA)</h2>
+        </div>
+        <p class="module-desc">
+          {% if user.two_factor_enabled %}
+            Tu cuenta está protegida con verificación en dos pasos (TOTP).
+          {% else %}
+            Activa la autenticación en dos pasos (2FA) para proteger tu cuenta contra accesos no autorizados.
+          {% endif %}
+        </p>
+        <div>
+          <a href="{{ url_for('turista.perfil') }}" class="btn {% if user.two_factor_enabled %}btn-outline-success{% else %}btn-outline-primary{% endif %} btn-sm w-100">
+            {% if user.two_factor_enabled %}
+              <i class="bi bi-shield-check me-1"></i> 2FA Configurado
+            {% else %}
+              <i class="bi bi-shield-plus me-1"></i> Activar 2FA Opcional
+            {% endif %}
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Resumen de Cuenta del Turista -->
+  <div class="card-floating">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <div class="d-flex align-items-center gap-3">
+          <div class="user-avatar" style="width: 48px; height: 48px; font-size: 1.1rem; background: #2563EB;">
+            {{ user.nombres[:1]|upper }}{{ user.apellidos[:1]|upper }}
+          </div>
+          <div>
+            <h2 class="h6 fw-bold mb-1" style="color: var(--color-text);">{{ user.nombre_completo }}</h2>
+            <p class="text-muted small mb-0">
+              Correo: {{ user.email }} &bull; Turista Registrado &bull; Miembro desde {{ user.fecha_registro.strftime('%d/%m/%Y') }}
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 text-md-end mt-3 mt-md-0">
+        <a href="{{ url_for('turista.perfil') }}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-gear-fill me-1"></i> Configuración de Cuenta
+        </a>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

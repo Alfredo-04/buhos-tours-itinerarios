@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle de Usuario #{{ usuario.id_usuario }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- Encabezado de Navegación -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small">
+          <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}" class="text-decoration-none">Dashboard Admin</a></li>
+          <li class="breadcrumb-item"><a href="{{ url_for('admin.usuarios') }}" class="text-decoration-none">Usuarios</a></li>
+          <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-muted);">Usuario #{{ usuario.id_usuario }}</li>
+        </ol>
+      </nav>
+      <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">Detalle del Usuario</h1>
+      <p class="text-muted small mb-0">Información completa de perfil, rol asignado y estado de seguridad.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('admin.usuario_editar', id_usuario=usuario.id_usuario) }}" class="btn-emerald">
+        <i class="bi bi-pencil-square me-1"></i> Editar Usuario
+      </a>
+      <a href="{{ url_for('admin.usuarios') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+        <i class="bi bi-arrow-left me-1"></i> Volver al Listado
+      </a>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    
+    <!-- Tarjeta Principal de Identidad -->
+    <div class="col-lg-4">
+      <div class="card-floating text-center p-4">
+        
+        <div class="user-avatar mx-auto mb-3" style="width: 80px; height: 80px; font-size: 1.8rem; background: {% if usuario.rol.nombre == 'admin' %}#151C28{% elif usuario.rol.nombre == 'agente' %}#16A085{% else %}#2563EB{% endif %};">
+          {{ usuario.nombres[:1]|upper }}{{ usuario.apellidos[:1]|upper }}
+        </div>
+
+        <h2 class="h5 fw-bold mb-1" style="color: var(--color-text);">{{ usuario.nombre_completo }}</h2>
+        <p class="text-muted small mb-3">{{ usuario.email }}</p>
+
+        <div class="d-flex justify-content-center gap-2 mb-4">
+          {% if usuario.rol.nombre == 'admin' %}
+            <span class="module-badge" style="background-color: #EEF2F6; color: #1E293B; border: 1px solid #CBD5E1;">
+              <i class="bi bi-shield-fill-check me-1"></i> Administrador
+            </span>
+          {% elif usuario.rol.nombre == 'agente' %}
+            <span class="module-badge badge-amber">
+              <i class="bi bi-briefcase me-1"></i> Agente
+            </span>
+          {% else %}
+            <span class="module-badge" style="background-color: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE;">
+              <i class="bi bi-person-badge me-1"></i> Turista
+            </span>
+          {% endif %}
+
+          {% if usuario.is_deleted %}
+            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.75rem;">
+              <i class="bi bi-slash-circle me-1"></i> Desactivado
+            </span>
+          {% else %}
+            <span class="module-badge badge-emerald py-1 px-2" style="font-size: 0.75rem;">
+              <i class="bi bi-check-circle-fill me-1"></i> Activo
+            </span>
+          {% endif %}
+        </div>
+
+        <div class="border-top pt-3 text-start small text-muted">
+          <div class="d-flex justify-content-between py-1">
+            <span>ID de Usuario:</span>
+            <strong class="text-dark">#{{ usuario.id_usuario }}</strong>
+          </div>
+          <div class="d-flex justify-content-between py-1">
+            <span>Fecha de Registro:</span>
+            <strong class="text-dark">{{ usuario.fecha_registro.strftime('%d/%m/%Y') }}</strong>
+          </div>
+          {% if usuario.is_deleted %}
+            <div class="d-flex justify-content-between py-1 text-danger">
+              <span>Fecha Desactivación:</span>
+              <strong>{{ usuario.deleted_at.strftime('%d/%m/%Y %H:%M') }}</strong>
+            </div>
+          {% endif %}
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Detalles de Seguridad y Registro Vinculado -->
+    <div class="col-lg-8">
+      
+      <!-- Bloque de Seguridad y 2FA -->
+      <div class="card-floating mb-4">
+        <h3 class="h6 fw-bold mb-3 d-flex align-items-center gap-2" style="color: var(--color-text);">
+          <i class="bi bi-shield-lock-fill text-success"></i> Estado de Seguridad y Autenticación
+        </h3>
+
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <div class="p-3 bg-light rounded border">
+              <div class="text-muted small mb-1">Autenticación de Dos Factores (2FA TOTP):</div>
+              {% if usuario.two_factor_enabled %}
+                <span class="badge bg-success text-white py-1 px-2">
+                  <i class="bi bi-shield-check me-1"></i> Habilitado y Confirmado
+                </span>
+                {% if usuario.two_factor_confirmed_at %}
+                  <div class="small text-muted mt-2">Activo desde: {{ usuario.two_factor_confirmed_at.strftime('%d/%m/%Y %H:%M') }}</div>
+                {% endif %}
+              {% else %}
+                <span class="badge bg-secondary text-white py-1 px-2">
+                  <i class="bi bi-shield-x me-1"></i> No Habilitado
+                </span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="col-sm-6">
+            <div class="p-3 bg-light rounded border">
+              <div class="text-muted small mb-1">Estado de Contraseña:</div>
+              {% if usuario.must_change_password %}
+                <span class="badge bg-warning text-dark py-1 px-2">
+                  <i class="bi bi-exclamation-triangle-fill me-1"></i> Contraseña Temporal Pendiente
+                </span>
+                {% if usuario.temp_password_expires_at %}
+                  <div class="small text-muted mt-2">
+                    Expira el: <strong>{{ usuario.temp_password_expires_at.strftime('%d/%m/%Y %H:%M') }}</strong>
+                    {% if usuario.is_temp_password_expired %}
+                      <span class="badge bg-danger ms-1">Expirada</span>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              {% else %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle py-1 px-2">
+                  <i class="bi bi-check-circle-fill me-1"></i> Contraseña Personalizada y Activa
+                </span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bloque de Información de Turista (Si aplica) -->
+      {% if usuario.turista %}
+        <div class="card-floating mb-4">
+          <h3 class="h6 fw-bold mb-3 d-flex align-items-center gap-2" style="color: var(--color-text);">
+            <i class="bi bi-person-lines-fill text-primary"></i> Ficha de Datos de Turista Vinculada
+          </h3>
+
+          <div class="row g-3 small">
+            <div class="col-sm-6">
+              <div class="text-muted">Teléfono de contacto:</div>
+              <div class="fw-semibold text-dark">{{ usuario.turista.telefono or 'No registrado' }}</div>
+            </div>
+            <div class="col-sm-6">
+              <div class="text-muted">Nacionalidad:</div>
+              <div class="fw-semibold text-dark">{{ usuario.turista.nacionalidad or 'No registrada' }}</div>
+            </div>
+            <div class="col-sm-6">
+              <div class="text-muted">Documento de Identidad:</div>
+              <div class="fw-semibold text-dark">{{ usuario.turista.nro_documento or 'No registrado' }}</div>
+            </div>
+            <div class="col-sm-6">
+              <div class="text-muted">Lugar de procedencia:</div>
+              <div class="fw-semibold text-dark">{{ usuario.turista.procedencia or 'No registrado' }}</div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

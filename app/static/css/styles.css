@@ -656,6 +656,32 @@ h1, h2, h3, h4, h5, h6 {
 /* ==========================================================================
    Media Queries & Responsividad
    ========================================================================== */
+/* Category headers en sidebar */
+.sidebar-category-header {
+  font-weight: 700;
+  color: #64748B !important;
+  margin-top: 1rem;
+}
+
+/* 2FA Code Input Styling */
+.input-code-2fa {
+  letter-spacing: 0.35em;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: bold;
+}
+
+/* Pagination items */
+.pagination .page-link {
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+.pagination .page-item.active .page-link {
+  background-color: var(--color-primary-green);
+  border-color: var(--color-primary-green);
+  color: #FFFFFF;
+}
+
 @media (max-width: 991.98px) {
   .app-sidebar {
     transform: translateX(-100%);
@@ -689,3 +715,4 @@ h1, h2, h3, h4, h5, h6 {
     display: block;
   }
 }
+

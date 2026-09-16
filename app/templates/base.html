@@ -33,54 +33,129 @@
         <!-- Logo de Marca -->
         <div class="sidebar-header">
           <a href="{{ url_for('auth.dashboard') }}" class="sidebar-logo-text">
-            <span>Buhos Tours</span>
+            <span>🦉 Buhos Tours</span>
           </a>
         </div>
 
-        <!-- Enlaces de Navegación -->
+        <!-- Enlaces de Navegación según Rol -->
         <nav class="sidebar-nav">
-          <a href="{{ url_for('auth.dashboard') }}" class="nav-link-custom {% if request.endpoint == 'auth.dashboard' %}active{% endif %}">
-            <i class="bi bi-grid-fill"></i>
-            <span>Panel Principal</span>
-          </a>
-
+          
           {% if current_user.rol.nombre == 'admin' %}
-            <a href="{{ url_for('usuarios.index') }}" class="nav-link-custom {% if request.endpoint == 'usuarios.index' %}active{% endif %}">
-              <i class="bi bi-people-fill"></i>
-              <span>Usuarios</span>
+            <!-- Menú Administrador -->
+            <div class="sidebar-category-header text-uppercase small px-3 mb-1 text-muted" style="font-size: 0.72rem; letter-spacing: 0.08em;">Administración</div>
+            
+            <a href="{{ url_for('admin.dashboard') }}" class="nav-link-custom {% if request.endpoint == 'admin.dashboard' %}active{% endif %}">
+              <i class="bi bi-grid-fill"></i>
+              <span>Panel Admin</span>
             </a>
+
+            <a href="{{ url_for('admin.usuarios') }}" class="nav-link-custom {% if 'admin.usuario' in request.endpoint or request.endpoint == 'usuarios.index' %}active{% endif %}">
+              <i class="bi bi-people-fill"></i>
+              <span>Gestión de Usuarios</span>
+            </a>
+
+            <div class="sidebar-category-header text-uppercase small px-3 mt-3 mb-1 text-muted" style="font-size: 0.72rem; letter-spacing: 0.08em;">Operaciones</div>
+
+            <a href="{{ url_for('admin.dashboard') }}" class="nav-link-custom">
+              <i class="bi bi-cpu-fill text-info"></i>
+              <span>Motor NSGA-II</span>
+            </a>
+
+            <a href="{{ url_for('admin.dashboard') }}" class="nav-link-custom">
+              <i class="bi bi-geo-alt-fill text-success"></i>
+              <span>Atractivos</span>
+            </a>
+
+            <a href="{{ url_for('admin.dashboard') }}" class="nav-link-custom">
+              <i class="bi bi-bus-front-fill text-warning"></i>
+              <span>Transporte</span>
+            </a>
+
+          {% elif current_user.rol.nombre == 'agente' %}
+            <!-- Menú Agente de Viajes -->
+            <div class="sidebar-category-header text-uppercase small px-3 mb-1 text-muted" style="font-size: 0.72rem; letter-spacing: 0.08em;">Panel Agente</div>
+
+            <a href="{{ url_for('agente.dashboard') }}" class="nav-link-custom {% if request.endpoint == 'agente.dashboard' %}active{% endif %}">
+              <i class="bi bi-grid-fill"></i>
+              <span>Panel Principal</span>
+            </a>
+
+            <a href="{{ url_for('agente.dashboard') }}" class="nav-link-custom">
+              <i class="bi bi-compass-fill text-success"></i>
+              <span>Generar Itinerario</span>
+            </a>
+
+            <a href="{{ url_for('agente.dashboard') }}" class="nav-link-custom">
+              <i class="bi bi-card-checklist"></i>
+              <span>Itinerarios Creados</span>
+            </a>
+
+            <a href="{{ url_for('agente.dashboard') }}" class="nav-link-custom">
+              <i class="bi bi-person-lines-fill"></i>
+              <span>Registro de Turistas</span>
+            </a>
+
+            <a href="{{ url_for('agente.dashboard') }}" class="nav-link-custom">
+              <i class="bi bi-pin-map-fill"></i>
+              <span>Catálogo Atractivos</span>
+            </a>
+
+            <div class="sidebar-category-header text-uppercase small px-3 mt-3 mb-1 text-muted" style="font-size: 0.72rem; letter-spacing: 0.08em;">Cuenta</div>
+
+            <a href="{{ url_for('agente.perfil') }}" class="nav-link-custom {% if request.endpoint == 'agente.perfil' %}active{% endif %}">
+              <i class="bi bi-person-circle"></i>
+              <span>Mi Perfil & 2FA</span>
+            </a>
+
+          {% else %}
+            <!-- Menú Turista -->
+            <div class="sidebar-category-header text-uppercase small px-3 mb-1 text-muted" style="font-size: 0.72rem; letter-spacing: 0.08em;">Mi Viaje</div>
+
+            <a href="{{ url_for('turista.dashboard') }}" class="nav-link-custom {% if request.endpoint == 'turista.dashboard' %}active{% endif %}">
+              <i class="bi bi-grid-fill"></i>
+              <span>Mi Panel</span>
+            </a>
+
+            <a href="{{ url_for('turista.dashboard') }}" class="nav-link-custom">
+              <i class="bi bi-compass-fill text-success"></i>
+              <span>Planificar Mi Viaje</span>
+            </a>
+
+            <a href="{{ url_for('turista.dashboard') }}" class="nav-link-custom">
+              <i class="bi bi-journal-bookmark-fill"></i>
+              <span>Mis Itinerarios</span>
+            </a>
+
+            <div class="sidebar-category-header text-uppercase small px-3 mt-3 mb-1 text-muted" style="font-size: 0.72rem; letter-spacing: 0.08em;">Seguridad y Cuenta</div>
+
+            <a href="{{ url_for('turista.perfil') }}" class="nav-link-custom {% if request.endpoint == 'turista.perfil' %}active{% endif %}">
+              <i class="bi bi-shield-lock-fill"></i>
+              <span>Mi Perfil & Seguridad</span>
+            </a>
+
           {% endif %}
 
-          <a href="{{ url_for('auth.dashboard') }}" class="nav-link-custom">
-            <i class="bi bi-file-earmark-text"></i>
-            <span>Generador de Itinerarios</span>
-          </a>
-
-          <a href="{{ url_for('auth.dashboard') }}" class="nav-link-custom">
-            <i class="bi bi-star"></i>
-            <span>Atractivos</span>
-          </a>
-
-          <a href="{{ url_for('auth.dashboard') }}" class="nav-link-custom">
-            <i class="bi bi-bus-front"></i>
-            <span>Transporte</span>
-          </a>
         </nav>
 
         <!-- Pie de la Sidebar: Perfil del Usuario y Logout -->
         <div class="sidebar-footer">
           <div class="user-profile-widget">
-            <div class="user-avatar">
+            <div class="user-avatar" style="background: {% if current_user.rol.nombre == 'admin' %}#151C28{% elif current_user.rol.nombre == 'agente' %}#16A085{% else %}#2563EB{% endif %};">
               {{ current_user.nombres[:1]|upper }}{{ current_user.apellidos[:1]|upper }}
             </div>
             <div class="user-meta">
-              <div class="user-name">{{ current_user.nombres }} ({{ current_user.rol.nombre|capitalize }})</div>
-              <div class="user-role-badge text-truncate">{{ current_user.email }}</div>
+              <div class="user-name">{{ current_user.nombres }}</div>
+              <div class="user-role-badge text-capitalize d-flex align-items-center gap-1">
+                <span>{{ current_user.rol.nombre }}</span>
+                {% if current_user.two_factor_enabled %}
+                  <i class="bi bi-shield-check text-success" title="2FA Activo"></i>
+                {% endif %}
+              </div>
             </div>
           </div>
           <a href="{{ url_for('auth.logout') }}" class="btn-sidebar-logout">
             <i class="bi bi-box-arrow-right"></i>
-            <span>Logout</span>
+            <span>Cerrar Sesión</span>
           </a>
         </div>
       </aside>
@@ -91,7 +166,7 @@
         <!-- Topbar para pantallas móviles -->
         <header class="mobile-topbar">
           <a href="{{ url_for('auth.dashboard') }}" class="mobile-topbar-brand">
-            Buhos Tours
+            🦉 Buhos Tours
           </a>
           <button class="btn-mobile-menu" id="btnToggleSidebar" aria-label="Abrir menú">
             <i class="bi bi-list"></i>
@@ -129,7 +204,7 @@
         <!-- Pie de página suave -->
         <footer class="custom-footer text-center">
           <div class="container-fluid px-4">
-            <p class="mb-0">&copy; 2026 <strong>Búhos Tours</strong>. Sistema de Gestión y Generación de Itinerarios Turísticos.</p>
+            <p class="mb-0">&copy; 2026 <strong>Búhos Tours</strong>. Sistema de Optimización y Gestión de Itinerarios Turísticos.</p>
           </div>
         </footer>
 
@@ -137,7 +212,7 @@
     </div>
 
   {% else %}
-    <!-- Layout para Usuarios No Autenticados (Login / Signup) -->
+    <!-- Layout para Usuarios No Autenticados (Login / Signup / 2FA) -->
     <div class="container-fluid px-3 pt-3">
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -170,7 +245,7 @@
 
     <footer class="custom-footer text-center">
       <div class="container">
-        <p class="mb-0">&copy; 2026 <strong>Búhos Tours</strong>. Plataforma de Itinerarios Turísticos.</p>
+        <p class="mb-0">&copy; 2026 <strong>Búhos Tours</strong>. Plataforma Inteligente de Itinerarios Turísticos.</p>
       </div>
     </footer>
   {% endif %}

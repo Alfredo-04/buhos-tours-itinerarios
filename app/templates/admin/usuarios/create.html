@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Crear Usuario{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- Encabezado de Página -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small">
+          <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}" class="text-decoration-none">Dashboard Admin</a></li>
+          <li class="breadcrumb-item"><a href="{{ url_for('admin.usuarios') }}" class="text-decoration-none">Usuarios</a></li>
+          <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-muted);">Crear Usuario</li>
+        </ol>
+      </nav>
+      <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">Crear Nuevo Usuario</h1>
+      <p class="text-muted small mb-0">Registra un Administrador, Agente de Viajes o Turista en el sistema.</p>
+    </div>
+    <div>
+      <a href="{{ url_for('admin.usuarios') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+        <i class="bi bi-arrow-left me-1"></i> Volver al Listado
+      </a>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-8 col-xl-7">
+      <div class="card-floating p-4">
+        
+        <div class="d-flex align-items-center gap-3 mb-4 pb-3 border-bottom">
+          <div class="module-icon-box module-icon-green" style="width: 44px; height: 44px;">
+            <i class="bi bi-person-plus-fill fs-5"></i>
+          </div>
+          <div>
+            <h2 class="h5 fw-bold mb-0" style="color: var(--color-text);">Formulario de Registro</h2>
+            <span class="text-muted small">Completa los datos del nuevo usuario</span>
+          </div>
+        </div>
+
+        <form method="POST" action="{{ url_for('admin.usuario_crear') }}">
+          
+          <div class="row g-3">
+            
+            <!-- Nombres -->
+            <div class="col-md-6 form-field-wrapper">
+              <label for="nombres" class="form-label">Nombres <span class="text-danger">*</span></label>
+              <input 
+                type="text" 
+                class="form-control" 
+                id="nombres" 
+                name="nombres" 
+                value="{{ form_data.nombres or '' }}" 
+                placeholder="Ej. Carlos" 
+                required 
+                minlength="2"
+              >
+              <span class="form-helper-text">Primer y segundo nombre</span>
+            </div>
+
+            <!-- Apellidos -->
+            <div class="col-md-6 form-field-wrapper">
+              <label for="apellidos" class="form-label">Apellidos <span class="text-danger">*</span></label>
+              <input 
+                type="text" 
+                class="form-control" 
+                id="apellidos" 
+                name="apellidos" 
+                value="{{ form_data.apellidos or '' }}" 
+                placeholder="Ej. Mendoza Ríos" 
+                required 
+                minlength="2"
+              >
+              <span class="form-helper-text">Apellidos paterno y materno</span>
+            </div>
+
+            <!-- Correo Electrónico -->
+            <div class="col-12 form-field-wrapper">
+              <label for="email" class="form-label">Correo Electrónico <span class="text-danger">*</span></label>
+              <input 
+                type="email" 
+                class="form-control" 
+                id="email" 
+                name="email" 
+                value="{{ form_data.email or '' }}" 
+                placeholder="agente@buhostours.com" 
+                required
+              >
+              <span class="form-helper-text">A esta dirección se enviará la contraseña temporal de acceso</span>
+            </div>
+
+            <!-- Rol -->
+            <div class="col-12 form-field-wrapper">
+              <label for="rol" class="form-label">Rol del Usuario <span class="text-danger">*</span></label>
+              <select class="form-select" id="rol" name="rol" required>
+                <option value="" disabled selected>Selecciona un rol...</option>
+                {% for r in roles %}
+                  <option value="{{ r.nombre }}" {% if form_data.rol == r.nombre %}selected{% endif %}>
+                    {{ r.nombre|capitalize }} {% if r.nombre == 'agente' %}(Recomendado para atención){% elif r.nombre == 'admin' %}(Acceso total al sistema){% endif %}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+          </div>
+
+          <!-- Nota informativa sobre contraseñas temporales -->
+          <div class="alert alert-info border small mt-2 mb-4 d-flex align-items-start gap-2">
+            <i class="bi bi-info-circle-fill fs-5 text-info mt-1"></i>
+            <div>
+              <strong>Generación Automática de Credenciales:</strong>
+              El sistema generará una <strong>contraseña temporal segura de 14 caracteres</strong> que expirará en 24 horas y se la enviará automáticamente por correo al usuario. Además, se mostrará en pantalla con un botón para copiarla.
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-end gap-2">
+            <a href="{{ url_for('admin.usuarios') }}" class="btn btn-outline-secondary px-3">
+              Cancelar
+            </a>
+            <button type="submit" class="btn-emerald px-4">
+              <i class="bi bi-check-circle-fill me-1"></i> Guardar y Enviar Credenciales
+            </button>
+          </div>
+
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

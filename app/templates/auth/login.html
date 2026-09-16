@@ -70,10 +70,17 @@
           </div>
         </div>
 
-        <!-- Recordar sesión -->
-        <div class="mb-4 form-check">
-          <input type="checkbox" class="form-check-input" id="remember" name="remember">
-          <label class="form-check-label text-muted small" for="remember">Mantener sesión iniciada</label>
+        <!-- Recordar sesión y Olvidaste tu contraseña -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <div class="form-check mb-0">
+            <input type="checkbox" class="form-check-input" id="remember" name="remember">
+            <label class="form-check-label text-muted small" for="remember">Recordarme</label>
+          </div>
+          <div>
+            <a href="{{ url_for('auth.forgot_password') }}" class="text-decoration-none small fw-semibold" style="color: var(--color-primary-green-hover);">
+              ¿Olvidaste tu contraseña?
+            </a>
+          </div>
         </div>
 
         <!-- Botón de Envío Verde Esmeralda (#2ECC71) -->
