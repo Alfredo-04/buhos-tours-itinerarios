@@ -2,157 +2,207 @@
 
 {% block title %}Crear Cuenta{% endblock %}
 
-{% block content %}
+{% block content_unauth %}
 <div class="auth-wrapper">
   <div class="auth-card auth-card-lg">
     <div class="auth-card-header">
-      <div class="d-inline-flex align-items-center justify-content-center p-3 rounded-circle bg-white bg-opacity-10 mb-2">
-        <i class="bi bi-person-plus-fill text-warning fs-3"></i>
-      </div>
-      <h1 class="brand-title brand-font">Búhos Tours</h1>
-      <p class="brand-subtitle">Registro de Agentes y Administradores</p>
+      <h1 class="brand-title brand-font mb-1" style="color: #FFFFFF; font-size: 1.85rem;">Búhos Tours</h1>
+      <p class="text-white-50 small mb-0">Registro de Usuarios</p>
     </div>
 
     <div class="auth-card-body">
-      <h2 class="h5 fw-bold text-center mb-4 text-dark">Crear Nueva Cuenta</h2>
+      <h2 class="h5 fw-bold text-center mb-4" style="color: var(--color-text);">Crear Nueva Cuenta</h2>
 
       <form action="{{ url_for('auth.signup') }}" method="POST" id="signupForm" novalidate>
         <div class="row g-3">
+          
           <!-- Nombres -->
           <div class="col-md-6">
-            <label for="nombres" class="form-label">Nombres <span class="text-danger">*</span></label>
-            <div class="input-group">
-              <span class="input-group-text"><i class="bi bi-person"></i></span>
-              <input 
-                type="text" 
-                class="form-control" 
-                id="nombres" 
-                name="nombres" 
-                placeholder="Ej. Carlos" 
-                value="{{ form_data.get('nombres', '') }}" 
-                required 
-                minlength="2"
-                autocomplete="given-name"
-                autofocus
-              >
+            <div class="form-field-wrapper mb-2">
+              <label for="nombres" class="form-label">Nombres <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text bg-white" style="border: 1.5px solid var(--color-border); border-right: 0; color: var(--color-text-muted);">
+                  <i class="bi bi-person"></i>
+                </span>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  id="nombres" 
+                  name="nombres" 
+                  value="{{ form_data.get('nombres', '') }}" 
+                  required 
+                  minlength="2"
+                  autocomplete="given-name"
+                  autofocus
+                >
+              </div>
+              <span class="form-helper-text"><i class="bi bi-info-circle me-1"></i>Ejemplo: Carlos Alberto</span>
+              <div class="form-error-msg" id="nombresError">
+                <i class="bi bi-exclamation-circle-fill"></i>
+                <span class="error-text">El nombre debe tener al menos 2 caracteres.</span>
+              </div>
             </div>
           </div>
 
           <!-- Apellidos -->
           <div class="col-md-6">
-            <label for="apellidos" class="form-label">Apellidos <span class="text-danger">*</span></label>
-            <div class="input-group">
-              <span class="input-group-text"><i class="bi bi-person"></i></span>
-              <input 
-                type="text" 
-                class="form-control" 
-                id="apellidos" 
-                name="apellidos" 
-                placeholder="Ej. Mendoza Ríos" 
-                value="{{ form_data.get('apellidos', '') }}" 
-                required 
-                minlength="2"
-                autocomplete="family-name"
-              >
+            <div class="form-field-wrapper mb-2">
+              <label for="apellidos" class="form-label">Apellidos <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text bg-white" style="border: 1.5px solid var(--color-border); border-right: 0; color: var(--color-text-muted);">
+                  <i class="bi bi-person"></i>
+                </span>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  id="apellidos" 
+                  name="apellidos" 
+                  value="{{ form_data.get('apellidos', '') }}" 
+                  required 
+                  minlength="2"
+                  autocomplete="family-name"
+                >
+              </div>
+              <span class="form-helper-text"><i class="bi bi-info-circle me-1"></i>Ejemplo: Mendoza Ríos</span>
+              <div class="form-error-msg" id="apellidosError">
+                <i class="bi bi-exclamation-circle-fill"></i>
+                <span class="error-text">Los apellidos deben tener al menos 2 caracteres.</span>
+              </div>
             </div>
           </div>
 
           <!-- Email -->
-          <div class="col-12">
-            <label for="email" class="form-label">Correo Electrónico <span class="text-danger">*</span></label>
-            <div class="input-group">
-              <span class="input-group-text"><i class="bi bi-envelope"></i></span>
-              <input 
-                type="email" 
-                class="form-control" 
-                id="email" 
-                name="email" 
-                placeholder="carlos.mendoza@buhostours.com" 
-                value="{{ form_data.get('email', '') }}" 
-                required 
-                autocomplete="email"
-              >
+          <div class="col-md-7">
+            <div class="form-field-wrapper mb-2">
+              <label for="email" class="form-label">Correo Electrónico <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text bg-white" style="border: 1.5px solid var(--color-border); border-right: 0; color: var(--color-text-muted);">
+                  <i class="bi bi-envelope"></i>
+                </span>
+                <input 
+                  type="email" 
+                  class="form-control" 
+                  id="email" 
+                  name="email" 
+                  value="{{ form_data.get('email', '') }}" 
+                  required 
+                  autocomplete="email"
+                >
+              </div>
+              <span class="form-helper-text"><i class="bi bi-info-circle me-1"></i>Ejemplo: usuario@ejemplo.com</span>
+              <div class="form-error-msg" id="emailError">
+                <i class="bi bi-exclamation-circle-fill"></i>
+                <span class="error-text">Ingresa un correo electrónico válido.</span>
+              </div>
             </div>
           </div>
 
-          <!-- Rol (Opcional por defecto 'agente') -->
-          <div class="col-12">
-            <label for="rol" class="form-label">Rol en la Empresa</label>
-            <select class="form-select" id="rol" name="rol">
-              <option value="agente" {% if form_data.get('rol') == 'agente' or not form_data.get('rol') %}selected{% endif %}>Agente de Viajes</option>
-              <option value="admin" {% if form_data.get('rol') == 'admin' %}selected{% endif %}>Administrador</option>
-            </select>
+          <!-- Teléfono (Opcional) -->
+          <div class="col-md-5">
+            <div class="form-field-wrapper mb-2">
+              <label for="telefono" class="form-label">Teléfono <span class="text-muted small">(opcional)</span></label>
+              <div class="input-group">
+                <span class="input-group-text bg-white" style="border: 1.5px solid var(--color-border); border-right: 0; color: var(--color-text-muted);">
+                  <i class="bi bi-telephone"></i>
+                </span>
+                <input 
+                  type="tel" 
+                  class="form-control" 
+                  id="telefono" 
+                  name="telefono" 
+                  value="{{ form_data.get('telefono', '') }}" 
+                  autocomplete="tel"
+                >
+              </div>
+              <span class="form-helper-text"><i class="bi bi-info-circle me-1"></i>Ejemplo: +591 71234567</span>
+            </div>
           </div>
 
           <!-- Contraseña -->
           <div class="col-md-6">
-            <label for="contrasenia" class="form-label">Contraseña <span class="text-danger">*</span></label>
-            <div class="input-group">
-              <span class="input-group-text"><i class="bi bi-lock"></i></span>
-              <input 
-                type="password" 
-                class="form-control" 
-                id="contrasenia" 
-                name="contrasenia" 
-                placeholder="••••••••" 
-                required
-                autocomplete="new-password"
-              >
-              <button class="btn btn-toggle-password" type="button" id="togglePwdBtn" title="Ver contraseña">
-                <i class="bi bi-eye-fill" id="togglePwdIcon"></i>
-              </button>
+            <div class="form-field-wrapper mb-2">
+              <label for="contrasenia" class="form-label">Contraseña <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text bg-white" style="border: 1.5px solid var(--color-border); border-right: 0; color: var(--color-text-muted);">
+                  <i class="bi bi-lock"></i>
+                </span>
+                <input 
+                  type="password" 
+                  class="form-control" 
+                  id="contrasenia" 
+                  name="contrasenia" 
+                  required
+                  autocomplete="new-password"
+                >
+                <button class="btn btn-toggle-password" type="button" id="togglePwdBtn" title="Ver contraseña">
+                  <i class="bi bi-eye-fill" id="togglePwdIcon"></i>
+                </button>
+              </div>
+              <span class="form-helper-text"><i class="bi bi-shield-lock me-1"></i>Ejemplo: Viaje#2026!</span>
+              <div class="form-error-msg" id="pwdError">
+                <i class="bi bi-exclamation-circle-fill"></i>
+                <span class="error-text">La contraseña debe cumplir todos los requisitos abajo.</span>
+              </div>
             </div>
           </div>
 
           <!-- Confirmar Contraseña -->
           <div class="col-md-6">
-            <label for="confirm_password" class="form-label">Confirmar Contraseña <span class="text-danger">*</span></label>
-            <div class="input-group">
-              <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
-              <input 
-                type="password" 
-                class="form-control" 
-                id="confirm_password" 
-                name="confirm_password" 
-                placeholder="••••••••" 
-                required
-                autocomplete="new-password"
-              >
+            <div class="form-field-wrapper mb-2">
+              <label for="confirm_password" class="form-label">Confirmar Contraseña <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text bg-white" style="border: 1.5px solid var(--color-border); border-right: 0; color: var(--color-text-muted);">
+                  <i class="bi bi-shield-check"></i>
+                </span>
+                <input 
+                  type="password" 
+                  class="form-control" 
+                  id="confirm_password" 
+                  name="confirm_password" 
+                  required
+                  autocomplete="new-password"
+                >
+              </div>
+              <span class="form-helper-text"><i class="bi bi-check2 me-1"></i>Repite exactamente la misma contraseña</span>
+              <div class="form-error-msg" id="confirmPwdError">
+                <i class="bi bi-exclamation-circle-fill"></i>
+                <span class="error-text">Las contraseñas no coinciden.</span>
+              </div>
             </div>
           </div>
 
           <!-- Requisitos de Contraseña Dinámicos -->
           <div class="col-12">
             <div class="pwd-rules-box" id="pwdRulesBox">
-              <div class="fw-semibold mb-1" style="font-size: 0.78rem; color: var(--color-primary-dark);">Requisitos de seguridad:</div>
+              <div class="fw-semibold mb-1" style="font-size: 0.78rem; color: var(--color-text);">Requisitos de seguridad en tiempo real:</div>
               <div class="row g-1">
                 <div class="col-sm-6">
                   <div class="pwd-rule-item" id="rule-length"><i class="bi bi-circle"></i> Mínimo 8 caracteres</div>
-                  <div class="pwd-rule-item" id="rule-upper"><i class="bi bi-circle"></i> Al menos una mayúscula</div>
-                  <div class="pwd-rule-item" id="rule-lower"><i class="bi bi-circle"></i> Al menos una minúscula</div>
+                  <div class="pwd-rule-item" id="rule-upper"><i class="bi bi-circle"></i> Al menos una mayúscula (A-Z)</div>
+                  <div class="pwd-rule-item" id="rule-lower"><i class="bi bi-circle"></i> Al menos una minúscula (a-z)</div>
                 </div>
                 <div class="col-sm-6">
-                  <div class="pwd-rule-item" id="rule-num"><i class="bi bi-circle"></i> Al menos un número</div>
+                  <div class="pwd-rule-item" id="rule-num"><i class="bi bi-circle"></i> Al menos un número (0-9)</div>
                   <div class="pwd-rule-item" id="rule-special"><i class="bi bi-circle"></i> Carácter especial (!@#$%)</div>
-                  <div class="pwd-rule-item" id="rule-match"><i class="bi bi-circle"></i> Las contraseñas coinciden</div>
+                  <div class="pwd-rule-item" id="rule-match"><i class="bi bi-circle"></i> Coincidencia de contraseña</div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Botón de Envío -->
+          <!-- Botón de Envío Verde Esmeralda (#2ECC71) -->
           <div class="col-12 mt-4">
-            <button type="submit" class="btn btn-primary-custom w-100 py-2" id="btnRegister">
-              <i class="bi bi-person-check-fill"></i> Crear Cuenta
+            <button type="submit" class="btn-emerald w-100 py-2" id="btnRegister">
+              <i class="bi bi-person-check-fill"></i> Registrarme
             </button>
           </div>
         </div>
       </form>
 
-      <div class="text-center pt-3 mt-3 border-top">
+      <div class="text-center pt-3 mt-3 border-top" style="border-color: var(--color-border-subtle) !important;">
         <p class="text-muted small mb-0">
           ¿Ya tienes una cuenta registrada? 
-          <a href="{{ url_for('auth.login') }}" class="text-decoration-none fw-semibold" style="color: var(--color-primary-light);">
+          <a href="{{ url_for('auth.login') }}" class="text-decoration-none fw-semibold" style="color: var(--color-primary-green-hover);">
             Inicia sesión aquí
           </a>
         </p>
@@ -165,29 +215,41 @@
 {% block extra_js %}
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    const pwd = document.getElementById('contrasenia');
-    const confirmPwd = document.getElementById('confirm_password');
+    const signupForm = document.getElementById('signupForm');
+    const nombresInput = document.getElementById('nombres');
+    const apellidosInput = document.getElementById('apellidos');
+    const emailInput = document.getElementById('email');
+    const pwdInput = document.getElementById('contrasenia');
+    const confirmPwdInput = document.getElementById('confirm_password');
     const toggleBtn = document.getElementById('togglePwdBtn');
     const toggleIcon = document.getElementById('togglePwdIcon');
 
-    // Toggle ver contraseña
-    if (toggleBtn && pwd && toggleIcon) {
+    const nombresError = document.getElementById('nombresError');
+    const apellidosError = document.getElementById('apellidosError');
+    const emailError = document.getElementById('emailError');
+    const pwdError = document.getElementById('pwdError');
+    const confirmPwdError = document.getElementById('confirmPwdError');
+
+    const emailRegex = /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/;
+
+    // Toggle visibilidad contraseña
+    if (toggleBtn && pwdInput && toggleIcon) {
       toggleBtn.addEventListener('click', function() {
-        if (pwd.type === 'password') {
-          pwd.type = 'text';
-          confirmPwd.type = 'text';
+        if (pwdInput.type === 'password') {
+          pwdInput.type = 'text';
+          confirmPwdInput.type = 'text';
           toggleIcon.classList.remove('bi-eye-fill');
           toggleIcon.classList.add('bi-eye-slash-fill');
         } else {
-          pwd.type = 'password';
-          confirmPwd.type = 'password';
+          pwdInput.type = 'password';
+          confirmPwdInput.type = 'password';
           toggleIcon.classList.remove('bi-eye-slash-fill');
           toggleIcon.classList.add('bi-eye-fill');
         }
       });
     }
 
-    // Reglas de validación en tiempo real
+    // Reglas individuales de contraseña
     const rules = {
       length: { el: document.getElementById('rule-length'), check: v => v.length >= 8 },
       upper: { el: document.getElementById('rule-upper'), check: v => /[A-Z]/.test(v) },
@@ -208,20 +270,125 @@
       }
     }
 
-    function validate() {
-      const val = pwd.value;
-      const confirmVal = confirmPwd.value;
-
-      updateRule(rules.length, rules.length.check(val));
-      updateRule(rules.upper, rules.upper.check(val));
-      updateRule(rules.lower, rules.lower.check(val));
-      updateRule(rules.num, rules.num.check(val));
-      updateRule(rules.special, rules.special.check(val));
-      updateRule(rules.match, rules.match.check(val, confirmVal));
+    function validateNombres() {
+      const val = nombresInput.value.trim();
+      if (!val || val.length < 2) {
+        nombresError.classList.add('show');
+        nombresInput.classList.add('is-invalid');
+        nombresInput.classList.remove('is-valid');
+        return false;
+      }
+      nombresError.classList.remove('show');
+      nombresInput.classList.remove('is-invalid');
+      nombresInput.classList.add('is-valid');
+      return true;
     }
 
-    if (pwd) pwd.addEventListener('input', validate);
-    if (confirmPwd) confirmPwd.addEventListener('input', validate);
+    function validateApellidos() {
+      const val = apellidosInput.value.trim();
+      if (!val || val.length < 2) {
+        apellidosError.classList.add('show');
+        apellidosInput.classList.add('is-invalid');
+        apellidosInput.classList.remove('is-valid');
+        return false;
+      }
+      apellidosError.classList.remove('show');
+      apellidosInput.classList.remove('is-invalid');
+      apellidosInput.classList.add('is-valid');
+      return true;
+    }
+
+    function validateEmail() {
+      const val = emailInput.value.trim();
+      if (!val || !emailRegex.test(val)) {
+        emailError.classList.add('show');
+        emailInput.classList.add('is-invalid');
+        emailInput.classList.remove('is-valid');
+        return false;
+      }
+      emailError.classList.remove('show');
+      emailInput.classList.remove('is-invalid');
+      emailInput.classList.add('is-valid');
+      return true;
+    }
+
+    function validatePasswordFields() {
+      const val = pwdInput.value;
+      const confirmVal = confirmPwdInput.value;
+
+      const isLength = rules.length.check(val);
+      const isUpper = rules.upper.check(val);
+      const isLower = rules.lower.check(val);
+      const isNum = rules.num.check(val);
+      const isSpecial = rules.special.check(val);
+      const isMatch = rules.match.check(val, confirmVal);
+
+      updateRule(rules.length, isLength);
+      updateRule(rules.upper, isUpper);
+      updateRule(rules.lower, isLower);
+      updateRule(rules.num, isNum);
+      updateRule(rules.special, isSpecial);
+      updateRule(rules.match, isMatch);
+
+      const isPasswordStrong = isLength && isUpper && isLower && isNum && isSpecial;
+
+      if (!isPasswordStrong && val.length > 0) {
+        pwdError.classList.add('show');
+        pwdInput.classList.add('is-invalid');
+        pwdInput.classList.remove('is-valid');
+      } else if (isPasswordStrong) {
+        pwdError.classList.remove('show');
+        pwdInput.classList.remove('is-invalid');
+        pwdInput.classList.add('is-valid');
+      } else {
+        pwdError.classList.remove('show');
+        pwdInput.classList.remove('is-invalid');
+      }
+
+      if (confirmVal.length > 0) {
+        if (!isMatch) {
+          confirmPwdError.classList.add('show');
+          confirmPwdInput.classList.add('is-invalid');
+          confirmPwdInput.classList.remove('is-valid');
+        } else {
+          confirmPwdError.classList.remove('show');
+          confirmPwdInput.classList.remove('is-invalid');
+          confirmPwdInput.classList.add('is-valid');
+        }
+      } else {
+        confirmPwdError.classList.remove('show');
+        confirmPwdInput.classList.remove('is-invalid');
+      }
+
+      return isPasswordStrong && isMatch;
+    }
+
+    // Eventos en tiempo real
+    nombresInput.addEventListener('input', validateNombres);
+    nombresInput.addEventListener('blur', validateNombres);
+
+    apellidosInput.addEventListener('input', validateApellidos);
+    apellidosInput.addEventListener('blur', validateApellidos);
+
+    emailInput.addEventListener('input', validateEmail);
+    emailInput.addEventListener('blur', validateEmail);
+
+    pwdInput.addEventListener('input', validatePasswordFields);
+    confirmPwdInput.addEventListener('input', validatePasswordFields);
+
+    signupForm.addEventListener('submit', function(e) {
+      const v1 = validateNombres();
+      const v2 = validateApellidos();
+      const v3 = validateEmail();
+      const v4 = validatePasswordFields();
+
+      if (!v1 || !v2 || !v3 || !v4) {
+        e.preventDefault();
+        // Enfocar el primer input con error
+        const firstInvalid = signupForm.querySelector('.is-invalid');
+        if (firstInvalid) firstInvalid.focus();
+      }
+    });
   });
 </script>
 {% endblock %}

@@ -1,5 +1,6 @@
 from sqlalchemy import or_
 from app.models.usuario import Usuario
+from app.models.rol import Rol
 
 def get_usuarios_filtrados(search_query: str = '', rol_filtro: str = '', sort_by: str = 'id_asc') -> list[Usuario]:
     """
@@ -19,8 +20,8 @@ def get_usuarios_filtrados(search_query: str = '', rol_filtro: str = '', sort_by
         )
 
     # Filtro por rol
-    if rol_filtro and rol_filtro in ['admin', 'agente']:
-        query = query.filter(Usuario.rol == rol_filtro)
+    if rol_filtro and rol_filtro in ['admin', 'agente', 'turista']:
+        query = query.join(Usuario.rol).filter(Rol.nombre == rol_filtro)
 
     # Ordenamiento
     if sort_by == 'id_desc':
@@ -41,10 +42,12 @@ def get_total_estadisticas() -> dict:
     Retorna métricas de usuarios para las tarjetas de resumen del listado.
     """
     total = Usuario.query.count()
-    admins = Usuario.query.filter_by(rol='admin').count()
-    agentes = Usuario.query.filter_by(rol='agente').count()
+    admins = Usuario.query.join(Usuario.rol).filter(Rol.nombre == 'admin').count()
+    agentes = Usuario.query.join(Usuario.rol).filter(Rol.nombre == 'agente').count()
+    turistas = Usuario.query.join(Usuario.rol).filter(Rol.nombre == 'turista').count()
     return {
         'total': total,
         'admins': admins,
-        'agentes': agentes
+        'agentes': agentes,
+        'turistas': turistas
     }

@@ -2,6 +2,7 @@
 from .proveedor import Proveedor
 from .categoria import Categoria
 from .transporte import Transporte
+from .rol import Rol
 from .usuario import Usuario
 from .turista import Turista
 from .atractivo import Atractivo

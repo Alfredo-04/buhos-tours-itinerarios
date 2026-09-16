@@ -3,64 +3,80 @@
 {% block title %}Gestión de Usuarios{% endblock %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container-fluid px-4 py-4">
 
   <!-- Encabezado de Página -->
   <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
     <div>
       <nav aria-label="breadcrumb">
         <ol class="breadcrumb mb-1 small">
-          <li class="breadcrumb-item"><a href="{{ url_for('auth.dashboard') }}" class="text-decoration-none">Inicio</a></li>
-          <li class="breadcrumb-item active" aria-current="page">Usuarios</li>
+          <li class="breadcrumb-item"><a href="{{ url_for('auth.dashboard') }}" class="text-decoration-none">Dashboard</a></li>
+          <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-muted);">Usuarios</li>
         </ol>
       </nav>
-      <h1 class="h3 fw-bold text-dark brand-font mb-0">Gestión de Usuarios</h1>
-      <p class="text-muted small mb-0">Directorio y control de accesos de agentes y administradores.</p>
+      <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">Gestión de Usuarios</h1>
+      <p class="text-muted small mb-0">Directorio y control de accesos de agentes y administradores del sistema.</p>
     </div>
     <div class="d-flex align-items-center gap-2">
-      <span class="badge bg-primary px-3 py-2" style="background-color: var(--color-primary) !important;">
-        <i class="bi bi-shield-check me-1"></i> Módulo exclusivo Administrador
+      <span class="module-badge" style="background-color: #EEF2F6; color: #334155; border: 1px solid #CBD5E1;">
+        <i class="bi bi-shield-check me-1"></i> Módulo Administrador
       </span>
     </div>
   </div>
 
-  <!-- Tarjetas de Métricas / Resumen -->
+  <!-- Tarjetas de Métricas / Resumen (Tarjetas Blancas Flotantes) -->
   <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-lg-4">
-      <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100">
+    <div class="col-sm-6 col-lg-3">
+      <div class="card-floating h-100 py-3">
         <div class="d-flex align-items-center gap-3">
-          <div class="feature-icon-badge mb-0" style="width: 44px; height: 44px;">
+          <div class="module-icon-box module-icon-blue" style="width: 44px; height: 44px;">
             <i class="bi bi-people-fill fs-5"></i>
           </div>
           <div>
             <div class="text-muted small fw-semibold">Total de Usuarios</div>
-            <div class="h4 fw-bold mb-0 text-dark">{{ stats.total }}</div>
+            <div class="h4 fw-bold mb-0" style="color: var(--color-text);">{{ stats.total }}</div>
           </div>
         </div>
       </div>
     </div>
-    <div class="col-sm-6 col-lg-4">
-      <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100">
+    
+    <div class="col-sm-6 col-lg-3">
+      <div class="card-floating h-100 py-3">
         <div class="d-flex align-items-center gap-3">
-          <div class="feature-icon-badge mb-0" style="width: 44px; height: 44px; background-color: rgba(244, 162, 97, 0.15); color: var(--color-secondary-hover);">
+          <div class="module-icon-box module-icon-amber" style="width: 44px; height: 44px;">
             <i class="bi bi-person-badge-fill fs-5"></i>
           </div>
           <div>
             <div class="text-muted small fw-semibold">Administradores</div>
-            <div class="h4 fw-bold mb-0 text-dark">{{ stats.admins }}</div>
+            <div class="h4 fw-bold mb-0" style="color: var(--color-text);">{{ stats.admins }}</div>
           </div>
         </div>
       </div>
     </div>
-    <div class="col-sm-6 col-lg-4">
-      <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100">
+    
+    <div class="col-sm-6 col-lg-3">
+      <div class="card-floating h-100 py-3">
         <div class="d-flex align-items-center gap-3">
-          <div class="feature-icon-badge mb-0" style="width: 44px; height: 44px; background-color: rgba(26, 62, 96, 0.08); color: var(--color-primary);">
+          <div class="module-icon-box module-icon-green" style="width: 44px; height: 44px;">
             <i class="bi bi-briefcase-fill fs-5"></i>
           </div>
           <div>
             <div class="text-muted small fw-semibold">Agentes de Viajes</div>
-            <div class="h4 fw-bold mb-0 text-dark">{{ stats.agentes }}</div>
+            <div class="h4 fw-bold mb-0" style="color: var(--color-text);">{{ stats.agentes }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-lg-3">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="module-icon-box module-icon-emerald" style="width: 44px; height: 44px;">
+            <i class="bi bi-person-check-fill fs-5"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Turistas</div>
+            <div class="h4 fw-bold mb-0" style="color: var(--color-text);">{{ stats.turistas }}</div>
           </div>
         </div>
       </div>
@@ -68,13 +84,13 @@
   </div>
 
   <!-- Barra de Filtros y Búsqueda -->
-  <div class="card border-0 shadow-sm rounded-3 p-3 mb-4 bg-white">
+  <div class="card-floating p-3 mb-4">
     <form method="GET" action="{{ url_for('usuarios.index') }}" class="row g-2 align-items-center">
       
       <!-- Buscador de texto -->
       <div class="col-md-5">
         <div class="input-group">
-          <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+          <span class="input-group-text bg-white border-end-0" style="border: 1.5px solid var(--color-border);"><i class="bi bi-search text-muted"></i></span>
           <input 
             type="text" 
             class="form-control border-start-0" 
@@ -92,6 +108,7 @@
           <option value="" {% if not rol_filtro %}selected{% endif %}>Todos los roles</option>
           <option value="admin" {% if rol_filtro == 'admin' %}selected{% endif %}>Administrador</option>
           <option value="agente" {% if rol_filtro == 'agente' %}selected{% endif %}>Agente de Viajes</option>
+          <option value="turista" {% if rol_filtro == 'turista' %}selected{% endif %}>Turista</option>
         </select>
       </div>
 
@@ -108,11 +125,11 @@
 
       <!-- Botones de Acción -->
       <div class="col-md-2 d-flex gap-2">
-        <button type="submit" class="btn btn-primary-custom flex-grow-1" title="Aplicar búsqueda y filtros">
+        <button type="submit" class="btn-emerald flex-grow-1" title="Aplicar búsqueda y filtros">
           <i class="bi bi-funnel-fill"></i> Filtrar
         </button>
         {% if search_query or rol_filtro or sort_by != 'id_asc' %}
-          <a href="{{ url_for('usuarios.index') }}" class="btn btn-outline-secondary" title="Limpiar filtros">
+          <a href="{{ url_for('usuarios.index') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);" title="Limpiar filtros">
             <i class="bi bi-x-lg"></i>
           </a>
         {% endif %}
@@ -121,52 +138,56 @@
     </form>
   </div>
 
-  <!-- Tabla de Usuarios -->
-  <div class="card border-0 shadow-sm rounded-3 overflow-hidden bg-white">
-    <div class="card-header bg-white py-3 px-4 d-flex justify-content-between align-items-center border-bottom">
-      <div class="fw-bold text-dark">
-        <i class="bi bi-list-ul me-1 text-primary"></i> 
+  <!-- Tabla de Usuarios (Tarjeta Blanca Flotante) -->
+  <div class="card-floating p-0 overflow-hidden mb-4">
+    <div class="py-3 px-4 d-flex justify-content-between align-items-center border-bottom" style="background-color: #FFFFFF;">
+      <div class="fw-bold" style="color: var(--color-text);">
+        <i class="bi bi-list-ul me-1" style="color: var(--color-primary-green);"></i> 
         Listado de Usuarios Registrados 
-        <span class="badge bg-light text-muted border ms-2">{{ usuarios|length }} resultados</span>
+        <span class="badge bg-light text-muted border ms-2">{{ usuarios|length }} registros</span>
       </div>
     </div>
 
     <div class="table-responsive">
       <table class="table table-hover align-middle mb-0">
-        <thead class="table-light text-muted small text-uppercase">
-          <tr>
-            <th scope="col" class="ps-4" style="width: 80px;">ID</th>
-            <th scope="col">Usuario</th>
-            <th scope="col">Rol</th>
-            <th scope="col">Fecha de Registro</th>
-            <th scope="col">Estado</th>
+        <thead style="background-color: #F8FAFC;">
+          <tr style="border-bottom: 1px solid var(--color-border);">
+            <th scope="col" class="ps-4 text-muted small text-uppercase fw-semibold" style="width: 80px;">ID</th>
+            <th scope="col" class="text-muted small text-uppercase fw-semibold">Usuario</th>
+            <th scope="col" class="text-muted small text-uppercase fw-semibold">Rol</th>
+            <th scope="col" class="text-muted small text-uppercase fw-semibold">Fecha de Registro</th>
+            <th scope="col" class="text-muted small text-uppercase fw-semibold">Estado</th>
           </tr>
         </thead>
         <tbody>
           {% if usuarios %}
             {% for u in usuarios %}
-              <tr>
+              <tr style="border-bottom: 1px solid var(--color-border-subtle);">
                 <td class="ps-4 fw-bold text-muted">#{{ u.id_usuario }}</td>
                 <td>
                   <div class="d-flex align-items-center gap-3">
-                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white shadow-sm" 
-                         style="width: 40px; height: 40px; font-size: 0.85rem; background: {% if u.rol == 'admin' %}linear-gradient(135deg, #1a3e60, #2c5985){% else %}linear-gradient(135deg, #f4a261, #e76f51){% endif %};">
+                    <div class="user-avatar" 
+                         style="width: 38px; height: 38px; font-size: 0.85rem; background: {% if u.rol.nombre == 'admin' %}#151C28{% elif u.rol.nombre == 'agente' %}#16A085{% else %}#2563EB{% endif %};">
                       {{ u.nombres[:1]|upper }}{{ u.apellidos[:1]|upper }}
                     </div>
                     <div>
-                      <div class="fw-bold text-dark">{{ u.nombres }} {{ u.apellidos }}</div>
+                      <div class="fw-bold" style="color: var(--color-text);">{{ u.nombres }} {{ u.apellidos }}</div>
                       <div class="small text-muted"><i class="bi bi-envelope me-1"></i>{{ u.email }}</div>
                     </div>
                   </div>
                 </td>
                 <td>
-                  {% if u.rol == 'admin' %}
-                    <span class="badge bg-primary px-2.5 py-1.5" style="background-color: var(--color-primary) !important;">
+                  {% if u.rol.nombre == 'admin' %}
+                    <span class="module-badge" style="background-color: #EEF2F6; color: #1E293B; border: 1px solid #CBD5E1;">
                       <i class="bi bi-shield-fill-check me-1"></i> Administrador
                     </span>
-                  {% else %}
-                    <span class="badge bg-warning text-dark px-2.5 py-1.5">
+                  {% elif u.rol.nombre == 'agente' %}
+                    <span class="module-badge badge-amber">
                       <i class="bi bi-briefcase me-1"></i> Agente de Viajes
+                    </span>
+                  {% else %}
+                    <span class="module-badge" style="background-color: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE;">
+                      <i class="bi bi-person-badge me-1"></i> Turista
                     </span>
                   {% endif %}
                 </td>
@@ -174,7 +195,7 @@
                   <i class="bi bi-calendar3 me-1"></i> {{ u.fecha_registro.strftime('%d/%m/%Y') }}
                 </td>
                 <td>
-                  <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1">
+                  <span class="module-badge badge-emerald">
                     <i class="bi bi-check-circle-fill me-1"></i> Activo
                   </span>
                 </td>
@@ -185,9 +206,9 @@
               <td colspan="5" class="text-center py-5">
                 <div class="text-muted">
                   <i class="bi bi-search fs-1 d-block mb-2 text-secondary"></i>
-                  <h6 class="fw-bold text-dark">No se encontraron usuarios</h6>
+                  <h6 class="fw-bold" style="color: var(--color-text);">No se encontraron usuarios</h6>
                   <p class="small mb-3">No hay coincidencias con los términos de búsqueda o filtros seleccionados.</p>
-                  <a href="{{ url_for('usuarios.index') }}" class="btn btn-outline-custom btn-sm">
+                  <a href="{{ url_for('usuarios.index') }}" class="btn-outline-custom btn-sm">
                     <i class="bi bi-arrow-counterclockwise me-1"></i> Restablecer filtros
                   </a>
                 </div>
@@ -198,9 +219,9 @@
       </table>
     </div>
 
-    <div class="card-footer bg-white py-3 px-4 border-top text-muted small d-flex justify-content-between align-items-center">
+    <div class="py-3 px-4 border-top text-muted small d-flex justify-content-between align-items-center" style="background-color: #FFFFFF;">
       <span>Mostrando <strong>{{ usuarios|length }}</strong> de <strong>{{ stats.total }}</strong> usuarios registrados</span>
-      <span class="text-muted"><i class="bi bi-info-circle me-1"></i> Modo Solo Lectura</span>
+      <span class="text-muted"><i class="bi bi-shield-lock me-1"></i> Modo Seguro Administrador</span>
     </div>
   </div>
 

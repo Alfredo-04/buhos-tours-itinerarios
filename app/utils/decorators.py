@@ -11,7 +11,7 @@ def admin_required(f):
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated:
             return redirect(url_for('auth.login'))
-        if current_user.rol != 'admin':
+        if not current_user.rol or current_user.rol.nombre != 'admin':
             flash('Acceso restringido: Se requieren permisos de Administrador para acceder a esta sección.', 'danger')
             return redirect(url_for('auth.dashboard'))
         return f(*args, **kwargs)

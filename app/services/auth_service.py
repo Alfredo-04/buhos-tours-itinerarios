@@ -1,7 +1,10 @@
 import re
+from datetime import datetime
 from flask_login import login_user as flask_login_user, logout_user as flask_logout_user
 from app import db
 from app.models.usuario import Usuario
+from app.models.rol import Rol
+from app.models.turista import Turista
 
 EMAIL_REGEX = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
 
@@ -28,7 +31,9 @@ def validate_password_strength(password: str) -> tuple[bool, str]:
 
 def register_user(data: dict) -> tuple[bool, str, Usuario | None]:
     """
-    Registra un nuevo usuario en la base de datos validando todos los campos requeridos.
+    Registra un nuevo usuario turista con sus datos básicos y crea simultáneamente
+    el registro inicial en la tabla TURISTA vinculado al USUARIO. Los datos legales del
+    viajero se completan posteriormente al planificar o confirmar un itinerario.
     Retorna (éxito: bool, mensaje: str, usuario: Usuario | None)
     """
     nombres = (data.get('nombres') or '').strip()
@@ -36,7 +41,7 @@ def register_user(data: dict) -> tuple[bool, str, Usuario | None]:
     email = (data.get('email') or '').strip().lower()
     contrasenia = data.get('contrasenia') or ''
     confirm_password = data.get('confirm_password') or ''
-    rol = data.get('rol') or 'agente'
+    telefono = (data.get('telefono') or '').strip()
 
     # Validación de nombres y apellidos
     if not nombres or len(nombres) < 2:
@@ -49,7 +54,7 @@ def register_user(data: dict) -> tuple[bool, str, Usuario | None]:
     if not email or not re.match(EMAIL_REGEX, email):
         return False, "Por favor ingresa un correo electrónico válido.", None
 
-    # Verificar si el email ya está registrado
+    # Verificar si el email ya está registrado en Usuario
     usuario_existente = Usuario.query.filter_by(email=email).first()
     if usuario_existente:
         return False, "El correo electrónico ya se encuentra registrado.", None
@@ -63,17 +68,35 @@ def register_user(data: dict) -> tuple[bool, str, Usuario | None]:
     if contrasenia != confirm_password:
         return False, "Las contraseñas no coinciden.", None
 
-    # Crear y guardar nuevo usuario
+    # Buscar rol 'turista' por defecto
+    rol_turista = Rol.query.filter_by(nombre='turista').first()
+    if not rol_turista:
+        rol_turista = Rol(nombre='turista')
+        db.session.add(rol_turista)
+        db.session.flush()
+
+    # Crear y guardar nuevo usuario y turista mínimo vinculado en una transacción
     try:
         nuevo_usuario = Usuario(
             nombres=nombres,
             apellidos=apellidos,
             email=email,
-            rol=rol if rol in ['admin', 'agente'] else 'agente'
+            id_rol=rol_turista.id_rol
         )
         nuevo_usuario.set_password(contrasenia)
 
         db.session.add(nuevo_usuario)
+        db.session.flush()  # Obtener nuevo_usuario.id_usuario
+
+        # Registro mínimo de Turista: nombres, apellidos, email y teléfono opcional
+        nuevo_turista = Turista(
+            id_usuario=nuevo_usuario.id_usuario,
+            nombres=nombres,
+            apellidos=apellidos,
+            email=email,
+            telefono=telefono if telefono else None
+        )
+        db.session.add(nuevo_turista)
         db.session.commit()
 
         return True, "Registro exitoso. Ahora puedes iniciar sesión con tu cuenta.", nuevo_usuario

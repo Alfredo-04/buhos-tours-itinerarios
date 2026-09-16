@@ -1,6 +1,8 @@
 from app import db
 from datetime import datetime
+# pyrefly: ignore [missing-import]
 from werkzeug.security import generate_password_hash, check_password_hash
+# pyrefly: ignore [missing-import]
 from flask_login import UserMixin
 
 class Usuario(UserMixin, db.Model):
@@ -11,8 +13,11 @@ class Usuario(UserMixin, db.Model):
     apellidos = db.Column(db.String(80), nullable=False)
     email = db.Column(db.String(100), nullable=False, unique=True, index=True)
     contrasenia = db.Column(db.String(255), nullable=False)
-    rol = db.Column(db.String(20), nullable=False, default='agente')  # 'admin' o 'agente'
+    id_rol = db.Column(db.Integer, db.ForeignKey('rol.id_rol'), nullable=False)
     fecha_registro = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+
+    # Relación N:1 con ROL
+    rol = db.relationship('Rol', backref='usuarios')
 
     # Relación 1:N con GENERACION (EJECUTA)
     generaciones = db.relationship('Generacion', backref='usuario', lazy=True)
@@ -34,4 +39,5 @@ class Usuario(UserMixin, db.Model):
         return f"{self.nombres} {self.apellidos}"
 
     def __repr__(self):
-        return f"<Usuario {self.email} ({self.rol})>"
+        rol_nombre = self.rol.nombre if self.rol else self.id_rol
+        return f"<Usuario {self.email} ({rol_nombre})>"

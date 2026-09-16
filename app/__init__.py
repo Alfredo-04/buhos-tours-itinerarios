@@ -30,7 +30,7 @@ def create_app():
 
     # Importar modelos para registro con SQLAlchemy y migraciones
     from app.models import (
-        proveedor, categoria, transporte, usuario, 
+        proveedor, categoria, transporte, rol, usuario, 
         turista, atractivo, generacion, itinerario, 
         itinerario_detalle, viaje_turista
     )
@@ -42,12 +42,20 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(usuario_bp)
 
-    # Comando CLI para ejecutar Seeders
+    # Comando CLI para ejecutar Seeder de Roles
+    @app.cli.command("seed-roles")
+    def seed_roles_command():
+        """Ejecuta el seeder para poblar roles básicos."""
+        from app.seeds.rol_seeder import seed_roles
+        seed_roles()
+        click.echo("Seeder de roles ejecutado con éxito.")
+
+    # Comando CLI para ejecutar Seeders de Usuarios
     @app.cli.command("seed-users")
     def seed_users_command():
         """Ejecuta el seeder para poblar usuarios iniciales."""
         from app.seeds.user_seeder import seed_usuarios
         seed_usuarios()
-        click.echo("Seeder ejecutado con éxito.")
+        click.echo("Seeder de usuarios ejecutado con éxito.")
 
     return app
