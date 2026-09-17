@@ -54,21 +54,38 @@
               <span>Gestión de Usuarios</span>
             </a>
 
-            <div class="sidebar-category-header text-uppercase small px-3 mt-3 mb-1 text-muted" style="font-size: 0.72rem; letter-spacing: 0.08em;">Operaciones</div>
+            <div class="sidebar-category-header text-uppercase small px-3 mt-3 mb-1 text-muted" style="font-size: 0.72rem; letter-spacing: 0.08em;">Gestión Turística</div>
 
-            <a href="{{ url_for('admin.dashboard') }}" class="nav-link-custom">
-              <i class="bi bi-cpu-fill text-info"></i>
-              <span>Motor NSGA-II</span>
-            </a>
-
-            <a href="{{ url_for('admin.dashboard') }}" class="nav-link-custom">
+            <a href="{{ url_for('admin.atractivos') }}" class="nav-link-custom {% if 'admin.atractivo' in request.endpoint %}active{% endif %}">
               <i class="bi bi-geo-alt-fill text-success"></i>
               <span>Atractivos</span>
             </a>
 
-            <a href="{{ url_for('admin.dashboard') }}" class="nav-link-custom">
+            <a href="{{ url_for('admin.transportes') }}" class="nav-link-custom {% if 'admin.transporte' in request.endpoint %}active{% endif %}">
               <i class="bi bi-bus-front-fill text-warning"></i>
               <span>Transporte</span>
+            </a>
+
+            <a href="{{ url_for('admin.categorias') }}" class="nav-link-custom {% if 'admin.categoria' in request.endpoint %}active{% endif %}">
+              <i class="bi bi-tags-fill text-info"></i>
+              <span>Categorías</span>
+            </a>
+
+            <a href="{{ url_for('admin.proveedores') }}" class="nav-link-custom {% if 'admin.proveedor' in request.endpoint %}active{% endif %}">
+              <i class="bi bi-briefcase-fill text-primary"></i>
+              <span>Proveedores</span>
+            </a>
+
+            <div class="sidebar-category-header text-uppercase small px-3 mt-3 mb-1 text-muted" style="font-size: 0.72rem; letter-spacing: 0.08em;">Vistas Públicas</div>
+
+            <a href="{{ url_for('catalogo.atractivos_list') }}" class="nav-link-custom {% if 'catalogo.atractivo' in request.endpoint %}active{% endif %}">
+              <i class="bi bi-pin-map-fill"></i>
+              <span>Catálogo Atractivos</span>
+            </a>
+
+            <a href="{{ url_for('catalogo.transportes_list') }}" class="nav-link-custom {% if 'catalogo.transporte' in request.endpoint %}active{% endif %}">
+              <i class="bi bi-truck-front-fill"></i>
+              <span>Catálogo Transportes</span>
             </a>
 
           {% elif current_user.rol.nombre == 'agente' %}
@@ -80,24 +97,16 @@
               <span>Panel Principal</span>
             </a>
 
-            <a href="{{ url_for('agente.dashboard') }}" class="nav-link-custom">
-              <i class="bi bi-compass-fill text-success"></i>
-              <span>Generar Itinerario</span>
-            </a>
+            <div class="sidebar-category-header text-uppercase small px-3 mt-3 mb-1 text-muted" style="font-size: 0.72rem; letter-spacing: 0.08em;">Catálogo Operativo</div>
 
-            <a href="{{ url_for('agente.dashboard') }}" class="nav-link-custom">
-              <i class="bi bi-card-checklist"></i>
-              <span>Itinerarios Creados</span>
-            </a>
-
-            <a href="{{ url_for('agente.dashboard') }}" class="nav-link-custom">
-              <i class="bi bi-person-lines-fill"></i>
-              <span>Registro de Turistas</span>
-            </a>
-
-            <a href="{{ url_for('agente.dashboard') }}" class="nav-link-custom">
-              <i class="bi bi-pin-map-fill"></i>
+            <a href="{{ url_for('catalogo.atractivos_list') }}" class="nav-link-custom {% if 'atractivo' in request.endpoint %}active{% endif %}">
+              <i class="bi bi-pin-map-fill text-success"></i>
               <span>Catálogo Atractivos</span>
+            </a>
+
+            <a href="{{ url_for('catalogo.transportes_list') }}" class="nav-link-custom {% if 'transporte' in request.endpoint %}active{% endif %}">
+              <i class="bi bi-bus-front-fill text-warning"></i>
+              <span>Medios de Transporte</span>
             </a>
 
             <div class="sidebar-category-header text-uppercase small px-3 mt-3 mb-1 text-muted" style="font-size: 0.72rem; letter-spacing: 0.08em;">Cuenta</div>
@@ -116,14 +125,14 @@
               <span>Mi Panel</span>
             </a>
 
-            <a href="{{ url_for('turista.dashboard') }}" class="nav-link-custom">
-              <i class="bi bi-compass-fill text-success"></i>
-              <span>Planificar Mi Viaje</span>
+            <a href="{{ url_for('catalogo.atractivos_list') }}" class="nav-link-custom {% if 'catalogo.atractivo' in request.endpoint %}active{% endif %}">
+              <i class="bi bi-pin-map-fill text-success"></i>
+              <span>Explorar Atractivos</span>
             </a>
 
-            <a href="{{ url_for('turista.dashboard') }}" class="nav-link-custom">
-              <i class="bi bi-journal-bookmark-fill"></i>
-              <span>Mis Itinerarios</span>
+            <a href="{{ url_for('catalogo.transportes_list') }}" class="nav-link-custom {% if 'catalogo.transporte' in request.endpoint %}active{% endif %}">
+              <i class="bi bi-bus-front-fill text-primary"></i>
+              <span>Medios de Transporte</span>
             </a>
 
             <div class="sidebar-category-header text-uppercase small px-3 mt-3 mb-1 text-muted" style="font-size: 0.72rem; letter-spacing: 0.08em;">Seguridad y Cuenta</div>

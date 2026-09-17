@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo Proveedor | Panel Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small">
+          <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}" class="text-decoration-none">Dashboard Admin</a></li>
+          <li class="breadcrumb-item"><a href="{{ url_for('admin.proveedores') }}" class="text-decoration-none">Proveedores</a></li>
+          <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-muted);">Crear</li>
+        </ol>
+      </nav>
+      <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">Registrar Nuevo Proveedor</h1>
+      <p class="text-muted small mb-0">Crea un registro de operador turístico o empresa aliada.</p>
+    </div>
+    <div>
+      <a href="{{ url_for('admin.proveedores') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+        <i class="bi bi-arrow-left me-1"></i> Cancelar y Volver
+      </a>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      
+      <form method="POST" action="{{ url_for('admin.proveedor_crear') }}" class="card-floating p-4">
+        
+        <div class="row g-3 mb-3">
+          <div class="col-md-8">
+            <label for="razon_social" class="form-label fw-semibold">Razón Social / Nombre Comercial <span class="text-danger">*</span></label>
+            <input 
+              type="text" 
+              class="form-control" 
+              id="razon_social" 
+              name="razon_social" 
+              placeholder="Ej. Operadora de Turismo Andina Bolivia S.R.L." 
+              value="{{ form_data.get('razon_social', '') }}" 
+              required 
+              minlength="3" 
+              maxlength="100"
+            >
+          </div>
+
+          <div class="col-md-4">
+            <label for="tipo" class="form-label fw-semibold">Tipo de Servicio</label>
+            <input 
+              type="text" 
+              class="form-control" 
+              id="tipo" 
+              name="tipo" 
+              placeholder="Ej. Transporte, Guiado, Museo" 
+              value="{{ form_data.get('tipo', '') }}" 
+              maxlength="50"
+            >
+          </div>
+
+          <div class="col-md-6">
+            <label for="contacto_nombre" class="form-label fw-semibold">Persona de Contacto</label>
+            <input 
+              type="text" 
+              class="form-control" 
+              id="contacto_nombre" 
+              name="contacto_nombre" 
+              placeholder="Ej. Carlos Mendoza" 
+              value="{{ form_data.get('contacto_nombre', '') }}" 
+              maxlength="100"
+            >
+          </div>
+
+          <div class="col-md-6">
+            <label for="contacto_telefono" class="form-label fw-semibold">Teléfono de Contacto</label>
+            <input 
+              type="text" 
+              class="form-control" 
+              id="contacto_telefono" 
+              name="contacto_telefono" 
+              placeholder="+591 71234567" 
+              value="{{ form_data.get('contacto_telefono', '') }}" 
+              maxlength="20"
+            >
+          </div>
+
+          <div class="col-md-8">
+            <label for="contacto_email" class="form-label fw-semibold">Correo Electrónico</label>
+            <input 
+              type="email" 
+              class="form-control" 
+              id="contacto_email" 
+              name="contacto_email" 
+              placeholder="contacto@operador.bo" 
+              value="{{ form_data.get('contacto_email', '') }}" 
+              maxlength="100"
+            >
+          </div>
+
+          <div class="col-md-4">
+            <label for="tarifa_especial" class="form-label fw-semibold">Tarifa Especial (Bs.)</label>
+            <div class="input-group">
+              <span class="input-group-text bg-white">Bs.</span>
+              <input 
+                type="number" 
+                step="0.01" 
+                min="0" 
+                class="form-control" 
+                id="tarifa_especial" 
+                name="tarifa_especial" 
+                placeholder="0.00" 
+                value="{{ form_data.get('tarifa_especial', '') }}"
+              >
+            </div>
+            <div class="form-text">Tarifa preferencial interna.</div>
+          </div>
+
+          <div class="col-12">
+            <label for="observaciones" class="form-label fw-semibold">Observaciones / Notas de Convenio</label>
+            <textarea 
+              class="form-control" 
+              id="observaciones" 
+              name="observaciones" 
+              rows="3" 
+              placeholder="Notas sobre acuerdos comerciales, políticas de pago, acreditaciones..."
+            >{{ form_data.get('observaciones', '') }}</textarea>
+          </div>
+        </div>
+
+        <div class="pt-3 border-top d-flex justify-content-end gap-2">
+          <a href="{{ url_for('admin.proveedores') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+            Cancelar
+          </a>
+          <button type="submit" class="btn-emerald px-4">
+            <i class="bi bi-check2-circle me-1"></i> Guardar Proveedor
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

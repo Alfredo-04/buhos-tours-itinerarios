@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Nueva Categoría | Panel Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small">
+          <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}" class="text-decoration-none">Dashboard Admin</a></li>
+          <li class="breadcrumb-item"><a href="{{ url_for('admin.categorias') }}" class="text-decoration-none">Categorías</a></li>
+          <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-muted);">Crear</li>
+        </ol>
+      </nav>
+      <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">Registrar Nueva Categoría</h1>
+      <p class="text-muted small mb-0">Crea una categoría temática para clasificar atractivos turísticos.</p>
+    </div>
+    <div>
+      <a href="{{ url_for('admin.categorias') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+        <i class="bi bi-arrow-left me-1"></i> Cancelar y Volver
+      </a>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-7">
+      
+      <form method="POST" action="{{ url_for('admin.categoria_crear') }}" class="card-floating p-4">
+        
+        <div class="mb-3">
+          <label for="nombre" class="form-label fw-semibold">Nombre de la Categoría <span class="text-danger">*</span></label>
+          <input 
+            type="text" 
+            class="form-control" 
+            id="nombre" 
+            name="nombre" 
+            placeholder="Ej. Arqueológico, Naturaleza, Gastronomía..." 
+            value="{{ form_data.get('nombre', '') }}" 
+            required 
+            minlength="3" 
+            maxlength="50"
+          >
+          <div class="form-text">Mínimo 3 caracteres, máximo 50. Debe ser único.</div>
+        </div>
+
+        <div class="mb-4">
+          <label for="descripcion" class="form-label fw-semibold">Descripción (Opcional)</label>
+          <textarea 
+            class="form-control" 
+            id="descripcion" 
+            name="descripcion" 
+            rows="3" 
+            maxlength="200" 
+            placeholder="Breve descripción del tipo de atractivos que agrupa esta categoría..."
+          >{{ form_data.get('descripcion', '') }}</textarea>
+          <div class="form-text">Máximo 200 caracteres.</div>
+        </div>
+
+        <div class="pt-3 border-top d-flex justify-content-end gap-2">
+          <a href="{{ url_for('admin.categorias') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+            Cancelar
+          </a>
+          <button type="submit" class="btn-emerald px-4">
+            <i class="bi bi-check2-circle me-1"></i> Guardar Categoría
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo Transporte | Panel Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small">
+          <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}" class="text-decoration-none">Dashboard Admin</a></li>
+          <li class="breadcrumb-item"><a href="{{ url_for('admin.transportes') }}" class="text-decoration-none">Transportes</a></li>
+          <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-muted);">Crear</li>
+        </ol>
+      </nav>
+      <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">Registrar Nuevo Medio de Transporte</h1>
+      <p class="text-muted small mb-0">Define la flota de vehículos, costos por tramo, horarios y tiempos base.</p>
+    </div>
+    <div>
+      <a href="{{ url_for('admin.transportes') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+        <i class="bi bi-arrow-left me-1"></i> Cancelar y Volver
+      </a>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      
+      <form method="POST" action="{{ url_for('admin.transporte_crear') }}" class="card-floating p-4">
+        
+        <div class="row g-3 mb-3">
+          
+          <div class="col-md-8">
+            <label for="nombre" class="form-label fw-semibold">Nombre del Transporte <span class="text-danger">*</span></label>
+            <input 
+              type="text" 
+              class="form-control" 
+              id="nombre" 
+              name="nombre" 
+              placeholder="Ej. Minibús Turístico Ejecutivo, Lancha a Motor..." 
+              value="{{ form_data.get('nombre', '') }}" 
+              required 
+              minlength="3" 
+              maxlength="100"
+            >
+          </div>
+
+          <div class="col-md-4">
+            <label for="tipo" class="form-label fw-semibold">Tipo de Transporte <span class="text-danger">*</span></label>
+            <select class="form-select" id="tipo" name="tipo" required>
+              <option value="Privado" {% if form_data.get('tipo', 'Privado') == 'Privado' %}selected{% endif %}>Privado</option>
+              <option value="Público" {% if form_data.get('tipo') in ['Público', 'Publico'] %}selected{% endif %}>Público</option>
+            </select>
+          </div>
+
+          <div class="col-md-6">
+            <label for="capacidad" class="form-label fw-semibold">Capacidad de Pasajeros <span class="text-danger">*</span></label>
+            <input 
+              type="number" 
+              min="1" 
+              class="form-control" 
+              id="capacidad" 
+              name="capacidad" 
+              placeholder="Ej. 15" 
+              value="{{ form_data.get('capacidad', '') }}" 
+              required
+            >
+          </div>
+
+          <div class="col-md-6">
+            <label for="tiempo_recorrido_base" class="form-label fw-semibold">Tiempo Recorrido Base (Minutos) <span class="text-danger">*</span></label>
+            <input 
+              type="number" 
+              min="1" 
+              class="form-control" 
+              id="tiempo_recorrido_base" 
+              name="tiempo_recorrido_base" 
+              placeholder="Ej. 45" 
+              value="{{ form_data.get('tiempo_recorrido_base', '') }}" 
+              required
+            >
+          </div>
+
+          <div class="col-md-6">
+            <label for="costo_por_tramo" class="form-label fw-semibold">Costo por Tramo (Bs.) <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text bg-white">Bs.</span>
+              <input 
+                type="number" 
+                step="0.01" 
+                min="0" 
+                class="form-control" 
+                id="costo_por_tramo" 
+                name="costo_por_tramo" 
+                placeholder="0.00" 
+                value="{{ form_data.get('costo_por_tramo', '0.00') }}" 
+                required
+              >
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <label for="tipo_costo" class="form-label fw-semibold">Modalidad de Costo <span class="text-danger">*</span></label>
+            <select class="form-select" id="tipo_costo" name="tipo_costo" required>
+              <option value="por_persona" {% if form_data.get('tipo_costo') == 'por_persona' %}selected{% endif %}>Por Persona</option>
+              <option value="por_vehiculo" {% if form_data.get('tipo_costo') == 'por_vehiculo' %}selected{% endif %}>Por Vehículo</option>
+            </select>
+          </div>
+
+          <div class="col-md-6">
+            <label for="horario_inicio" class="form-label fw-semibold">Horario de Inicio <span class="text-danger">*</span></label>
+            <input 
+              type="time" 
+              class="form-control" 
+              id="horario_inicio" 
+              name="horario_inicio" 
+              value="{{ form_data.get('horario_inicio', '06:00') }}" 
+              required
+            >
+          </div>
+
+          <div class="col-md-6">
+            <label for="horario_fin" class="form-label fw-semibold">Horario de Fin <span class="text-danger">*</span></label>
+            <input 
+              type="time" 
+              class="form-control" 
+              id="horario_fin" 
+              name="horario_fin" 
+              value="{{ form_data.get('horario_fin', '22:00') }}" 
+              required
+            >
+            <div class="form-text">Debe ser posterior al horario de inicio.</div>
+          </div>
+
+        </div>
+
+        <div class="pt-3 border-top d-flex justify-content-end gap-2">
+          <a href="{{ url_for('admin.transportes') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+            Cancelar
+          </a>
+          <button type="submit" class="btn-emerald px-4">
+            <i class="bi bi-check2-circle me-1"></i> Guardar Transporte
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

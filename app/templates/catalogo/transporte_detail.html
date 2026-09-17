@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}{{ transporte.nombre }} | Detalle de Transporte{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- Encabezado y Breadcrumbs -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small">
+          <li class="breadcrumb-item">
+            <a href="{% if current_user.rol.nombre == 'admin' %}{{ url_for('admin.dashboard') }}{% elif current_user.rol.nombre == 'agente' %}{{ url_for('agente.dashboard') }}{% else %}{{ url_for('turista.dashboard') }}{% endif %}" class="text-decoration-none">
+              Dashboard
+            </a>
+          </li>
+          <li class="breadcrumb-item">
+            <a href="{{ url_for('catalogo.transportes_list') }}" class="text-decoration-none">Transportes</a>
+          </li>
+          <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-muted);">{{ transporte.nombre }}</li>
+        </ol>
+      </nav>
+      <div class="d-flex align-items-center gap-2">
+        <h1 class="h3 fw-bold mb-0" style="color: var(--color-text);">{{ transporte.nombre }}</h1>
+        <span class="badge {% if transporte.tipo == 'Privado' %}badge-amber{% else %}badge-ai{% endif %} py-1 px-2" style="font-size: 0.8rem;">
+          {{ transporte.tipo }}
+        </span>
+        {% if transporte.is_deleted %}
+          <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.75rem;">
+            <i class="bi bi-trash-fill me-1"></i> Desactivado
+          </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Botones de Acción según Rol -->
+    <div class="d-flex align-items-center gap-2">
+      <a href="{{ url_for('catalogo.transportes_list') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+        <i class="bi bi-arrow-left me-1"></i> Volver al Catálogo
+      </a>
+
+      {% if current_user.rol.nombre == 'admin' %}
+        <a href="{{ url_for('admin.transporte_editar', id_transporte=transporte.id_transporte) }}" class="btn-emerald">
+          <i class="bi bi-pencil-square me-1"></i> Editar Completo
+        </a>
+      {% elif current_user.rol.nombre == 'agente' %}
+        <a href="{{ url_for('agente.transporte_editar_parcial', id_transporte=transporte.id_transporte) }}" class="btn-emerald">
+          <i class="bi bi-pencil-square me-1"></i> Modificar Datos Operativos
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="row g-4 mb-4">
+    
+    <!-- Columna Principal -->
+    <div class="col-lg-8">
+      <div class="card-floating mb-4">
+        
+        <div class="d-flex align-items-center gap-3 mb-4 pb-3 border-bottom">
+          <div class="module-icon-box {% if transporte.tipo == 'Privado' %}module-icon-amber{% else %}module-icon-blue{% endif %}" style="width: 56px; height: 56px; font-size: 1.5rem;">
+            {% if 'Lancha' in transporte.nombre or 'Barco' in transporte.nombre %}
+              <i class="bi bi-water"></i>
+            {% elif 'Teleférico' in transporte.nombre %}
+              <i class="bi bi-cable-car"></i>
+            {% elif '4x4' in transporte.nombre or 'Vagoneta' in transporte.nombre %}
+              <i class="bi bi-car-front-fill"></i>
+            {% else %}
+              <i class="bi bi-bus-front-fill"></i>
+            {% endif %}
+          </div>
+          <div>
+            <h2 class="h5 fw-bold mb-1" style="color: var(--color-text);">Especificaciones del Servicio</h2>
+            <p class="text-muted small mb-0">Modalidad de transporte para conexiones interurbanas y rutas turísticas.</p>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <div class="p-3 bg-light rounded border">
+              <span class="text-muted small d-block mb-1"><i class="bi bi-people-fill me-1"></i> Capacidad Máxima</span>
+              <span class="h5 fw-bold text-dark mb-0">{{ transporte.capacidad or 'S/D' }} pasajeros</span>
+            </div>
+          </div>
+
+          <div class="col-sm-6">
+            <div class="p-3 bg-light rounded border">
+              <span class="text-muted small d-block mb-1"><i class="bi bi-speedometer2 me-1"></i> Tiempo de Recorrido Base</span>
+              <span class="h5 fw-bold text-dark mb-0">{{ transporte.tiempo_recorrido_base or 'S/D' }} minutos</span>
+            </div>
+          </div>
+
+          <div class="col-sm-6">
+            <div class="p-3 bg-light rounded border">
+              <span class="text-muted small d-block mb-1"><i class="bi bi-clock-fill me-1"></i> Horario de Operación</span>
+              <span class="h6 fw-bold text-dark mb-0">
+                {% if transporte.horario_inicio and transporte.horario_fin %}
+                  {{ transporte.horario_inicio.strftime('%H:%M') }} - {{ transporte.horario_fin.strftime('%H:%M') }}
+                {% else %}
+                  Flexible / A demanda
+                {% endif %}
+              </span>
+            </div>
+          </div>
+
+          <div class="col-sm-6">
+            <div class="p-3 bg-light rounded border">
+              <span class="text-muted small d-block mb-1"><i class="bi bi-card-checklist me-1"></i> Tipo de Modalidad</span>
+              <span class="h6 fw-bold text-dark mb-0">{{ transporte.tipo }}</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Columna Lateral: Información Comercial / Interna -->
+    <div class="col-lg-4">
+      
+      <!-- Panel de Tarifas (Solo para Admin y Agente) -->
+      {% if current_user.rol.nombre in ['admin', 'agente'] %}
+        <div class="card-floating mb-4" style="background-color: #F8FAFC; border: 1px solid #CBD5E1;">
+          <h2 class="h6 fw-bold mb-3 text-uppercase text-muted" style="letter-spacing: 0.05em; font-size: 0.78rem;">
+            <i class="bi bi-shield-lock-fill me-1"></i> Tarifario y Algoritmo
+          </h2>
+
+          <div class="d-flex flex-column gap-3">
+            <div class="d-flex justify-content-between py-2 border-bottom">
+              <span class="text-muted small">Costo por tramo:</span>
+              <span class="fw-bold text-success fs-6">Bs. {{ "%.2f"|format(transporte.costo_por_tramo or 0) }}</span>
+            </div>
+
+            <div class="d-flex justify-content-between py-2 border-bottom">
+              <span class="text-muted small">Modalidad de cobro:</span>
+              <span class="badge bg-secondary-subtle text-secondary px-2 py-1">
+                {{ transporte.tipo_costo|replace('_', ' ')|capitalize }}
+              </span>
+            </div>
+
+            <div class="d-flex justify-content-between py-2">
+              <span class="text-muted small">ID Transporte:</span>
+              <span class="font-monospace fw-semibold">#{{ transporte.id_transporte }}</span>
+            </div>
+          </div>
+
+          {% if current_user.rol.nombre == 'agente' %}
+            <div class="mt-3 pt-2 border-top">
+              <a href="{{ url_for('agente.transporte_editar_parcial', id_transporte=transporte.id_transporte) }}" class="btn btn-outline-secondary btn-sm w-100">
+                <i class="bi bi-pencil-square me-1"></i> Actualizar Capacidad y Horarios
+              </a>
+            </div>
+          {% endif %}
+
+        </div>
+      {% else %}
+        <!-- Para Turistas -->
+        <div class="card-floating">
+          <h2 class="h6 fw-bold mb-2" style="color: var(--color-text);">
+            <i class="bi bi-info-circle-fill text-primary me-1"></i> Información para Viajeros
+          </h2>
+          <p class="text-muted small mb-0">
+            Este transporte forma parte de la red de traslados coordinados de Búhos Tours. Al armar o consultar tu itinerario, los horarios y trayectos se optimizarán de manera automática.
+          </p>
+        </div>
+      {% endif %}
+
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

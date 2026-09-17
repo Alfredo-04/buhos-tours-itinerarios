@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block title %}Catálogo de Medios de Transporte{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- Encabezado de Página -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small">
+          <li class="breadcrumb-item">
+            <a href="{% if current_user.rol.nombre == 'admin' %}{{ url_for('admin.dashboard') }}{% elif current_user.rol.nombre == 'agente' %}{{ url_for('agente.dashboard') }}{% else %}{{ url_for('turista.dashboard') }}{% endif %}" class="text-decoration-none">
+              Dashboard
+            </a>
+          </li>
+          <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-muted);">Transportes</li>
+        </ol>
+      </nav>
+      <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">
+        {% if current_user.rol.nombre == 'turista' %}
+          Medios de Transporte Disponibles 🚌
+        {% else %}
+          Catálogo General de Medios de Transporte
+        {% endif %}
+      </h1>
+      <p class="text-muted small mb-0">
+        {% if current_user.rol.nombre == 'turista' %}
+          Consulta las opciones de movilidad para trasladarte de forma cómoda y segura.
+        {% elif current_user.rol.nombre == 'agente' %}
+          Vehículos y tramos de transporte integrados en la optimización de traslados con NSGA-II.
+        {% else %}
+          Directorio general de transporte con acceso a mantenimiento de tarifas y capacidades.
+        {% endif %}
+      </p>
+    </div>
+    
+    <div class="d-flex align-items-center gap-2">
+      {% if current_user.rol.nombre == 'admin' %}
+        <a href="{{ url_for('admin.transporte_crear') }}" class="btn-emerald">
+          <i class="bi bi-plus-circle-fill me-1"></i> Nuevo Transporte
+        </a>
+        <a href="{{ url_for('admin.transportes') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);" title="Gestión administrativa">
+          <i class="bi bi-gear-fill me-1"></i> Panel de Gestión
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Barra de Búsqueda y Filtros -->
+  <div class="card-floating p-3 mb-4">
+    <form method="GET" action="{{ url_for('catalogo.transportes_list') }}" class="row g-2 align-items-center">
+      
+      <!-- Buscador de texto -->
+      <div class="col-md-5">
+        <div class="input-group">
+          <span class="input-group-text bg-white border-end-0" style="border: 1.5px solid var(--color-border);"><i class="bi bi-search text-muted"></i></span>
+          <input 
+            type="text" 
+            class="form-control border-start-0" 
+            name="q" 
+            placeholder="Buscar por nombre o tipo..." 
+            value="{{ search_query }}"
+            aria-label="Buscar transportes"
+          >
+        </div>
+      </div>
+
+      <!-- Filtro por Tipo -->
+      <div class="col-sm-6 col-md-3">
+        <select class="form-select" name="tipo" aria-label="Filtrar por tipo">
+          <option value="" {% if not tipo_filtro %}selected{% endif %}>Todos los tipos</option>
+          <option value="Privado" {% if tipo_filtro == 'Privado' %}selected{% endif %}>Transporte Privado</option>
+          <option value="Público" {% if tipo_filtro == 'Público' %}selected{% endif %}>Transporte Público</option>
+        </select>
+      </div>
+
+      <!-- Ordenamiento -->
+      <div class="col-sm-6 col-md-2">
+        <select class="form-select" name="sort" aria-label="Ordenar por">
+          <option value="nombre_asc" {% if sort_by == 'nombre_asc' %}selected{% endif %}>Nombre (A-Z)</option>
+          <option value="nombre_desc" {% if sort_by == 'nombre_desc' %}selected{% endif %}>Nombre (Z-A)</option>
+          <option value="capacidad_desc" {% if sort_by == 'capacidad_desc' %}selected{% endif %}>Mayor capacidad</option>
+          <option value="tiempo_asc" {% if sort_by == 'tiempo_asc' %}selected{% endif %}>Menor tiempo viaje</option>
+        </select>
+      </div>
+
+      <!-- Botones de Acción -->
+      <div class="col-md-2 d-flex gap-2">
+        <button type="submit" class="btn-emerald flex-grow-1">
+          <i class="bi bi-funnel-fill"></i> Filtrar
+        </button>
+        {% if search_query or tipo_filtro or sort_by != 'nombre_asc' %}
+          <a href="{{ url_for('catalogo.transportes_list') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);" title="Limpiar filtros">
+            <i class="bi bi-x-lg"></i>
+          </a>
+        {% endif %}
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Cuadrícula de Tarjetas de Transportes -->
+  {% if transportes %}
+    <div class="row g-4 mb-4">
+      {% for t in transportes %}
+        <div class="col-12 col-md-6 col-lg-4">
+          <div class="card-floating h-100 d-flex flex-column">
+            
+            <div class="d-flex align-items-start justify-content-between mb-3">
+              <div class="d-flex align-items-center gap-3">
+                <div class="module-icon-box {% if t.tipo == 'Privado' %}module-icon-amber{% else %}module-icon-blue{% endif %}" style="width: 48px; height: 48px;">
+                  {% if 'Lancha' in t.nombre or 'Barco' in t.nombre %}
+                    <i class="bi bi-water"></i>
+                  {% elif 'Teleférico' in t.nombre %}
+                    <i class="bi bi-cable-car"></i>
+                  {% elif '4x4' in t.nombre or 'Vagoneta' in t.nombre %}
+                    <i class="bi bi-car-front-fill"></i>
+                  {% else %}
+                    <i class="bi bi-bus-front-fill"></i>
+                  {% endif %}
+                </div>
+                <div>
+                  <h2 class="h6 fw-bold mb-1" style="color: var(--color-text);">
+                    <a href="{{ url_for('catalogo.transporte_detail', id_transporte=t.id_transporte) }}" class="text-decoration-none text-dark">
+                      {{ t.nombre }}
+                    </a>
+                  </h2>
+                  <span class="badge {% if t.tipo == 'Privado' %}badge-amber{% else %}badge-ai{% endif %} py-1 px-2" style="font-size: 0.72rem;">
+                    {{ t.tipo }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="d-flex flex-column gap-2 mb-3 small flex-grow-1">
+              
+              <div class="d-flex justify-content-between py-1 border-bottom">
+                <span class="text-muted"><i class="bi bi-people me-1"></i> Capacidad:</span>
+                <span class="fw-semibold text-dark">{{ t.capacidad or 'S/D' }} pasajeros</span>
+              </div>
+
+              <div class="d-flex justify-content-between py-1 border-bottom">
+                <span class="text-muted"><i class="bi bi-clock me-1"></i> Horario:</span>
+                <span class="fw-semibold text-dark">
+                  {% if t.horario_inicio and t.horario_fin %}
+                    {{ t.horario_inicio.strftime('%H:%M') }} - {{ t.horario_fin.strftime('%H:%M') }}
+                  {% else %}
+                    Flexible
+                  {% endif %}
+                </span>
+              </div>
+
+              <div class="d-flex justify-content-between py-1 border-bottom">
+                <span class="text-muted"><i class="bi bi-speedometer2 me-1"></i> Recorrido base:</span>
+                <span class="fw-semibold text-dark">{{ t.tiempo_recorrido_base or 'S/D' }} min</span>
+              </div>
+
+              <!-- Costos visibles solo para Administradores y Agentes -->
+              {% if current_user.rol.nombre in ['admin', 'agente'] %}
+                <div class="d-flex justify-content-between py-1 bg-light rounded px-2 mt-1">
+                  <span class="text-muted"><i class="bi bi-currency-dollar me-1"></i> Costo / Tramo:</span>
+                  <span class="fw-bold text-success">
+                    Bs. {{ "%.2f"|format(t.costo_por_tramo or 0) }} 
+                    <small class="text-muted" style="font-size: 0.7rem;">({{ t.tipo_costo|replace('_', ' ') }})</small>
+                  </span>
+                </div>
+              {% endif %}
+
+            </div>
+
+            <!-- Acciones según rol -->
+            <div class="pt-3 border-top d-flex align-items-center justify-content-between mt-auto">
+              <a href="{{ url_for('catalogo.transporte_detail', id_transporte=t.id_transporte) }}" class="btn btn-outline-primary btn-sm" style="border-radius: var(--radius-sm);">
+                <i class="bi bi-eye-fill me-1"></i> Ver Detalle
+              </a>
+
+              {% if current_user.rol.nombre == 'admin' %}
+                <a href="{{ url_for('admin.transporte_editar', id_transporte=t.id_transporte) }}" class="btn btn-sm btn-outline-secondary" style="border-radius: var(--radius-sm);" title="Edición Administrador">
+                  <i class="bi bi-pencil-fill"></i> Editar
+                </a>
+              {% elif current_user.rol.nombre == 'agente' %}
+                <a href="{{ url_for('agente.transporte_editar_parcial', id_transporte=t.id_transporte) }}" class="btn btn-sm btn-outline-secondary" style="border-radius: var(--radius-sm);" title="Edición Operativa">
+                  <i class="bi bi-pencil-square me-1"></i> Modificar
+                </a>
+              {% endif %}
+            </div>
+
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <!-- Paginación -->
+    {% if pagination.pages > 1 %}
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="text-muted small">
+          Mostrando página {{ pagination.page }} de {{ pagination.pages }} ({{ pagination.total }} transportes)
+        </div>
+        <nav aria-label="Navegación de transportes">
+          <ul class="pagination pagination-sm mb-0">
+            {% if pagination.has_prev %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('catalogo.transportes_list', page=pagination.prev_num, q=search_query, tipo=tipo_filtro, sort=sort_by) }}">
+                  <i class="bi bi-chevron-left"></i>
+                </a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-left"></i></span></li>
+            {% endif %}
+
+            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+              {% if p %}
+                {% if p == pagination.page %}
+                  <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                {% else %}
+                  <li class="page-item"><a class="page-link" href="{{ url_for('catalogo.transportes_list', page=p, q=search_query, tipo=tipo_filtro, sort=sort_by) }}">{{ p }}</a></li>
+                {% endif %}
+              {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+              {% endif %}
+            {% endfor %}
+
+            {% if pagination.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('catalogo.transportes_list', page=pagination.next_num, q=search_query, tipo=tipo_filtro, sort=sort_by) }}">
+                  <i class="bi bi-chevron-right"></i>
+                </a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-right"></i></span></li>
+            {% endif %}
+          </ul>
+        </nav>
+      </div>
+    {% endif %}
+
+  {% else %}
+    <div class="card-floating text-center py-5">
+      <div class="mb-3 text-muted">
+        <i class="bi bi-bus-front-fill display-4" style="color: #CBD5E1;"></i>
+      </div>
+      <h2 class="h5 fw-bold mb-1" style="color: var(--color-text);">No se encontraron medios de transporte</h2>
+      <p class="text-muted small mb-3">Intenta cambiar los términos de búsqueda o los filtros seleccionados.</p>
+      <a href="{{ url_for('catalogo.transportes_list') }}" class="btn btn-outline-secondary btn-sm" style="border-radius: var(--radius-sm);">
+        <i class="bi bi-arrow-counterclockwise me-1"></i> Restablecer Filtros
+      </a>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

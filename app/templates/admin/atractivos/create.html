@@ -1,0 +1,467 @@
+{% extends "base.html" %}
+
+{% block title %}Crear Atractivo Turístico | Panel Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- Encabezado de Página -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small">
+          <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}" class="text-decoration-none">Dashboard Admin</a></li>
+          <li class="breadcrumb-item"><a href="{{ url_for('admin.atractivos') }}" class="text-decoration-none">Atractivos</a></li>
+          <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-muted);">Crear</li>
+        </ol>
+      </nav>
+      <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">Registrar Nuevo Atractivo Turístico</h1>
+      <p class="text-muted small mb-0">Completa la ficha técnica, tarifas, horarios y asignación de dependencias comerciales.</p>
+    </div>
+    <div>
+      <a href="{{ url_for('admin.atractivos') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+        <i class="bi bi-arrow-left me-1"></i> Cancelar y Volver
+      </a>
+    </div>
+  </div>
+
+  <!-- Formulario de Creación -->
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+      
+      <form method="POST" action="{{ url_for('admin.atractivo_crear') }}" class="card-floating p-4">
+        
+        <!-- Sección 1: Información General -->
+        <div class="mb-4">
+          <h2 class="h6 fw-bold text-uppercase text-muted border-bottom pb-2 mb-3" style="letter-spacing: 0.05em; font-size: 0.8rem;">
+            1. Información General del Atractivo
+          </h2>
+
+          <div class="row g-3">
+            
+            <div class="col-md-8">
+              <label for="nombre" class="form-label fw-semibold">Nombre del Atractivo <span class="text-danger">*</span></label>
+              <input 
+                type="text" 
+                class="form-control" 
+                id="nombre" 
+                name="nombre" 
+                placeholder="Ej. Salar de Uyuni, Templo de Kalasasaya..." 
+                value="{{ form_data.get('nombre', '') }}" 
+                required 
+                minlength="3" 
+                maxlength="100"
+              >
+              <div class="form-text">Mínimo 3 caracteres. Debe ser único en el sistema.</div>
+            </div>
+
+            <div class="col-md-4">
+              <label for="costo_entrada" class="form-label fw-semibold">Tarifa de Entrada (Bs.) <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text bg-white">Bs.</span>
+                <input 
+                  type="number" 
+                  step="0.01" 
+                  min="0" 
+                  class="form-control" 
+                  id="costo_entrada" 
+                  name="costo_entrada" 
+                  placeholder="0.00" 
+                  value="{{ form_data.get('costo_entrada', '0.00') }}" 
+                  required
+                >
+              </div>
+              <div class="form-text">Ingresa 0 para atractivos de acceso libre.</div>
+            </div>
+
+            <div class="col-12">
+              <label for="descripcion" class="form-label fw-semibold">Descripción Turística</label>
+              <textarea 
+                class="form-control" 
+                id="descripcion" 
+                name="descripcion" 
+                rows="3" 
+                maxlength="500" 
+                placeholder="Describe los aspectos más destacados, relevancia cultural, paisaje o recomendaciones para el visitante..."
+              >{{ form_data.get('descripcion', '') }}</textarea>
+              <div class="form-text">Máximo 500 caracteres.</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Sección 2: Dependencias (Categoría y Proveedor) con Modales Rápidos -->
+        <div class="mb-4">
+          <h2 class="h6 fw-bold text-uppercase text-muted border-bottom pb-2 mb-3" style="letter-spacing: 0.05em; font-size: 0.8rem;">
+            2. Categoría y Proveedor Comercial
+          </h2>
+
+          <div class="row g-3">
+            
+            <div class="col-md-6">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <label for="id_categoria" class="form-label fw-semibold mb-0">Categoría <span class="text-danger">*</span></label>
+                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" data-bs-toggle="modal" data-bs-target="#modalCrearCategoriaRapida">
+                  <i class="bi bi-plus-circle me-1"></i> Nueva Categoría
+                </button>
+              </div>
+              <select class="form-select" id="id_categoria" name="id_categoria" required>
+                <option value="" disabled {% if not form_data.get('id_categoria') %}selected{% endif %}>Selecciona una categoría...</option>
+                {% for cat in categorias %}
+                  <option value="{{ cat.id_categoria }}" {% if form_data.get('id_categoria')|string == cat.id_categoria|string %}selected{% endif %}>
+                    {{ cat.nombre }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-6">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <label for="id_proveedor" class="form-label fw-semibold mb-0">Proveedor / Operador <span class="text-danger">*</span></label>
+                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" data-bs-toggle="modal" data-bs-target="#modalCrearProveedorRapido">
+                  <i class="bi bi-plus-circle me-1"></i> Nuevo Proveedor
+                </button>
+              </div>
+              <select class="form-select" id="id_proveedor" name="id_proveedor" required>
+                <option value="" disabled {% if not form_data.get('id_proveedor') %}selected{% endif %}>Selecciona un proveedor...</option>
+                {% for prov in proveedores %}
+                  <option value="{{ prov.id_proveedor }}" {% if form_data.get('id_proveedor')|string == prov.id_proveedor|string %}selected{% endif %}>
+                    {{ prov.razon_social }} {% if prov.tipo %}({{ prov.tipo }}){% endif %}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Sección 3: Ubicación y Coordenadas Geográficas -->
+        <div class="mb-4">
+          <h2 class="h6 fw-bold text-uppercase text-muted border-bottom pb-2 mb-3" style="letter-spacing: 0.05em; font-size: 0.8rem;">
+            3. Localización y Coordenadas (Bolivia)
+          </h2>
+
+          <div class="row g-3">
+            
+            <div class="col-12">
+              <label for="direccion" class="form-label fw-semibold">Dirección o Referencia</label>
+              <input 
+                type="text" 
+                class="form-control" 
+                id="direccion" 
+                name="direccion" 
+                placeholder="Ej. Municipio de Copacabana, Av. Principal s/n..." 
+                value="{{ form_data.get('direccion', '') }}" 
+                maxlength="200"
+              >
+            </div>
+
+            <div class="col-md-6">
+              <label for="latitud" class="form-label fw-semibold">Latitud (Decimal)</label>
+              <input 
+                type="number" 
+                step="0.0000001" 
+                class="form-control font-monospace" 
+                id="latitud" 
+                name="latitud" 
+                placeholder="-16.5000000" 
+                value="{{ form_data.get('latitud', '') }}"
+              >
+              <div class="form-text">Rango Bolivia: entre -22.0 y -9.0</div>
+            </div>
+
+            <div class="col-md-6">
+              <label for="longitud" class="form-label fw-semibold">Longitud (Decimal)</label>
+              <input 
+                type="number" 
+                step="0.0000001" 
+                class="form-control font-monospace" 
+                id="longitud" 
+                name="longitud" 
+                placeholder="-68.1500000" 
+                value="{{ form_data.get('longitud', '') }}"
+              >
+              <div class="form-text">Rango Bolivia: entre -69.0 y -57.0</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Sección 4: Horarios y Parámetros Operativos -->
+        <div class="mb-4">
+          <h2 class="h6 fw-bold text-uppercase text-muted border-bottom pb-2 mb-3" style="letter-spacing: 0.05em; font-size: 0.8rem;">
+            4. Horarios y Operación de Visita
+          </h2>
+
+          <div class="row g-3">
+            
+            <div class="col-md-4">
+              <label for="horario_apertura" class="form-label fw-semibold">Horario de Apertura</label>
+              <input 
+                type="time" 
+                class="form-control" 
+                id="horario_apertura" 
+                name="horario_apertura" 
+                value="{{ form_data.get('horario_apertura', '') }}"
+              >
+            </div>
+
+            <div class="col-md-4">
+              <label for="horario_cierre" class="form-label fw-semibold">Horario de Cierre</label>
+              <input 
+                type="time" 
+                class="form-control" 
+                id="horario_cierre" 
+                name="horario_cierre" 
+                value="{{ form_data.get('horario_cierre', '') }}"
+              >
+            </div>
+
+            <div class="col-md-4">
+              <label for="tiempo_visita_estimado" class="form-label fw-semibold">Tiempo Estimado (Minutos)</label>
+              <input 
+                type="number" 
+                min="1" 
+                class="form-control" 
+                id="tiempo_visita_estimado" 
+                name="tiempo_visita_estimado" 
+                placeholder="Ej. 120" 
+                value="{{ form_data.get('tiempo_visita_estimado', '') }}"
+              >
+              <div class="form-text">Usado por el algoritmo NSGA-II.</div>
+            </div>
+
+            <div class="col-12">
+              <label for="dias_cerrado" class="form-label fw-semibold">Días Cerrado</label>
+              <input 
+                type="text" 
+                class="form-control" 
+                id="dias_cerrado" 
+                name="dias_cerrado" 
+                placeholder="Ej. Lunes, Feriados Nacionales..." 
+                value="{{ form_data.get('dias_cerrado', '') }}"
+              >
+              <div class="form-text">Dejar en blanco si atiende de lunes a domingo.</div>
+            </div>
+
+            <div class="col-12">
+              <label for="imagen_url" class="form-label fw-semibold">URL de Imagen (Opcional - Reservado para futuro)</label>
+              <input 
+                type="text" 
+                class="form-control" 
+                id="imagen_url" 
+                name="imagen_url" 
+                placeholder="https://ejemplo.com/imagen.jpg" 
+                value="{{ form_data.get('imagen_url', '') }}" 
+                maxlength="255"
+              >
+              <div class="form-text">Por ahora se mostrará el placeholder visual predeterminado.</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="pt-3 border-top d-flex justify-content-end gap-2">
+          <a href="{{ url_for('admin.atractivos') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+            Cancelar
+          </a>
+          <button type="submit" class="btn-emerald px-4">
+            <i class="bi bi-check2-circle me-1"></i> Guardar Atractivo Turístico
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal 1: Crear Categoría Rápida vía AJAX -->
+<div class="modal fade" id="modalCrearCategoriaRapida" tabindex="-1" aria-labelledby="modalCatLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header" style="background-color: var(--color-sidebar-bg); color: #FFF;">
+        <h5 class="modal-title h6 fw-bold" id="modalCatLabel">
+          <i class="bi bi-tag-fill me-1 text-info"></i> Nueva Categoría Rápida
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div id="catModalError" class="alert alert-danger py-2 px-3 small d-none mb-3"></div>
+        
+        <div class="mb-3">
+          <label for="cat_rapida_nombre" class="form-label fw-semibold">Nombre de Categoría <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="cat_rapida_nombre" placeholder="Ej. Termales, Vivencial..." required minlength="3" maxlength="50">
+        </div>
+
+        <div class="mb-2">
+          <label for="cat_rapida_descripcion" class="form-label fw-semibold">Descripción (Opcional)</label>
+          <textarea class="form-control" id="cat_rapida_descripcion" rows="2" maxlength="200" placeholder="Breve descripción..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn-emerald btn-sm" id="btnGuardarCategoriaRapida">
+          <i class="bi bi-check-lg me-1"></i> Crear y Seleccionar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 2: Crear Proveedor Rápido vía AJAX -->
+<div class="modal fade" id="modalCrearProveedorRapido" tabindex="-1" aria-labelledby="modalProvLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header" style="background-color: var(--color-sidebar-bg); color: #FFF;">
+        <h5 class="modal-title h6 fw-bold" id="modalProvLabel">
+          <i class="bi bi-briefcase-fill me-1 text-warning"></i> Nuevo Proveedor Rápido
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div id="provModalError" class="alert alert-danger py-2 px-3 small d-none mb-3"></div>
+        
+        <div class="mb-3">
+          <label for="prov_rapido_razon_social" class="form-label fw-semibold">Razón Social / Empresa <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="prov_rapido_razon_social" placeholder="Ej. Operadora Turística..." required minlength="3" maxlength="100">
+        </div>
+
+        <div class="row g-2 mb-2">
+          <div class="col-sm-6">
+            <label for="prov_rapido_tipo" class="form-label fw-semibold">Tipo de Servicio</label>
+            <input type="text" class="form-control" id="prov_rapido_tipo" placeholder="Ej. Guiado, Transporte, Museo">
+          </div>
+          <div class="col-sm-6">
+            <label for="prov_rapido_tarifa" class="form-label fw-semibold">Tarifa Especial (Bs.)</label>
+            <input type="number" step="0.01" min="0" class="form-control" id="prov_rapido_tarifa" placeholder="0.00">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn-emerald btn-sm" id="btnGuardarProveedorRapido">
+          <i class="bi bi-check-lg me-1"></i> Crear y Seleccionar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    
+    // Handler para Categoría Rápida
+    const btnGuardarCat = document.getElementById('btnGuardarCategoriaRapida');
+    if (btnGuardarCat) {
+      btnGuardarCat.addEventListener('click', async function() {
+        const nombreInput = document.getElementById('cat_rapida_nombre');
+        const descInput = document.getElementById('cat_rapida_descripcion');
+        const errDiv = document.getElementById('catModalError');
+        
+        errDiv.classList.add('d-none');
+        errDiv.textContent = '';
+
+        const nombre = nombreInput.value.trim();
+        const descripcion = descInput.value.trim();
+
+        if (nombre.length < 3) {
+          errDiv.textContent = 'El nombre debe tener al menos 3 caracteres.';
+          errDiv.classList.remove('d-none');
+          return;
+        }
+
+        try {
+          const res = await fetch("{{ url_for('admin.api_categoria_crear_rapida') }}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre: nombre, descripcion: descripcion })
+          });
+          const data = await res.json();
+
+          if (data.success) {
+            const selectCat = document.getElementById('id_categoria');
+            const newOption = new Option(data.categoria.nombre, data.categoria.id_categoria, true, true);
+            selectCat.add(newOption);
+            selectCat.value = data.categoria.id_categoria;
+
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalCrearCategoriaRapida'));
+            modal.hide();
+            nombreInput.value = '';
+            descInput.value = '';
+          } else {
+            errDiv.textContent = data.message || 'Error al crear la categoría.';
+            errDiv.classList.remove('d-none');
+          }
+        } catch (e) {
+          errDiv.textContent = 'Error de conexión con el servidor.';
+          errDiv.classList.remove('d-none');
+        }
+      });
+    }
+
+    // Handler para Proveedor Rápido
+    const btnGuardarProv = document.getElementById('btnGuardarProveedorRapido');
+    if (btnGuardarProv) {
+      btnGuardarProv.addEventListener('click', async function() {
+        const razonSocialInput = document.getElementById('prov_rapido_razon_social');
+        const tipoInput = document.getElementById('prov_rapido_tipo');
+        const tarifaInput = document.getElementById('prov_rapido_tarifa');
+        const errDiv = document.getElementById('provModalError');
+
+        errDiv.classList.add('d-none');
+        errDiv.textContent = '';
+
+        const razon_social = razonSocialInput.value.trim();
+        const tipo = tipoInput.value.trim();
+        const tarifa_especial = tarifaInput.value.trim();
+
+        if (razon_social.length < 3) {
+          errDiv.textContent = 'La razón social debe tener al menos 3 caracteres.';
+          errDiv.classList.remove('d-none');
+          return;
+        }
+
+        try {
+          const res = await fetch("{{ url_for('admin.api_proveedor_crear_rapida') }}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              razon_social: razon_social, 
+              tipo: tipo, 
+              tarifa_especial: tarifa_especial 
+            })
+          });
+          const data = await res.json();
+
+          if (data.success) {
+            const selectProv = document.getElementById('id_proveedor');
+            const labelText = data.proveedor.razon_social + (tipo ? ' (' + tipo + ')' : '');
+            const newOption = new Option(labelText, data.proveedor.id_proveedor, true, true);
+            selectProv.add(newOption);
+            selectProv.value = data.proveedor.id_proveedor;
+
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalCrearProveedorRapido'));
+            modal.hide();
+            razonSocialInput.value = '';
+            tipoInput.value = '';
+            tarifaInput.value = '';
+          } else {
+            errDiv.textContent = data.message || 'Error al crear el proveedor.';
+            errDiv.classList.remove('d-none');
+          }
+        } catch (e) {
+          errDiv.textContent = 'Error de conexión con el servidor.';
+          errDiv.classList.remove('d-none');
+        }
+      });
+    }
+
+  });
+</script>
+{% endblock %}

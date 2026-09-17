@@ -1,18 +1,35 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_login import login_required, current_user
 from app.utils.decorators import admin_required
-from app.services import usuario_service
+from app.services import (
+    usuario_service, atractivo_service, transporte_service,
+    categoria_service, proveedor_service
+)
 from app.models.rol import Rol
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
+# ==============================================================================
+# DASHBOARD
+# ==============================================================================
 @admin_bp.route('/dashboard')
 @login_required
 @admin_required
 def dashboard():
-    stats = usuario_service.get_total_estadisticas()
-    return render_template('dashboards/admin.html', user=current_user, stats=stats)
+    stats_usuarios = usuario_service.get_total_estadisticas()
+    stats_atractivos = atractivo_service.get_estadisticas_atractivos()
+    stats_transportes = transporte_service.get_estadisticas_transportes()
+    return render_template(
+        'dashboards/admin.html',
+        user=current_user,
+        stats=stats_usuarios,
+        stats_atractivos=stats_atractivos,
+        stats_transportes=stats_transportes
+    )
 
+# ==============================================================================
+# GESTIÓN DE USUARIOS
+# ==============================================================================
 @admin_bp.route('/usuarios')
 @login_required
 @admin_required
@@ -34,7 +51,6 @@ def usuarios():
     stats = usuario_service.get_total_estadisticas()
     roles = Rol.query.all()
 
-    # Recuperar de la sesión temporal password si se acaba de crear o resetear
     temp_password = session.pop('last_temp_password', None)
     temp_user_email = session.pop('last_temp_user_email', None)
 
@@ -72,7 +88,6 @@ def usuario_crear():
         if success:
             flash(f"Usuario {nuevo_usuario.nombre_completo} creado exitosamente.", 'success')
             if temp_pass:
-                # Almacenar en sesión temporalmente para mostrar modal en el listado
                 session['last_temp_password'] = temp_pass
                 session['last_temp_user_email'] = nuevo_usuario.email
             return redirect(url_for('admin.usuarios'))
@@ -141,3 +156,460 @@ def usuario_reset_password(id_usuario):
     else:
         flash(message, 'danger')
     return redirect(url_for('admin.usuarios'))
+
+
+# ==============================================================================
+# GESTIÓN DE ATRACTIVOS TURÍSTICOS
+# ==============================================================================
+@admin_bp.route('/atractivos')
+@login_required
+@admin_required
+def atractivos():
+    search_query = request.args.get('q', '').strip()
+    categoria_filtro = request.args.get('categoria', '').strip()
+    estado_filtro = request.args.get('estado', 'activos').strip()
+    sort_by = request.args.get('sort', 'id_asc').strip()
+    page = request.args.get('page', 1, type=int)
+
+    cat_id = int(categoria_filtro) if categoria_filtro.isdigit() else None
+
+    pagination = atractivo_service.listar_atractivos(
+        search_query=search_query,
+        categoria_id=cat_id,
+        estado=estado_filtro,
+        sort_by=sort_by,
+        page=page,
+        per_page=10
+    )
+    categorias = categoria_service.obtener_todas_activas()
+    stats = atractivo_service.get_estadisticas_atractivos()
+
+    return render_template(
+        'admin/atractivos/list.html',
+        pagination=pagination,
+        atractivos=pagination.items,
+        categorias=categorias,
+        stats=stats,
+        search_query=search_query,
+        categoria_filtro=categoria_filtro,
+        estado_filtro=estado_filtro,
+        sort_by=sort_by
+    )
+
+@admin_bp.route('/atractivos/crear', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def atractivo_crear():
+    categorias = categoria_service.obtener_todas_activas()
+    proveedores = proveedor_service.obtener_todos_activos()
+
+    if request.method == 'POST':
+        success, message, nuevo = atractivo_service.crear_atractivo(request.form)
+        if success:
+            flash(message, 'success')
+            return redirect(url_for('admin.atractivos'))
+        else:
+            flash(message, 'danger')
+            return render_template(
+                'admin/atractivos/create.html',
+                categorias=categorias,
+                proveedores=proveedores,
+                form_data=request.form
+            )
+
+    return render_template(
+        'admin/atractivos/create.html',
+        categorias=categorias,
+        proveedores=proveedores,
+        form_data={}
+    )
+
+@admin_bp.route('/atractivos/<int:id_atractivo>/editar', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def atractivo_editar(id_atractivo):
+    atractivo = atractivo_service.obtener_atractivo(id_atractivo, include_deleted=True)
+    if not atractivo:
+        flash('Atractivo turístico no encontrado.', 'danger')
+        return redirect(url_for('admin.atractivos'))
+
+    categorias = categoria_service.obtener_todas_activas()
+    proveedores = proveedor_service.obtener_todos_activos()
+
+    if request.method == 'POST':
+        success, message, _ = atractivo_service.actualizar_atractivo(id_atractivo, request.form, rol='admin')
+        if success:
+            flash(message, 'success')
+            return redirect(url_for('admin.atractivos'))
+        else:
+            flash(message, 'danger')
+            return render_template(
+                'admin/atractivos/edit.html',
+                atractivo=atractivo,
+                categorias=categorias,
+                proveedores=proveedores,
+                form_data=request.form
+            )
+
+    return render_template(
+        'admin/atractivos/edit.html',
+        atractivo=atractivo,
+        categorias=categorias,
+        proveedores=proveedores,
+        form_data={
+            'nombre': atractivo.nombre,
+            'descripcion': atractivo.descripcion,
+            'direccion': atractivo.direccion,
+            'latitud': str(atractivo.latitud) if atractivo.latitud is not None else '',
+            'longitud': str(atractivo.longitud) if atractivo.longitud is not None else '',
+            'horario_apertura': atractivo.horario_apertura.strftime('%H:%M') if atractivo.horario_apertura else '',
+            'horario_cierre': atractivo.horario_cierre.strftime('%H:%M') if atractivo.horario_cierre else '',
+            'costo_entrada': str(atractivo.costo_entrada) if atractivo.costo_entrada is not None else '0.00',
+            'tiempo_visita_estimado': str(atractivo.tiempo_visita_estimado) if atractivo.tiempo_visita_estimado else '',
+            'dias_cerrado': atractivo.dias_cerrado or '',
+            'id_categoria': atractivo.id_categoria,
+            'id_proveedor': atractivo.id_proveedor,
+            'imagen_url': atractivo.imagen_url or ''
+        }
+    )
+
+@admin_bp.route('/atractivos/<int:id_atractivo>')
+@login_required
+@admin_required
+def atractivo_detalle(id_atractivo):
+    atractivo = atractivo_service.obtener_atractivo(id_atractivo, include_deleted=True)
+    if not atractivo:
+        flash('Atractivo turístico no encontrado.', 'danger')
+        return redirect(url_for('admin.atractivos'))
+    return render_template('admin/atractivos/detail.html', atractivo=atractivo)
+
+@admin_bp.route('/atractivos/<int:id_atractivo>/eliminar', methods=['POST'])
+@login_required
+@admin_required
+def atractivo_eliminar(id_atractivo):
+    success, message = atractivo_service.eliminar_atractivo(id_atractivo)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('admin.atractivos'))
+
+@admin_bp.route('/atractivos/<int:id_atractivo>/restaurar', methods=['POST'])
+@login_required
+@admin_required
+def atractivo_restaurar(id_atractivo):
+    success, message = atractivo_service.restaurar_atractivo(id_atractivo)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('admin.atractivos', estado='activos'))
+
+
+# ==============================================================================
+# GESTIÓN DE CATEGORÍAS
+# ==============================================================================
+@admin_bp.route('/categorias')
+@login_required
+@admin_required
+def categorias():
+    search_query = request.args.get('q', '').strip()
+    estado_filtro = request.args.get('estado', 'activos').strip()
+    sort_by = request.args.get('sort', 'nombre_asc').strip()
+    page = request.args.get('page', 1, type=int)
+
+    pagination = categoria_service.listar_categorias(
+        search_query=search_query,
+        estado=estado_filtro,
+        sort_by=sort_by,
+        page=page,
+        per_page=10
+    )
+    stats = categoria_service.get_estadisticas_categorias()
+
+    return render_template(
+        'admin/categorias/list.html',
+        pagination=pagination,
+        categorias=pagination.items,
+        stats=stats,
+        search_query=search_query,
+        estado_filtro=estado_filtro,
+        sort_by=sort_by
+    )
+
+@admin_bp.route('/categorias/crear', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def categoria_crear():
+    if request.method == 'POST':
+        success, message, nueva = categoria_service.crear_categoria(request.form)
+        if success:
+            flash(message, 'success')
+            return redirect(url_for('admin.categorias'))
+        else:
+            flash(message, 'danger')
+            return render_template('admin/categorias/create.html', form_data=request.form)
+    return render_template('admin/categorias/create.html', form_data={})
+
+@admin_bp.route('/categorias/<int:id_categoria>/editar', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def categoria_editar(id_categoria):
+    cat = categoria_service.obtener_categoria(id_categoria)
+    if not cat:
+        flash('Categoría no encontrada.', 'danger')
+        return redirect(url_for('admin.categorias'))
+
+    if request.method == 'POST':
+        success, message, _ = categoria_service.actualizar_categoria(id_categoria, request.form)
+        if success:
+            flash(message, 'success')
+            return redirect(url_for('admin.categorias'))
+        else:
+            flash(message, 'danger')
+            return render_template('admin/categorias/edit.html', categoria=cat, form_data=request.form)
+
+    return render_template('admin/categorias/edit.html', categoria=cat, form_data={
+        'nombre': cat.nombre,
+        'descripcion': cat.descripcion or ''
+    })
+
+@admin_bp.route('/categorias/<int:id_categoria>/eliminar', methods=['POST'])
+@login_required
+@admin_required
+def categoria_eliminar(id_categoria):
+    success, message = categoria_service.eliminar_categoria(id_categoria)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('admin.categorias'))
+
+@admin_bp.route('/categorias/<int:id_categoria>/restaurar', methods=['POST'])
+@login_required
+@admin_required
+def categoria_restaurar(id_categoria):
+    success, message = categoria_service.restaurar_categoria(id_categoria)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('admin.categorias', estado='activos'))
+
+@admin_bp.route('/api/categorias/crear-rapida', methods=['POST'])
+@login_required
+@admin_required
+def api_categoria_crear_rapida():
+    """Endpoint AJAX para crear categoría rápidamente desde el modal de atractivo."""
+    data = request.get_json() if request.is_json else request.form
+    success, message, nueva_cat = categoria_service.crear_categoria(data)
+    if success:
+        return jsonify({
+            'success': True,
+            'message': message,
+            'categoria': {
+                'id_categoria': nueva_cat.id_categoria,
+                'nombre': nueva_cat.nombre
+            }
+        }), 201
+    return jsonify({'success': False, 'message': message}), 400
+
+
+# ==============================================================================
+# GESTIÓN DE PROVEEDORES
+# ==============================================================================
+@admin_bp.route('/proveedores')
+@login_required
+@admin_required
+def proveedores():
+    search_query = request.args.get('q', '').strip()
+    estado_filtro = request.args.get('estado', 'activos').strip()
+    sort_by = request.args.get('sort', 'razon_social_asc').strip()
+    page = request.args.get('page', 1, type=int)
+
+    pagination = proveedor_service.listar_proveedores(
+        search_query=search_query,
+        estado=estado_filtro,
+        sort_by=sort_by,
+        page=page,
+        per_page=10
+    )
+    stats = proveedor_service.get_estadisticas_proveedores()
+
+    return render_template(
+        'admin/proveedores/list.html',
+        pagination=pagination,
+        proveedores=pagination.items,
+        stats=stats,
+        search_query=search_query,
+        estado_filtro=estado_filtro,
+        sort_by=sort_by
+    )
+
+@admin_bp.route('/proveedores/crear', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def proveedor_crear():
+    if request.method == 'POST':
+        success, message, nuevo = proveedor_service.crear_proveedor(request.form)
+        if success:
+            flash(message, 'success')
+            return redirect(url_for('admin.proveedores'))
+        else:
+            flash(message, 'danger')
+            return render_template('admin/proveedores/create.html', form_data=request.form)
+    return render_template('admin/proveedores/create.html', form_data={})
+
+@admin_bp.route('/proveedores/<int:id_proveedor>/editar', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def proveedor_editar(id_proveedor):
+    prov = proveedor_service.obtener_proveedor(id_proveedor)
+    if not prov:
+        flash('Proveedor no encontrado.', 'danger')
+        return redirect(url_for('admin.proveedores'))
+
+    if request.method == 'POST':
+        success, message, _ = proveedor_service.actualizar_proveedor(id_proveedor, request.form)
+        if success:
+            flash(message, 'success')
+            return redirect(url_for('admin.proveedores'))
+        else:
+            flash(message, 'danger')
+            return render_template('admin/proveedores/edit.html', proveedor=prov, form_data=request.form)
+
+    return render_template('admin/proveedores/edit.html', proveedor=prov, form_data={
+        'razon_social': prov.razon_social,
+        'tipo': prov.tipo or '',
+        'contacto_nombre': prov.contacto_nombre or '',
+        'contacto_telefono': prov.contacto_telefono or '',
+        'contacto_email': prov.contacto_email or '',
+        'tarifa_especial': str(prov.tarifa_especial) if prov.tarifa_especial is not None else '',
+        'observaciones': prov.observaciones or ''
+    })
+
+@admin_bp.route('/proveedores/<int:id_proveedor>/eliminar', methods=['POST'])
+@login_required
+@admin_required
+def proveedor_eliminar(id_proveedor):
+    success, message = proveedor_service.eliminar_proveedor(id_proveedor)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('admin.proveedores'))
+
+@admin_bp.route('/proveedores/<int:id_proveedor>/restaurar', methods=['POST'])
+@login_required
+@admin_required
+def proveedor_restaurar(id_proveedor):
+    success, message = proveedor_service.restaurar_proveedor(id_proveedor)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('admin.proveedores', estado='activos'))
+
+@admin_bp.route('/api/proveedores/crear-rapida', methods=['POST'])
+@login_required
+@admin_required
+def api_proveedor_crear_rapida():
+    """Endpoint AJAX para crear proveedor rápidamente desde el modal de atractivo."""
+    data = request.get_json() if request.is_json else request.form
+    success, message, nuevo_prov = proveedor_service.crear_proveedor(data)
+    if success:
+        return jsonify({
+            'success': True,
+            'message': message,
+            'proveedor': {
+                'id_proveedor': nuevo_prov.id_proveedor,
+                'razon_social': nuevo_prov.razon_social
+            }
+        }), 201
+    return jsonify({'success': False, 'message': message}), 400
+
+
+# ==============================================================================
+# GESTIÓN DE MEDIOS DE TRANSPORTE
+# ==============================================================================
+@admin_bp.route('/transportes')
+@login_required
+@admin_required
+def transportes():
+    search_query = request.args.get('q', '').strip()
+    tipo_filtro = request.args.get('tipo', '').strip()
+    estado_filtro = request.args.get('estado', 'activos').strip()
+    sort_by = request.args.get('sort', 'id_asc').strip()
+    page = request.args.get('page', 1, type=int)
+
+    pagination = transporte_service.listar_transportes(
+        search_query=search_query,
+        tipo_filtro=tipo_filtro,
+        estado=estado_filtro,
+        sort_by=sort_by,
+        page=page,
+        per_page=10
+    )
+    stats = transporte_service.get_estadisticas_transportes()
+
+    return render_template(
+        'admin/transportes/list.html',
+        pagination=pagination,
+        transportes=pagination.items,
+        stats=stats,
+        search_query=search_query,
+        tipo_filtro=tipo_filtro,
+        estado_filtro=estado_filtro,
+        sort_by=sort_by
+    )
+
+@admin_bp.route('/transportes/crear', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def transporte_crear():
+    if request.method == 'POST':
+        success, message, nuevo = transporte_service.crear_transporte(request.form)
+        if success:
+            flash(message, 'success')
+            return redirect(url_for('admin.transportes'))
+        else:
+            flash(message, 'danger')
+            return render_template('admin/transportes/create.html', form_data=request.form)
+    return render_template('admin/transportes/create.html', form_data={})
+
+@admin_bp.route('/transportes/<int:id_transporte>/editar', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def transporte_editar(id_transporte):
+    transporte = transporte_service.obtener_transporte(id_transporte, include_deleted=True)
+    if not transporte:
+        flash('Transporte no encontrado.', 'danger')
+        return redirect(url_for('admin.transportes'))
+
+    if request.method == 'POST':
+        success, message, _ = transporte_service.actualizar_transporte(id_transporte, request.form, rol='admin')
+        if success:
+            flash(message, 'success')
+            return redirect(url_for('admin.transportes'))
+        else:
+            flash(message, 'danger')
+            return render_template('admin/transportes/edit.html', transporte=transporte, form_data=request.form)
+
+    return render_template('admin/transportes/edit.html', transporte=transporte, form_data={
+        'nombre': transporte.nombre,
+        'tipo': transporte.tipo,
+        'capacidad': str(transporte.capacidad) if transporte.capacidad else '',
+        'horario_inicio': transporte.horario_inicio.strftime('%H:%M') if transporte.horario_inicio else '',
+        'horario_fin': transporte.horario_fin.strftime('%H:%M') if transporte.horario_fin else '',
+        'costo_por_tramo': str(transporte.costo_por_tramo) if transporte.costo_por_tramo is not None else '0.00',
+        'tipo_costo': transporte.tipo_costo,
+        'tiempo_recorrido_base': str(transporte.tiempo_recorrido_base) if transporte.tiempo_recorrido_base else ''
+    })
+
+@admin_bp.route('/transportes/<int:id_transporte>')
+@login_required
+@admin_required
+def transporte_detalle(id_transporte):
+    transporte = transporte_service.obtener_transporte(id_transporte, include_deleted=True)
+    if not transporte:
+        flash('Transporte no encontrado.', 'danger')
+        return redirect(url_for('admin.transportes'))
+    return render_template('admin/transportes/detail.html', transporte=transporte)
+
+@admin_bp.route('/transportes/<int:id_transporte>/eliminar', methods=['POST'])
+@login_required
+@admin_required
+def transporte_eliminar(id_transporte):
+    success, message = transporte_service.eliminar_transporte(id_transporte)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('admin.transportes'))
+
+@admin_bp.route('/transportes/<int:id_transporte>/restaurar', methods=['POST'])
+@login_required
+@admin_required
+def transporte_restaurar(id_transporte):
+    success, message = transporte_service.restaurar_transporte(id_transporte)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('admin.transportes', estado='activos'))

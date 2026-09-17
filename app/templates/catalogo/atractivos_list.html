@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block title %}Catálogo de Atractivos Turísticos{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- Encabezado de Página -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small">
+          <li class="breadcrumb-item">
+            <a href="{% if current_user.rol.nombre == 'admin' %}{{ url_for('admin.dashboard') }}{% elif current_user.rol.nombre == 'agente' %}{{ url_for('agente.dashboard') }}{% else %}{{ url_for('turista.dashboard') }}{% endif %}" class="text-decoration-none">
+              Dashboard
+            </a>
+          </li>
+          <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-muted);">Atractivos</li>
+        </ol>
+      </nav>
+      <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">
+        {% if current_user.rol.nombre == 'turista' %}
+          Explora Sitios y Atractivos Turísticos 🌟
+        {% else %}
+          Catálogo General de Atractivos Turísticos
+        {% endif %}
+      </h1>
+      <p class="text-muted small mb-0">
+        {% if current_user.rol.nombre == 'turista' %}
+          Descubre los destinos más impresionantes para tu próximo viaje.
+        {% elif current_user.rol.nombre == 'agente' %}
+          Directorio operativo para el diseño y optimización de itinerarios turísticos con NSGA-II.
+        {% else %}
+          Vista integral del catálogo turístico con accesos directos de administración.
+        {% endif %}
+      </p>
+    </div>
+    
+    <div class="d-flex align-items-center gap-2">
+      {% if current_user.rol.nombre == 'admin' %}
+        <a href="{{ url_for('admin.atractivo_crear') }}" class="btn-emerald">
+          <i class="bi bi-plus-circle-fill me-1"></i> Nuevo Atractivo
+        </a>
+        <a href="{{ url_for('admin.atractivos') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);" title="Gestión administrativa">
+          <i class="bi bi-gear-fill me-1"></i> Panel de Gestión
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Barra de Búsqueda y Filtros -->
+  <div class="card-floating p-3 mb-4">
+    <form method="GET" action="{{ url_for('catalogo.atractivos_list') }}" class="row g-2 align-items-center">
+      
+      <!-- Buscador de texto -->
+      <div class="col-md-5">
+        <div class="input-group">
+          <span class="input-group-text bg-white border-end-0" style="border: 1.5px solid var(--color-border);"><i class="bi bi-search text-muted"></i></span>
+          <input 
+            type="text" 
+            class="form-control border-start-0" 
+            name="q" 
+            placeholder="Buscar por nombre, descripción o ubicación..." 
+            value="{{ search_query }}"
+            aria-label="Buscar atractivos"
+          >
+        </div>
+      </div>
+
+      <!-- Filtro por Categoría -->
+      <div class="col-sm-6 col-md-3">
+        <select class="form-select" name="categoria" aria-label="Filtrar por categoría">
+          <option value="" {% if not categoria_id %}selected{% endif %}>Todas las categorías</option>
+          {% for cat in categorias %}
+            <option value="{{ cat.id_categoria }}" {% if categoria_id == cat.id_categoria|string %}selected{% endif %}>
+              {{ cat.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Ordenamiento -->
+      <div class="col-sm-6 col-md-2">
+        <select class="form-select" name="sort" aria-label="Ordenar por">
+          <option value="nombre_asc" {% if sort_by == 'nombre_asc' %}selected{% endif %}>Nombre (A-Z)</option>
+          <option value="nombre_desc" {% if sort_by == 'nombre_desc' %}selected{% endif %}>Nombre (Z-A)</option>
+          <option value="costo_asc" {% if sort_by == 'costo_asc' %}selected{% endif %}>Menor precio</option>
+          <option value="costo_desc" {% if sort_by == 'costo_desc' %}selected{% endif %}>Mayor precio</option>
+          <option value="tiempo_asc" {% if sort_by == 'tiempo_asc' %}selected{% endif %}>Menor tiempo visita</option>
+        </select>
+      </div>
+
+      <!-- Botones de Acción -->
+      <div class="col-md-2 d-flex gap-2">
+        <button type="submit" class="btn-emerald flex-grow-1">
+          <i class="bi bi-funnel-fill"></i> Filtrar
+        </button>
+        {% if search_query or categoria_id or sort_by != 'nombre_asc' %}
+          <a href="{{ url_for('catalogo.atractivos_list') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);" title="Limpiar filtros">
+            <i class="bi bi-x-lg"></i>
+          </a>
+        {% endif %}
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Cuadrícula de Tarjetas de Atractivos -->
+  {% if atractivos %}
+    <div class="row g-4 mb-4">
+      {% for a in atractivos %}
+        <div class="col-12 col-md-6 col-lg-4">
+          <div class="attraction-card">
+            
+            <!-- Placeholder Visual de Imagen -->
+            <div class="attraction-image-placeholder">
+              <div class="placeholder-icon-wrap">
+                {% if 'Naturaleza' in a.categoria.nombre %}
+                  <i class="bi bi-tree-fill"></i>
+                {% elif 'Arqueológico' in a.categoria.nombre or 'Cultural' in a.categoria.nombre %}
+                  <i class="bi bi-bank2"></i>
+                {% elif 'Aventura' in a.categoria.nombre %}
+                  <i class="bi bi-compass-fill"></i>
+                {% elif 'Urbano' in a.categoria.nombre %}
+                  <i class="bi bi-building"></i>
+                {% else %}
+                  <i class="bi bi-geo-alt-fill"></i>
+                {% endif %}
+              </div>
+              <div class="placeholder-tag">
+                <span>{{ a.categoria.nombre }}</span>
+              </div>
+
+              <!-- Badge de Costo o Gratuito sobre la imagen -->
+              <div class="position-absolute top-0 end-0 p-3">
+                {% if a.costo_entrada and a.costo_entrada > 0 %}
+                  <span class="badge bg-dark bg-opacity-75 text-white px-2 py-1 rounded-pill shadow-sm" style="font-size: 0.8rem;">
+                    Bs. {{ "%.2f"|format(a.costo_entrada) }}
+                  </span>
+                {% else %}
+                  <span class="badge bg-success text-white px-2 py-1 rounded-pill shadow-sm" style="font-size: 0.78rem;">
+                    Acceso Libre
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Cuerpo de la Tarjeta -->
+            <div class="attraction-card-body">
+              <h2 class="h5 fw-bold mb-2" style="color: var(--color-text);">
+                <a href="{{ url_for('catalogo.atractivo_detail', id_atractivo=a.id_atractivo) }}" class="text-decoration-none text-dark">
+                  {{ a.nombre }}
+                </a>
+              </h2>
+
+              <p class="text-muted small mb-3 flex-grow-1" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5;">
+                {{ a.descripcion or 'Sin descripción detallada registrada para este atractivo.' }}
+              </p>
+
+              <!-- Atributos Operativos / Turísticos -->
+              <div class="d-flex flex-wrap gap-2 mb-3">
+                {% if a.tiempo_visita_estimado %}
+                  <span class="badge" style="background-color: #F1F5F9; color: #334155; border: 1px solid #E2E8F0; font-weight: 500;">
+                    <i class="bi bi-clock-history me-1 text-muted"></i> ~{{ a.tiempo_visita_estimado }} min
+                  </span>
+                {% endif %}
+
+                {% if a.horario_apertura and a.horario_cierre %}
+                  <span class="badge" style="background-color: #F1F5F9; color: #334155; border: 1px solid #E2E8F0; font-weight: 500;">
+                    <i class="bi bi-door-open me-1 text-muted"></i> {{ a.horario_apertura.strftime('%H:%M') }} - {{ a.horario_cierre.strftime('%H:%M') }}
+                  </span>
+                {% endif %}
+
+                {% if a.direccion %}
+                  <span class="badge" style="background-color: #F8FAFC; color: #64748B; border: 1px solid #E2E8F0; font-weight: 500;" title="{{ a.direccion }}">
+                    <i class="bi bi-geo-alt me-1 text-muted"></i> {{ a.direccion[:25] }}{% if a.direccion|length > 25 %}...{% endif %}
+                  </span>
+                {% endif %}
+              </div>
+
+              <!-- Pie de Tarjeta con Acciones según Rol -->
+              <div class="pt-3 border-top d-flex align-items-center justify-content-between mt-auto">
+                <a href="{{ url_for('catalogo.atractivo_detail', id_atractivo=a.id_atractivo) }}" class="btn btn-outline-primary btn-sm" style="border-radius: var(--radius-sm);">
+                  <i class="bi bi-eye-fill me-1"></i> Ver Detalle
+                </a>
+
+                {% if current_user.rol.nombre == 'admin' %}
+                  <a href="{{ url_for('admin.atractivo_editar', id_atractivo=a.id_atractivo) }}" class="btn btn-sm btn-outline-secondary" style="border-radius: var(--radius-sm);" title="Edición Administrador">
+                    <i class="bi bi-pencil-fill"></i> Editar
+                  </a>
+                {% elif current_user.rol.nombre == 'agente' %}
+                  <a href="{{ url_for('agente.atractivo_editar_parcial', id_atractivo=a.id_atractivo) }}" class="btn btn-sm btn-outline-secondary" style="border-radius: var(--radius-sm);" title="Edición Operativa">
+                    <i class="bi bi-pencil-square me-1"></i> Modificar
+                  </a>
+                {% endif %}
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <!-- Paginación -->
+    {% if pagination.pages > 1 %}
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="text-muted small">
+          Mostrando página {{ pagination.page }} de {{ pagination.pages }} ({{ pagination.total }} atractivos)
+        </div>
+        <nav aria-label="Navegación de páginas">
+          <ul class="pagination pagination-sm mb-0">
+            {% if pagination.has_prev %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('catalogo.atractivos_list', page=pagination.prev_num, q=search_query, categoria=categoria_id, sort=sort_by) }}">
+                  <i class="bi bi-chevron-left"></i>
+                </a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-left"></i></span></li>
+            {% endif %}
+
+            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+              {% if p %}
+                {% if p == pagination.page %}
+                  <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                {% else %}
+                  <li class="page-item"><a class="page-link" href="{{ url_for('catalogo.atractivos_list', page=p, q=search_query, categoria=categoria_id, sort=sort_by) }}">{{ p }}</a></li>
+                {% endif %}
+              {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+              {% endif %}
+            {% endfor %}
+
+            {% if pagination.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('catalogo.atractivos_list', page=pagination.next_num, q=search_query, categoria=categoria_id, sort=sort_by) }}">
+                  <i class="bi bi-chevron-right"></i>
+                </a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-right"></i></span></li>
+            {% endif %}
+          </ul>
+        </nav>
+      </div>
+    {% endif %}
+
+  {% else %}
+    <!-- Estado Vacío -->
+    <div class="card-floating text-center py-5">
+      <div class="mb-3 text-muted">
+        <i class="bi bi-geo-alt-fill display-4" style="color: #CBD5E1;"></i>
+      </div>
+      <h2 class="h5 fw-bold mb-1" style="color: var(--color-text);">No se encontraron atractivos turísticos</h2>
+      <p class="text-muted small mb-3">Intenta cambiar los términos de búsqueda o los filtros seleccionados.</p>
+      <a href="{{ url_for('catalogo.atractivos_list') }}" class="btn btn-outline-secondary btn-sm" style="border-radius: var(--radius-sm);">
+        <i class="bi bi-arrow-counterclockwise me-1"></i> Restablecer Filtros
+      </a>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

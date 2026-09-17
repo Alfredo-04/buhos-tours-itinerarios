@@ -12,9 +12,21 @@ class Transporte(db.Model):
     capacidad = db.Column(db.Integer)
     horario_inicio = db.Column(db.Time)
     horario_fin = db.Column(db.Time)
-    costo_por_tramo = db.Column(db.Numeric(10, 2))
+    costo_por_tramo = db.Column(db.Numeric(10, 2), default=0.0)
     tipo_costo = db.Column(db.String(20), nullable=False)  # 'por_persona' o 'por_vehiculo'
     tiempo_recorrido_base = db.Column(db.Integer)  # en minutos
 
+    # Soft delete
+    deleted_at = db.Column(db.DateTime, nullable=True, default=None)
+
     # Relación 1:N con ITINERARIO_DETALLE (USADO EN)
     detalles = db.relationship('ItinerarioDetalle', backref='transporte', lazy=True)
+
+    @property
+    def is_deleted(self):
+        """Indica si el transporte se encuentra eliminado lógicamente"""
+        return self.deleted_at is not None
+
+    def __repr__(self):
+        status = " (Eliminado)" if self.is_deleted else ""
+        return f"<Transporte #{self.id_transporte} {self.nombre} ({self.tipo}){status}>"

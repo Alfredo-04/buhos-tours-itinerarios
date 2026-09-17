@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Transportes | Panel Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- Encabezado de Página -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small">
+          <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}" class="text-decoration-none">Dashboard Admin</a></li>
+          <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-muted);">Transportes</li>
+        </ol>
+      </nav>
+      <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">Gestión de Medios de Transporte</h1>
+      <p class="text-muted small mb-0">Control de vehículos, tarifas por tramo, horarios y parámetros de tiempo base.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <a href="{{ url_for('admin.transporte_crear') }}" class="btn-emerald">
+        <i class="bi bi-plus-circle-fill me-1"></i> Nuevo Transporte
+      </a>
+      <a href="{{ url_for('catalogo.transportes_list') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+        <i class="bi bi-eye-fill me-1"></i> Ver Catálogo
+      </a>
+    </div>
+  </div>
+
+  <!-- Métricas Rápidas -->
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="module-icon-box module-icon-blue" style="width: 42px; height: 42px;">
+            <i class="bi bi-bus-front-fill"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Total Transportes</div>
+            <div class="h5 fw-bold mb-0" style="color: var(--color-text);">{{ stats.total }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-lg-3">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="module-icon-box module-icon-emerald" style="width: 42px; height: 42px;">
+            <i class="bi bi-check-circle-fill"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Activos</div>
+            <div class="h5 fw-bold mb-0" style="color: var(--color-text);">{{ stats.activos }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-lg-3">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="module-icon-box module-icon-amber" style="width: 42px; height: 42px; background-color: #FEE2E2; color: #DC2626;">
+            <i class="bi bi-trash-fill"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Desactivados (Soft Delete)</div>
+            <div class="h5 fw-bold mb-0" style="color: #DC2626;">{{ stats.eliminados }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-lg-3">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="module-icon-box module-icon-green" style="width: 42px; height: 42px;">
+            <i class="bi bi-car-front-fill"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Privados / Públicos</div>
+            <div class="h5 fw-bold mb-0" style="color: var(--color-text);">{{ stats.privados }} / {{ stats.publicos }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra de Filtros y Búsqueda -->
+  <div class="card-floating p-3 mb-4">
+    <form method="GET" action="{{ url_for('admin.transportes') }}" class="row g-2 align-items-center">
+      
+      <div class="col-md-4">
+        <div class="input-group">
+          <span class="input-group-text bg-white border-end-0" style="border: 1.5px solid var(--color-border);"><i class="bi bi-search text-muted"></i></span>
+          <input 
+            type="text" 
+            class="form-control border-start-0" 
+            name="q" 
+            placeholder="Buscar por nombre o tipo..." 
+            value="{{ search_query }}"
+            aria-label="Buscar transportes"
+          >
+        </div>
+      </div>
+
+      <div class="col-sm-4 col-md-2">
+        <select class="form-select" name="tipo" aria-label="Filtrar por tipo">
+          <option value="" {% if not tipo_filtro %}selected{% endif %}>Todos los tipos</option>
+          <option value="Privado" {% if tipo_filtro == 'Privado' %}selected{% endif %}>Privado</option>
+          <option value="Público" {% if tipo_filtro == 'Público' %}selected{% endif %}>Público</option>
+        </select>
+      </div>
+
+      <div class="col-sm-4 col-md-2">
+        <select class="form-select" name="estado" aria-label="Filtrar por estado">
+          <option value="activos" {% if estado_filtro == 'activos' %}selected{% endif %}>Solo Activos</option>
+          <option value="eliminados" {% if estado_filtro == 'eliminados' %}selected{% endif %}>Desactivados</option>
+          <option value="todos" {% if estado_filtro == 'todos' %}selected{% endif %}>Todos</option>
+        </select>
+      </div>
+
+      <div class="col-sm-4 col-md-2">
+        <select class="form-select" name="sort" aria-label="Ordenar por">
+          <option value="id_asc" {% if sort_by == 'id_asc' %}selected{% endif %}>ID (1 - 9)</option>
+          <option value="id_desc" {% if sort_by == 'id_desc' %}selected{% endif %}>ID (9 - 1)</option>
+          <option value="nombre_asc" {% if sort_by == 'nombre_asc' %}selected{% endif %}>Nombre (A-Z)</option>
+          <option value="costo_desc" {% if sort_by == 'costo_desc' %}selected{% endif %}>Mayor costo</option>
+          <option value="costo_asc" {% if sort_by == 'costo_asc' %}selected{% endif %}>Menor costo</option>
+        </select>
+      </div>
+
+      <div class="col-md-2 d-flex gap-2">
+        <button type="submit" class="btn-emerald flex-grow-1">
+          <i class="bi bi-funnel-fill"></i> Filtrar
+        </button>
+        {% if search_query or tipo_filtro or estado_filtro != 'activos' or sort_by != 'id_asc' %}
+          <a href="{{ url_for('admin.transportes') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);" title="Limpiar filtros">
+            <i class="bi bi-x-lg"></i>
+          </a>
+        {% endif %}
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Tabla de Transportes -->
+  <div class="card-floating p-0 overflow-hidden mb-4">
+    <div class="py-3 px-4 d-flex justify-content-between align-items-center border-bottom" style="background-color: #FFFFFF;">
+      <div class="fw-bold" style="color: var(--color-text);">
+        <i class="bi bi-list-ul me-1" style="color: var(--color-primary-green);"></i> 
+        Listado de Transportes 
+        <span class="badge bg-light text-muted border ms-2">{{ pagination.total }} registros</span>
+      </div>
+      <div>
+        <span class="text-muted small">Página {{ pagination.page }} de {{ pagination.pages or 1 }}</span>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead style="background-color: #F8FAFC;">
+          <tr style="border-bottom: 1px solid var(--color-border);">
+            <th scope="col" class="ps-4 text-muted small text-uppercase fw-semibold" style="width: 70px;">ID</th>
+            <th scope="col" class="text-muted small text-uppercase fw-semibold">Nombre & Tipo</th>
+            <th scope="col" class="text-muted small text-uppercase fw-semibold">Capacidad & Horario</th>
+            <th scope="col" class="text-muted small text-uppercase fw-semibold">Costo por Tramo</th>
+            <th scope="col" class="text-muted small text-uppercase fw-semibold">Tiempo Base</th>
+            <th scope="col" class="text-muted small text-uppercase fw-semibold">Estado</th>
+            <th scope="col" class="text-end pe-4 text-muted small text-uppercase fw-semibold" style="width: 170px;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if transportes %}
+            {% for t in transportes %}
+              <tr style="border-bottom: 1px solid var(--color-border-subtle); {% if t.is_deleted %}background-color: #FFF8F8; opacity: 0.85;{% endif %}">
+                <td class="ps-4 fw-bold text-muted">#{{ t.id_transporte }}</td>
+                <td>
+                  <div class="fw-bold text-dark">
+                    <a href="{{ url_for('admin.transporte_detalle', id_transporte=t.id_transporte) }}" class="text-decoration-none text-dark">
+                      {{ t.nombre }}
+                    </a>
+                  </div>
+                  <span class="badge {% if t.tipo == 'Privado' %}badge-amber{% else %}badge-ai{% endif %} py-1 px-2" style="font-size: 0.72rem;">
+                    {{ t.tipo }}
+                  </span>
+                </td>
+                <td>
+                  <div class="small fw-semibold text-dark"><i class="bi bi-people me-1 text-muted"></i>{{ t.capacidad or 'S/D' }} pasajeros</div>
+                  <div class="small text-muted">
+                    <i class="bi bi-clock me-1"></i>
+                    {% if t.horario_inicio and t.horario_fin %}
+                      {{ t.horario_inicio.strftime('%H:%M') }} - {{ t.horario_fin.strftime('%H:%M') }}
+                    {% else %}
+                      Flexible
+                    {% endif %}
+                  </div>
+                </td>
+                <td>
+                  <span class="fw-bold text-success">Bs. {{ "%.2f"|format(t.costo_por_tramo or 0) }}</span>
+                  <div class="small text-muted">({{ t.tipo_costo|replace('_', ' ') }})</div>
+                </td>
+                <td>
+                  <span class="badge bg-light text-dark border">{{ t.tiempo_recorrido_base or 'S/D' }} min</span>
+                </td>
+                <td>
+                  {% if t.is_deleted %}
+                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.75rem;" title="Desactivado el {{ t.deleted_at.strftime('%d/%m/%Y %H:%M') }}">
+                      <i class="bi bi-trash-fill me-1"></i> Desactivado
+                    </span>
+                  {% else %}
+                    <span class="module-badge badge-emerald py-1 px-2" style="font-size: 0.75rem;">
+                      <i class="bi bi-check-circle-fill me-1"></i> Activo
+                    </span>
+                  {% endif %}
+                </td>
+                <td class="text-end pe-4">
+                  <div class="d-inline-flex gap-1">
+                    <a href="{{ url_for('admin.transporte_detalle', id_transporte=t.id_transporte) }}" class="btn btn-sm btn-outline-secondary" title="Ver detalle">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                    
+                    {% if not t.is_deleted %}
+                      <a href="{{ url_for('admin.transporte_editar', id_transporte=t.id_transporte) }}" class="btn btn-sm btn-outline-primary" title="Editar">
+                        <i class="bi bi-pencil"></i>
+                      </a>
+                      <form method="POST" action="{{ url_for('admin.transporte_eliminar', id_transporte=t.id_transporte) }}" class="d-inline" onsubmit="return confirm('¿Estás seguro de que deseas desactivar el transporte {{ t.nombre }}?');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Desactivar">
+                          <i class="bi bi-trash"></i>
+                        </button>
+                      </form>
+                    {% else %}
+                      <form method="POST" action="{{ url_for('admin.transporte_restaurar', id_transporte=t.id_transporte) }}" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-success" title="Restaurar transporte">
+                          <i class="bi bi-arrow-counterclockwise"></i> Restaurar
+                        </button>
+                      </form>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="7" class="text-center py-5 text-muted">
+                No se encontraron medios de transporte con los filtros seleccionados.
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginación -->
+    {% if pagination.pages > 1 %}
+      <div class="py-3 px-4 border-top d-flex justify-content-between align-items-center" style="background-color: #FAFAFA;">
+        <span class="text-muted small">Página {{ pagination.page }} de {{ pagination.pages }}</span>
+        <nav aria-label="Navegación de páginas">
+          <ul class="pagination pagination-sm mb-0">
+            {% if pagination.has_prev %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('admin.transportes', page=pagination.prev_num, q=search_query, tipo=tipo_filtro, estado=estado_filtro, sort=sort_by) }}">
+                  <i class="bi bi-chevron-left"></i>
+                </a>
+              </li>
+            {% endif %}
+            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+              {% if p %}
+                {% if p == pagination.page %}
+                  <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                {% else %}
+                  <li class="page-item"><a class="page-link" href="{{ url_for('admin.transportes', page=p, q=search_query, tipo=tipo_filtro, estado=estado_filtro, sort=sort_by) }}">{{ p }}</a></li>
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+            {% if pagination.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('admin.transportes', page=pagination.next_num, q=search_query, tipo=tipo_filtro, estado=estado_filtro, sort=sort_by) }}">
+                  <i class="bi bi-chevron-right"></i>
+                </a>
+              </li>
+            {% endif %}
+          </ul>
+        </nav>
+      </div>
+    {% endif %}
+
+  </div>
+
+</div>
+{% endblock %}

@@ -15,5 +15,17 @@ class Proveedor(db.Model):
     tarifa_especial = db.Column(db.Numeric(10, 2))
     observaciones = db.Column(db.Text)
 
+    # Soft delete
+    deleted_at = db.Column(db.DateTime, nullable=True, default=None)
+
     # Relación 1:N con ATRACTIVO (OFRECE)
     atractivos = db.relationship('Atractivo', backref='proveedor', lazy=True)
+
+    @property
+    def is_deleted(self):
+        """Indica si el proveedor se encuentra eliminado lógicamente"""
+        return self.deleted_at is not None
+
+    def __repr__(self):
+        status = " (Eliminado)" if self.is_deleted else ""
+        return f"<Proveedor #{self.id_proveedor} {self.razon_social}{status}>"

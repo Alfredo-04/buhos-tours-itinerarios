@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Atractivos Turísticos | Panel Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- Encabezado de Página -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small">
+          <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}" class="text-decoration-none">Dashboard Admin</a></li>
+          <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-muted);">Atractivos</li>
+        </ol>
+      </nav>
+      <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">Gestión de Atractivos Turísticos</h1>
+      <p class="text-muted small mb-0">Mantenimiento de puntos de interés, tarifas comerciales, dependencias y bajas lógicas.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <a href="{{ url_for('admin.atractivo_crear') }}" class="btn-emerald">
+        <i class="bi bi-plus-circle-fill me-1"></i> Nuevo Atractivo
+      </a>
+      <a href="{{ url_for('catalogo.atractivos_list') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);" title="Ver catálogo público">
+        <i class="bi bi-eye-fill me-1"></i> Ver Catálogo
+      </a>
+    </div>
+  </div>
+
+  <!-- Métricas Rápidas -->
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="module-icon-box module-icon-emerald" style="width: 42px; height: 42px;">
+            <i class="bi bi-geo-alt-fill"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Total Atractivos</div>
+            <div class="h5 fw-bold mb-0" style="color: var(--color-text);">{{ stats.total }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-lg-3">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="module-icon-box module-icon-green" style="width: 42px; height: 42px;">
+            <i class="bi bi-check-circle-fill"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Activos</div>
+            <div class="h5 fw-bold mb-0" style="color: var(--color-text);">{{ stats.activos }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-lg-3">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="module-icon-box module-icon-amber" style="width: 42px; height: 42px; background-color: #FEE2E2; color: #DC2626;">
+            <i class="bi bi-trash-fill"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Desactivados (Soft Delete)</div>
+            <div class="h5 fw-bold mb-0" style="color: #DC2626;">{{ stats.eliminados }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-lg-3">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="module-icon-box module-icon-blue" style="width: 42px; height: 42px;">
+            <i class="bi bi-tags-fill"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Categorías / Proveedores</div>
+            <div class="h5 fw-bold mb-0" style="color: var(--color-text);">{{ stats.categorias_activas }} / {{ stats.proveedores_activos }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra de Filtros y Búsqueda -->
+  <div class="card-floating p-3 mb-4">
+    <form method="GET" action="{{ url_for('admin.atractivos') }}" class="row g-2 align-items-center">
+      
+      <!-- Buscador de texto -->
+      <div class="col-md-4">
+        <div class="input-group">
+          <span class="input-group-text bg-white border-end-0" style="border: 1.5px solid var(--color-border);"><i class="bi bi-search text-muted"></i></span>
+          <input 
+            type="text" 
+            class="form-control border-start-0" 
+            name="q" 
+            placeholder="Buscar por nombre o descripción..." 
+            value="{{ search_query }}"
+            aria-label="Buscar atractivos"
+          >
+        </div>
+      </div>
+
+      <!-- Filtro por Categoría -->
+      <div class="col-sm-4 col-md-2">
+        <select class="form-select" name="categoria" aria-label="Filtrar por categoría">
+          <option value="" {% if not categoria_filtro %}selected{% endif %}>Todas las categorías</option>
+          {% for cat in categorias %}
+            <option value="{{ cat.id_categoria }}" {% if categoria_filtro == cat.id_categoria|string %}selected{% endif %}>
+              {{ cat.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Filtro por Estado (Soft delete) -->
+      <div class="col-sm-4 col-md-2">
+        <select class="form-select" name="estado" aria-label="Filtrar por estado">
+          <option value="activos" {% if estado_filtro == 'activos' %}selected{% endif %}>Solo Activos</option>
+          <option value="eliminados" {% if estado_filtro == 'eliminados' %}selected{% endif %}>Desactivados</option>
+          <option value="todos" {% if estado_filtro == 'todos' %}selected{% endif %}>Todos los registros</option>
+        </select>
+      </div>
+
+      <!-- Ordenamiento -->
+      <div class="col-sm-4 col-md-2">
+        <select class="form-select" name="sort" aria-label="Ordenar por">
+          <option value="id_asc" {% if sort_by == 'id_asc' %}selected{% endif %}>ID (1 - 9)</option>
+          <option value="id_desc" {% if sort_by == 'id_desc' %}selected{% endif %}>ID (9 - 1)</option>
+          <option value="nombre_asc" {% if sort_by == 'nombre_asc' %}selected{% endif %}>Nombre (A-Z)</option>
+          <option value="costo_desc" {% if sort_by == 'costo_desc' %}selected{% endif %}>Mayor precio</option>
+          <option value="costo_asc" {% if sort_by == 'costo_asc' %}selected{% endif %}>Menor precio</option>
+        </select>
+      </div>
+
+      <!-- Botones de Acción -->
+      <div class="col-md-2 d-flex gap-2">
+        <button type="submit" class="btn-emerald flex-grow-1" title="Aplicar filtros">
+          <i class="bi bi-funnel-fill"></i> Filtrar
+        </button>
+        {% if search_query or categoria_filtro or estado_filtro != 'activos' or sort_by != 'id_asc' %}
+          <a href="{{ url_for('admin.atractivos') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);" title="Limpiar filtros">
+            <i class="bi bi-x-lg"></i>
+          </a>
+        {% endif %}
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Tabla de Atractivos -->
+  <div class="card-floating p-0 overflow-hidden mb-4">
+    <div class="py-3 px-4 d-flex justify-content-between align-items-center border-bottom" style="background-color: #FFFFFF;">
+      <div class="fw-bold" style="color: var(--color-text);">
+        <i class="bi bi-list-ul me-1" style="color: var(--color-primary-green);"></i> 
+        Listado de Atractivos Turísticos 
+        <span class="badge bg-light text-muted border ms-2">{{ pagination.total }} registros</span>
+      </div>
+      <div>
+        <span class="text-muted small">Página {{ pagination.page }} de {{ pagination.pages or 1 }}</span>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead style="background-color: #F8FAFC;">
+          <tr style="border-bottom: 1px solid var(--color-border);">
+            <th scope="col" class="ps-4 text-muted small text-uppercase fw-semibold" style="width: 70px;">ID</th>
+            <th scope="col" class="text-muted small text-uppercase fw-semibold">Atractivo & Categoría</th>
+            <th scope="col" class="text-muted small text-uppercase fw-semibold">Horarios & Visita</th>
+            <th scope="col" class="text-muted small text-uppercase fw-semibold">Tarifa Entrada</th>
+            <th scope="col" class="text-muted small text-uppercase fw-semibold">Proveedor</th>
+            <th scope="col" class="text-muted small text-uppercase fw-semibold">Estado</th>
+            <th scope="col" class="text-end pe-4 text-muted small text-uppercase fw-semibold" style="width: 170px;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if atractivos %}
+            {% for a in atractivos %}
+              <tr style="border-bottom: 1px solid var(--color-border-subtle); {% if a.is_deleted %}background-color: #FFF8F8; opacity: 0.85;{% endif %}">
+                <td class="ps-4 fw-bold text-muted">#{{ a.id_atractivo }}</td>
+                <td>
+                  <div>
+                    <div class="fw-bold" style="color: var(--color-text);">
+                      <a href="{{ url_for('admin.atractivo_detalle', id_atractivo=a.id_atractivo) }}" class="text-decoration-none text-dark">
+                        {{ a.nombre }}
+                      </a>
+                    </div>
+                    <span class="badge bg-light text-muted border" style="font-size: 0.72rem;">
+                      {{ a.categoria.nombre }}
+                    </span>
+                  </div>
+                </td>
+                <td>
+                  <div class="small text-dark">
+                    <i class="bi bi-clock me-1 text-muted"></i>
+                    {% if a.horario_apertura and a.horario_cierre %}
+                      {{ a.horario_apertura.strftime('%H:%M') }} - {{ a.horario_cierre.strftime('%H:%M') }}
+                    {% else %}
+                      Flexible
+                    {% endif %}
+                  </div>
+                  {% if a.tiempo_visita_estimado %}
+                    <div class="small text-muted">~{{ a.tiempo_visita_estimado }} min estimado</div>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if a.costo_entrada and a.costo_entrada > 0 %}
+                    <span class="fw-bold text-success">Bs. {{ "%.2f"|format(a.costo_entrada) }}</span>
+                  {% else %}
+                    <span class="badge bg-success-subtle text-success border border-success-subtle">Gratuito</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="small fw-semibold text-muted">{{ a.proveedor.razon_social }}</span>
+                </td>
+                <td>
+                  {% if a.is_deleted %}
+                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.75rem;" title="Desactivado el {{ a.deleted_at.strftime('%d/%m/%Y %H:%M') }}">
+                      <i class="bi bi-trash-fill me-1"></i> Desactivado
+                    </span>
+                  {% else %}
+                    <span class="module-badge badge-emerald py-1 px-2" style="font-size: 0.75rem;">
+                      <i class="bi bi-check-circle-fill me-1"></i> Activo
+                    </span>
+                  {% endif %}
+                </td>
+                <td class="text-end pe-4">
+                  <div class="d-inline-flex gap-1">
+                    <a href="{{ url_for('admin.atractivo_detalle', id_atractivo=a.id_atractivo) }}" class="btn btn-sm btn-outline-secondary" title="Ver detalle">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                    
+                    {% if not a.is_deleted %}
+                      <a href="{{ url_for('admin.atractivo_editar', id_atractivo=a.id_atractivo) }}" class="btn btn-sm btn-outline-primary" title="Editar">
+                        <i class="bi bi-pencil"></i>
+                      </a>
+                      <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ a.id_atractivo }}" title="Desactivar">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    {% else %}
+                      <form method="POST" action="{{ url_for('admin.atractivo_restaurar', id_atractivo=a.id_atractivo) }}" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-success" title="Restaurar atractivo">
+                          <i class="bi bi-arrow-counterclockwise"></i> Restaurar
+                        </button>
+                      </form>
+                    {% endif %}
+                  </div>
+
+                  <!-- Modal de Confirmación Soft Delete -->
+                  {% if not a.is_deleted %}
+                    <div class="modal fade text-start" id="deleteModal{{ a.id_atractivo }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ a.id_atractivo }}" aria-hidden="true">
+                      <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content border-0 shadow">
+                          <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title h6 fw-bold" id="deleteModalLabel{{ a.id_atractivo }}">
+                              <i class="bi bi-exclamation-triangle-fill me-1"></i> Confirmar Desactivación
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                          </div>
+                          <div class="modal-body p-4">
+                            <p class="mb-2">¿Estás seguro de que deseas desactivar el atractivo <strong>{{ a.nombre }}</strong>?</p>
+                            <div class="alert alert-info py-2 px-3 small mb-0">
+                              <i class="bi bi-info-circle-fill me-1"></i> Esta acción es reversible (Soft Delete). Podrás restaurarlo en cualquier momento.
+                            </div>
+                          </div>
+                          <div class="modal-footer bg-light">
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                            <form method="POST" action="{{ url_for('admin.atractivo_eliminar', id_atractivo=a.id_atractivo) }}">
+                              <button type="submit" class="btn btn-danger btn-sm">
+                                <i class="bi bi-trash me-1"></i> Sí, Desactivar
+                              </button>
+                            </form>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  {% endif %}
+
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="7" class="text-center py-5 text-muted">
+                <i class="bi bi-geo-alt display-6 d-block mb-2 text-muted opacity-50"></i>
+                No se encontraron atractivos turísticos con los filtros seleccionados.
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginación -->
+    {% if pagination.pages > 1 %}
+      <div class="py-3 px-4 border-top d-flex justify-content-between align-items-center" style="background-color: #FAFAFA;">
+        <span class="text-muted small">Página {{ pagination.page }} de {{ pagination.pages }}</span>
+        <nav aria-label="Navegación de páginas">
+          <ul class="pagination pagination-sm mb-0">
+            {% if pagination.has_prev %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('admin.atractivos', page=pagination.prev_num, q=search_query, categoria=categoria_filtro, estado=estado_filtro, sort=sort_by) }}">
+                  <i class="bi bi-chevron-left"></i>
+                </a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-left"></i></span></li>
+            {% endif %}
+
+            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+              {% if p %}
+                {% if p == pagination.page %}
+                  <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                {% else %}
+                  <li class="page-item"><a class="page-link" href="{{ url_for('admin.atractivos', page=p, q=search_query, categoria=categoria_filtro, estado=estado_filtro, sort=sort_by) }}">{{ p }}</a></li>
+                {% endif %}
+              {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+              {% endif %}
+            {% endfor %}
+
+            {% if pagination.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('admin.atractivos', page=pagination.next_num, q=search_query, categoria=categoria_filtro, estado=estado_filtro, sort=sort_by) }}">
+                  <i class="bi bi-chevron-right"></i>
+                </a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-right"></i></span></li>
+            {% endif %}
+          </ul>
+        </nav>
+      </div>
+    {% endif %}
+
+  </div>
+
+</div>
+{% endblock %}

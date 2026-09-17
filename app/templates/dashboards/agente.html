@@ -86,51 +86,32 @@
       </div>
     </div>
 
-    <!-- Módulo 4: Catálogo Atractivos -->
+    <!-- Módulo 4: Catálogo Atractivos & Transportes -->
     <div class="col-12 col-sm-6 col-xl-3">
-      <div class="module-card">
+      <div class="module-card h-100 d-flex flex-column">
         <div class="module-card-header">
           <div class="module-icon-box module-icon-emerald">
             <i class="bi bi-geo-alt-fill"></i>
           </div>
-          <h2 class="module-title">Atractivos</h2>
+          <h2 class="module-title">Catálogo de Atractivos</h2>
         </div>
-        <p class="module-desc">
+        <p class="module-desc flex-grow-1">
           Consulta de tiempos de visita, costos de entrada y mapas de los sitios turísticos.
         </p>
-        <div>
-          <span class="module-badge badge-emerald">
-            <i class="bi bi-pin-map-fill"></i> Catálogo
-          </span>
+        <div class="d-flex gap-2">
+          <a href="{{ url_for('catalogo.atractivos_list') }}" class="btn btn-outline-success btn-sm flex-grow-1">
+            <i class="bi bi-pin-map-fill me-1"></i> Atractivos
+          </a>
+          <a href="{{ url_for('catalogo.transportes_list') }}" class="btn btn-outline-secondary btn-sm" title="Ver transportes">
+            <i class="bi bi-bus-front"></i>
+          </a>
         </div>
       </div>
     </div>
 
   </div>
 
-  <!-- Resumen de Cuenta del Agente -->
-  <div class="card-floating">
-    <div class="row align-items-center">
-      <div class="col-md-8">
-        <div class="d-flex align-items-center gap-3">
-          <div class="user-avatar" style="width: 48px; height: 48px; font-size: 1.1rem; background: #16A085;">
-            {{ user.nombres[:1]|upper }}{{ user.apellidos[:1]|upper }}
-          </div>
-          <div>
-            <h2 class="h6 fw-bold mb-1" style="color: var(--color-text);">{{ user.nombre_completo }}</h2>
-            <p class="text-muted small mb-0">
-              ID #{{ user.id_usuario }} &bull; Correo: {{ user.email }} &bull; Agente Autorizado &bull; Registrado: {{ user.fecha_registro.strftime('%d/%m/%Y') }}
-            </p>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4 text-md-end mt-3 mt-md-0">
-        <a href="{{ url_for('agente.perfil') }}" class="btn btn-outline-secondary btn-sm">
-          <i class="bi bi-person-circle me-1"></i> Ver Mi Perfil & Seguridad
-        </a>
-      </div>
-    </div>
-  </div>
+  
 
 </div>
 {% endblock %}

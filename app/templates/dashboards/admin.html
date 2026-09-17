@@ -113,17 +113,17 @@
     
     <!-- Módulo 1: Motor NSGA-II -->
     <div class="col-12 col-md-4">
-      <div class="module-card">
+      <div class="module-card h-100 d-flex flex-column">
         <div class="module-card-header">
           <div class="module-icon-box module-icon-green">
             <i class="bi bi-cpu-fill"></i>
           </div>
           <h2 class="module-title">Motor Algorítmico NSGA-II</h2>
         </div>
-        <p class="module-desc">
+        <p class="module-desc flex-grow-1">
           Configuración de parámetros genéticos, funciones objetivo de tiempo/costo y pesos de satisfacción.
         </p>
-        <div class="d-flex justify-content-between align-items-center">
+        <div class="d-flex justify-content-between align-items-center pt-2">
           <span class="module-badge badge-ai">
             <i class="bi bi-check-circle"></i> pymoo 0.6.1.1
           </span>
@@ -133,69 +133,53 @@
 
     <!-- Módulo 2: Atractivos Turísticos -->
     <div class="col-12 col-md-4">
-      <div class="module-card">
+      <div class="module-card h-100 d-flex flex-column">
         <div class="module-card-header">
           <div class="module-icon-box module-icon-emerald">
             <i class="bi bi-geo-alt-fill"></i>
           </div>
-          <h2 class="module-title">Catálogo de Atractivos</h2>
+          <h2 class="module-title">Gestión de Atractivos</h2>
         </div>
-        <p class="module-desc">
+        <p class="module-desc flex-grow-1">
           Mantenimiento de puntos de interés, coordenadas GPS, tarifas y horarios de visita.
         </p>
-        <div>
-          <span class="module-badge badge-emerald">
-            <i class="bi bi-database-check"></i> Base de Datos
-          </span>
+        <div class="d-flex justify-content-between align-items-center pt-2">
+          <a href="{{ url_for('admin.atractivos') }}" class="btn btn-sm btn-outline-success">
+            <i class="bi bi-gear-fill me-1"></i> Gestionar Atractivos
+          </a>
+          <a href="{{ url_for('admin.atractivo_crear') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-plus"></i>
+          </a>
         </div>
       </div>
     </div>
 
     <!-- Módulo 3: Transporte & Proveedores -->
     <div class="col-12 col-md-4">
-      <div class="module-card">
+      <div class="module-card h-100 d-flex flex-column">
         <div class="module-card-header">
           <div class="module-icon-box module-icon-blue">
             <i class="bi bi-bus-front-fill"></i>
           </div>
           <h2 class="module-title">Transporte y Proveedores</h2>
         </div>
-        <p class="module-desc">
+        <p class="module-desc flex-grow-1">
           Tarifarios por distancia/tiempo, contratos con empresas de transporte y servicios asociados.
         </p>
-        <div>
-          <span class="module-badge" style="background-color: #E0F2FE; color: #0284C7; border: 1px solid #BAE6FD;">
-            <i class="bi bi-currency-dollar"></i> Tarifas
-          </span>
+        <div class="d-flex gap-2 pt-2">
+          <a href="{{ url_for('admin.transportes') }}" class="btn btn-sm btn-outline-primary flex-grow-1">
+            <i class="bi bi-bus-front me-1"></i> Transportes
+          </a>
+          <a href="{{ url_for('admin.proveedores') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-briefcase"></i>
+          </a>
         </div>
       </div>
     </div>
 
   </div>
 
-  <!-- Resumen de Cuenta del Administrador -->
-  <div class="card-floating">
-    <div class="row align-items-center">
-      <div class="col-md-8">
-        <div class="d-flex align-items-center gap-3">
-          <div class="user-avatar" style="width: 48px; height: 48px; font-size: 1.1rem; background: #151C28;">
-            {{ user.nombres[:1]|upper }}{{ user.apellidos[:1]|upper }}
-          </div>
-          <div>
-            <h2 class="h6 fw-bold mb-1" style="color: var(--color-text);">{{ user.nombre_completo }}</h2>
-            <p class="text-muted small mb-0">
-              ID #{{ user.id_usuario }} &bull; Correo: {{ user.email }} &bull; Rol: <strong class="text-capitalize">{{ user.rol.nombre }}</strong> &bull; Registrado: {{ user.fecha_registro.strftime('%d/%m/%Y') }}
-            </p>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4 text-md-end mt-3 mt-md-0">
-        <span class="module-badge badge-emerald">
-          <i class="bi bi-check-circle-fill"></i> Administrador Activo
-        </span>
-      </div>
-    </div>
-  </div>
+  
 
 </div>
 {% endblock %}

@@ -44,12 +44,14 @@ def create_app(config_class=Config):
     from app.controllers.agente_controller import agente_bp
     from app.controllers.turista_controller import turista_bp
     from app.controllers.usuario_controller import usuario_bp
+    from app.controllers.catalogo_controller import catalogo_bp
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(agente_bp)
     app.register_blueprint(turista_bp)
     app.register_blueprint(usuario_bp)
+    app.register_blueprint(catalogo_bp)
 
     # Middleware de seguridad global
     @app.before_request
@@ -92,5 +94,13 @@ def create_app(config_class=Config):
         from app.seeds.user_seeder import seed_usuarios
         seed_usuarios()
         click.echo("Seeder de usuarios ejecutado con éxito.")
+
+    # Comando CLI para ejecutar Seeder de Catálogo
+    @app.cli.command("seed-catalogo")
+    def seed_catalogo_command():
+        """Ejecuta el seeder para poblar categorías, proveedores, transportes y atractivos iniciales."""
+        from app.seeds.catalogo_seeder import seed_catalogo
+        seed_catalogo()
+        click.echo("Seeder de catálogo ejecutado con éxito.")
 
     return app

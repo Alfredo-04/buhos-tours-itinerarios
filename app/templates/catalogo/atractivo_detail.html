@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block title %}{{ atractivo.nombre }} | Detalle de Atractivo{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- Encabezado y Breadcrumbs -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small">
+          <li class="breadcrumb-item">
+            <a href="{% if current_user.rol.nombre == 'admin' %}{{ url_for('admin.dashboard') }}{% elif current_user.rol.nombre == 'agente' %}{{ url_for('agente.dashboard') }}{% else %}{{ url_for('turista.dashboard') }}{% endif %}" class="text-decoration-none">
+              Dashboard
+            </a>
+          </li>
+          <li class="breadcrumb-item">
+            <a href="{{ url_for('catalogo.atractivos_list') }}" class="text-decoration-none">Atractivos</a>
+          </li>
+          <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-muted);">{{ atractivo.nombre }}</li>
+        </ol>
+      </nav>
+      <div class="d-flex align-items-center gap-2">
+        <h1 class="h3 fw-bold mb-0" style="color: var(--color-text);">{{ atractivo.nombre }}</h1>
+        {% if atractivo.is_deleted %}
+          <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.75rem;">
+            <i class="bi bi-trash-fill me-1"></i> Desactivado
+          </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Botones de Acción según Rol -->
+    <div class="d-flex align-items-center gap-2">
+      <a href="{{ url_for('catalogo.atractivos_list') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+        <i class="bi bi-arrow-left me-1"></i> Volver al Catálogo
+      </a>
+
+      {% if current_user.rol.nombre == 'admin' %}
+        <a href="{{ url_for('admin.atractivo_editar', id_atractivo=atractivo.id_atractivo) }}" class="btn-emerald">
+          <i class="bi bi-pencil-square me-1"></i> Editar Completo
+        </a>
+      {% elif current_user.rol.nombre == 'agente' %}
+        <a href="{{ url_for('agente.atractivo_editar_parcial', id_atractivo=atractivo.id_atractivo) }}" class="btn-emerald">
+          <i class="bi bi-pencil-square me-1"></i> Modificar Datos Operativos
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="row g-4 mb-4">
+    
+    <!-- Columna Principal: Imagen Placeholder y Descripción -->
+    <div class="col-lg-8">
+      
+      <!-- Placeholder Visual Destacado de Imagen -->
+      <div class="attraction-image-placeholder attraction-image-placeholder-lg mb-4">
+        <div class="placeholder-icon-wrap" style="width: 84px; height: 84px; font-size: 2.4rem;">
+          {% if 'Naturaleza' in atractivo.categoria.nombre %}
+            <i class="bi bi-tree-fill"></i>
+          {% elif 'Arqueológico' in atractivo.categoria.nombre or 'Cultural' in atractivo.categoria.nombre %}
+            <i class="bi bi-bank2"></i>
+          {% elif 'Aventura' in atractivo.categoria.nombre %}
+            <i class="bi bi-compass-fill"></i>
+          {% elif 'Urbano' in atractivo.categoria.nombre %}
+            <i class="bi bi-building"></i>
+          {% else %}
+            <i class="bi bi-geo-alt-fill"></i>
+          {% endif %}
+        </div>
+        <div class="placeholder-tag text-center px-3">
+          <span class="fs-6 text-white fw-bold d-block">{{ atractivo.nombre }}</span>
+          <span class="text-white-50 small">{{ atractivo.categoria.nombre }}</span>
+        </div>
+
+        <div class="position-absolute top-0 end-0 p-3">
+          {% if atractivo.costo_entrada and atractivo.costo_entrada > 0 %}
+            <span class="badge bg-dark bg-opacity-75 text-white px-3 py-2 rounded-pill shadow" style="font-size: 0.9rem;">
+              Bs. {{ "%.2f"|format(atractivo.costo_entrada) }}
+            </span>
+          {% else %}
+            <span class="badge bg-success text-white px-3 py-2 rounded-pill shadow" style="font-size: 0.85rem;">
+              Entrada Libre
+            </span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Tarjeta de Descripción y Reseña -->
+      <div class="card-floating mb-4">
+        <h2 class="h5 fw-bold mb-3" style="color: var(--color-text);">
+          <i class="bi bi-info-circle-fill me-1" style="color: var(--color-primary-green);"></i>
+          Acerca de este Atractivo
+        </h2>
+        <p class="text-muted" style="line-height: 1.7; font-size: 0.98rem;">
+          {{ atractivo.descripcion or 'No se cuenta con una descripción detallada para este destino.' }}
+        </p>
+
+        <!-- Botón de Mapa Interactivo (Deshabilitado / Próximamente) -->
+        <div class="mt-4 pt-3 border-top d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3">
+          <div>
+            <span class="fw-semibold text-dark d-block mb-1">
+              <i class="bi bi-map-fill me-1 text-primary"></i> Localización Geográfica
+            </span>
+            <span class="text-muted small">
+              {{ atractivo.direccion or 'Dirección no especificada' }}
+            </span>
+          </div>
+          <div>
+            <button type="button" class="btn btn-map-disabled px-3 py-2 rounded-pill d-inline-flex align-items-center gap-2" disabled title="Módulo de mapas interactivos en desarrollo">
+              <i class="bi bi-geo-alt-fill text-muted"></i>
+              <span>Ver ubicación en mapa</span>
+              <span class="badge bg-secondary-subtle text-secondary rounded-pill" style="font-size: 0.68rem;">Próximamente</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Columna Lateral: Ficha Técnica y Datos Turísticos -->
+    <div class="col-lg-4">
+      
+      <!-- Ficha Rápida -->
+      <div class="card-floating mb-4">
+        <h2 class="h6 fw-bold mb-3 text-uppercase text-muted" style="letter-spacing: 0.05em; font-size: 0.78rem;">
+          Información Clave
+        </h2>
+
+        <div class="d-flex flex-column gap-3">
+          
+          <!-- Categoría -->
+          <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+            <span class="text-muted small"><i class="bi bi-tags me-1"></i> Categoría</span>
+            <span class="fw-semibold text-dark">{{ atractivo.categoria.nombre }}</span>
+          </div>
+
+          <!-- Tiempo Estimado -->
+          <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+            <span class="text-muted small"><i class="bi bi-clock-history me-1"></i> Tiempo de Visita</span>
+            <span class="fw-semibold text-dark">
+              {% if atractivo.tiempo_visita_estimado %}
+                {{ atractivo.tiempo_visita_estimado }} min (~{{ (atractivo.tiempo_visita_estimado / 60)|round(1) }} hrs)
+              {% else %}
+                No especificado
+              {% endif %}
+            </span>
+          </div>
+
+          <!-- Horario de Apertura y Cierre -->
+          <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+            <span class="text-muted small"><i class="bi bi-door-open me-1"></i> Horario de Atención</span>
+            <span class="fw-semibold text-dark">
+              {% if atractivo.horario_apertura and atractivo.horario_cierre %}
+                {{ atractivo.horario_apertura.strftime('%H:%M') }} - {{ atractivo.horario_cierre.strftime('%H:%M') }}
+              {% else %}
+                Abierto 24h / Flexible
+              {% endif %}
+            </span>
+          </div>
+
+          <!-- Días Cerrado -->
+          <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+            <span class="text-muted small"><i class="bi bi-calendar-x me-1"></i> Días Cerrado</span>
+            <span class="fw-semibold text-dark">
+              {{ atractivo.dias_cerrado or 'Abierto todos los días' }}
+            </span>
+          </div>
+
+          <!-- Costo Entrada -->
+          <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+            <span class="text-muted small"><i class="bi bi-cash-coin me-1"></i> Tarifa de Ingreso</span>
+            <span class="fw-bold text-success">
+              {% if atractivo.costo_entrada and atractivo.costo_entrada > 0 %}
+                Bs. {{ "%.2f"|format(atractivo.costo_entrada) }}
+              {% else %}
+                Gratuito
+              {% endif %}
+            </span>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Sección de Datos Internos (Solo visible para Agentes y Administradores) -->
+      {% if current_user.rol.nombre in ['admin', 'agente'] %}
+        <div class="card-floating" style="background-color: #F8FAFC; border: 1px solid #E2E8F0;">
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="badge" style="background-color: #EEF2F6; color: #1E293B; border: 1px solid #CBD5E1;">
+              <i class="bi bi-shield-lock-fill me-1"></i> Datos Internos y Técnicos
+            </span>
+          </div>
+
+          <div class="d-flex flex-column gap-2 small">
+            
+            <div class="d-flex justify-content-between">
+              <span class="text-muted">ID Atractivo:</span>
+              <span class="fw-bold">#{{ atractivo.id_atractivo }}</span>
+            </div>
+
+            <div class="d-flex justify-content-between">
+              <span class="text-muted">Proveedor / Operador:</span>
+              <span class="fw-semibold">{{ atractivo.proveedor.razon_social }}</span>
+            </div>
+
+            {% if current_user.rol.nombre == 'admin' and atractivo.proveedor.tarifa_especial %}
+              <div class="d-flex justify-content-between">
+                <span class="text-muted">Tarifa Especial Prov:</span>
+                <span class="fw-bold text-primary">Bs. {{ "%.2f"|format(atractivo.proveedor.tarifa_especial) }}</span>
+              </div>
+            {% endif %}
+
+            <div class="d-flex justify-content-between">
+              <span class="text-muted">Coordenadas GPS:</span>
+              <span class="font-monospace">
+                {{ atractivo.latitud or 'S/D' }}, {{ atractivo.longitud or 'S/D' }}
+              </span>
+            </div>
+
+          </div>
+
+          {% if current_user.rol.nombre == 'agente' %}
+            <div class="mt-3 pt-2 border-top">
+              <a href="{{ url_for('agente.atractivo_editar_parcial', id_atractivo=atractivo.id_atractivo) }}" class="btn btn-outline-secondary btn-sm w-100">
+                <i class="bi bi-pencil-square me-1"></i> Actualizar Horarios y Datos Operativos
+              </a>
+            </div>
+          {% endif %}
+
+        </div>
+      {% endif %}
+
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

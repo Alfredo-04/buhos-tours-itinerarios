@@ -715,4 +715,144 @@ h1, h2, h3, h4, h5, h6 {
     display: block;
   }
 }
+/* ==========================================================================
+   Componentes de Atractivos Turísticos y Medios de Transporte
+   ========================================================================== */
 
+/* Placeholder Visual de Imagen para Atractivos */
+.attraction-image-placeholder {
+  width: 100%;
+  height: 210px;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: linear-gradient(135deg, #1E293B 0%, #0F172A 50%, #1E3A8A 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.attraction-image-placeholder::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 16px 16px;
+  pointer-events: none;
+}
+
+.attraction-image-placeholder-lg {
+  height: 320px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+}
+
+.placeholder-icon-wrap {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #38BDF8;
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+  z-index: 2;
+  transition: var(--transition);
+}
+
+.attraction-card:hover .placeholder-icon-wrap {
+  transform: scale(1.08);
+  color: #2ECC71;
+  border-color: rgba(46, 204, 113, 0.4);
+}
+
+.placeholder-tag {
+  z-index: 2;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94A3B8;
+  font-weight: 600;
+}
+
+/* Tarjeta de Atractivo en Catálogo */
+.attraction-card {
+  background-color: var(--color-card-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  transition: var(--transition);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.attraction-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover);
+  border-color: #CBD5E1;
+}
+
+.attraction-card-body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+/* Campos Bloqueados en Edición de Agente */
+.field-locked-card {
+  background-color: #F8FAFC;
+  border: 1.5px dashed #CBD5E1;
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.field-locked-label {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.15rem;
+}
+
+.field-locked-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.badge-locked-admin {
+  background-color: #EEF2F6;
+  color: #475569;
+  border: 1px solid #CBD5E1;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-pill);
+}
+
+/* Botón de Mapa Deshabilitado (Próximamente) */
+.btn-map-disabled {
+  background-color: #F1F5F9;
+  color: #64748B;
+  border: 1px dashed #CBD5E1;
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+.btn-map-disabled:hover {
+  background-color: #F1F5F9;
+  color: #64748B;
+  border-color: #CBD5E1;
+}

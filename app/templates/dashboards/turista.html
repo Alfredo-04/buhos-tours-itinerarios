@@ -9,7 +9,7 @@
   <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
     <div>
       <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">¡Hola, {{ user.nombres }}! ✈️</h1>
-      <p class="text-muted small mb-0">Bienvenido a tu panel de viajes. Planifica tu itinerario perfecto en Cusco.</p>
+      <p class="text-muted small mb-0">Bienvenido a tu panel de viajes. Planifica tu itinerario.</p>
     </div>
     <div class="d-flex align-items-center gap-2">
       <span class="badge" style="background-color: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; padding: 0.5rem 0.85rem; font-size: 0.82rem;">
@@ -50,7 +50,7 @@
     <div class="row align-items-center">
       <div class="col-lg-8">
         <span class="badge bg-success mb-2 px-3 py-1 text-white">
-          <i class="bi bi-cpu me-1"></i> Optimización con IA
+          <i class="bi bi-cpu me-1"></i> Optimización
         </span>
         <h2 class="h4 fw-bold text-white mb-2">Crea tu Itinerario Personalizado</h2>
         <p class="text-white-50 small mb-0">
@@ -68,95 +68,74 @@
   <!-- Tarjetas Rápidas de Turista -->
   <div class="row g-3 mb-4">
     
+    <!-- Módulo 1: Explorar Atractivos -->
     <div class="col-md-4">
-      <div class="module-card">
+      <div class="module-card h-100 d-flex flex-column">
         <div class="module-card-header">
           <div class="module-icon-box module-icon-emerald">
-            <i class="bi bi-journal-text"></i>
+            <i class="bi bi-geo-alt-fill"></i>
           </div>
-          <h2 class="module-title">Mis Itinerarios</h2>
+          <h2 class="module-title">Explorar Atractivos</h2>
         </div>
-        <p class="module-desc">
-          Visualiza los planes guardados, descarga tus vouchers de viaje y revisa el cronograma día a día.
+        <p class="module-desc flex-grow-1">
+          Descubre los mejores destinos, sitios históricos, paisajes naturales y costos de entrada.
         </p>
         <div>
-          <button class="btn btn-outline-secondary btn-sm w-100">
-            <i class="bi bi-eye me-1"></i> Ver Mis Planes
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-md-4">
-      <div class="module-card">
-        <div class="module-card-header">
-          <div class="module-icon-box module-icon-blue">
-            <i class="bi bi-person-vcard"></i>
-          </div>
-          <h2 class="module-title">Mi Perfil y Preferencias</h2>
-        </div>
-        <p class="module-desc">
-          Actualiza tus datos de contacto, nacionalidad y tipo de atractivos favoritos (cultural, aventura, naturaleza).
-        </p>
-        <div>
-          <a href="{{ url_for('turista.perfil') }}" class="btn btn-outline-secondary btn-sm w-100">
-            <i class="bi bi-pencil-square me-1"></i> Gestionar Perfil
+          <a href="{{ url_for('catalogo.atractivos_list') }}" class="btn btn-outline-success btn-sm w-100">
+            <i class="bi bi-compass me-1"></i> Ver Catálogo de Lugares
           </a>
         </div>
       </div>
     </div>
 
+    <!-- Módulo 2: Medios de Transporte -->
     <div class="col-md-4">
-      <div class="module-card">
+      <div class="module-card h-100 d-flex flex-column">
+        <div class="module-card-header">
+          <div class="module-icon-box module-icon-blue">
+            <i class="bi bi-bus-front-fill"></i>
+          </div>
+          <h2 class="module-title">Medios de Transporte</h2>
+        </div>
+        <p class="module-desc flex-grow-1">
+          Opciones de movilidad seguras y confortables para tus traslados en cada tramo del viaje.
+        </p>
+        <div>
+          <a href="{{ url_for('catalogo.transportes_list') }}" class="btn btn-outline-primary btn-sm w-100">
+            <i class="bi bi-car-front me-1"></i> Ver Transportes
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Módulo 3: Seguridad (2FA) / Perfil -->
+    <div class="col-md-4">
+      <div class="module-card h-100 d-flex flex-column">
         <div class="module-card-header">
           <div class="module-icon-box module-icon-green">
             <i class="bi bi-shield-lock-fill"></i>
           </div>
-          <h2 class="module-title">Seguridad (2FA)</h2>
+          <h2 class="module-title">Mi Perfil & 2FA</h2>
         </div>
-        <p class="module-desc">
+        <p class="module-desc flex-grow-1">
           {% if user.two_factor_enabled %}
             Tu cuenta está protegida con verificación en dos pasos (TOTP).
           {% else %}
-            Activa la autenticación en dos pasos (2FA) para proteger tu cuenta contra accesos no autorizados.
+            Activa la autenticación en dos pasos (2FA) para proteger tu cuenta y datos personales.
           {% endif %}
         </p>
         <div>
-          <a href="{{ url_for('turista.perfil') }}" class="btn {% if user.two_factor_enabled %}btn-outline-success{% else %}btn-outline-primary{% endif %} btn-sm w-100">
+          <a href="{{ url_for('turista.perfil') }}" class="btn {% if user.two_factor_enabled %}btn-outline-success{% else %}btn-outline-warning text-dark{% endif %} btn-sm w-100">
             {% if user.two_factor_enabled %}
-              <i class="bi bi-shield-check me-1"></i> 2FA Configurado
+              <i class="bi bi-shield-check me-1"></i> 2FA Activo / Gestionar
             {% else %}
-              <i class="bi bi-shield-plus me-1"></i> Activar 2FA Opcional
+              <i class="bi bi-shield-plus me-1"></i> Configurar 2FA
             {% endif %}
           </a>
         </div>
       </div>
     </div>
 
-  </div>
-
-  <!-- Resumen de Cuenta del Turista -->
-  <div class="card-floating">
-    <div class="row align-items-center">
-      <div class="col-md-8">
-        <div class="d-flex align-items-center gap-3">
-          <div class="user-avatar" style="width: 48px; height: 48px; font-size: 1.1rem; background: #2563EB;">
-            {{ user.nombres[:1]|upper }}{{ user.apellidos[:1]|upper }}
-          </div>
-          <div>
-            <h2 class="h6 fw-bold mb-1" style="color: var(--color-text);">{{ user.nombre_completo }}</h2>
-            <p class="text-muted small mb-0">
-              Correo: {{ user.email }} &bull; Turista Registrado &bull; Miembro desde {{ user.fecha_registro.strftime('%d/%m/%Y') }}
-            </p>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4 text-md-end mt-3 mt-md-0">
-        <a href="{{ url_for('turista.perfil') }}" class="btn btn-outline-secondary btn-sm">
-          <i class="bi bi-gear-fill me-1"></i> Configuración de Cuenta
-        </a>
-      </div>
-    </div>
   </div>
 
 </div>
