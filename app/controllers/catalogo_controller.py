@@ -60,6 +60,78 @@ def atractivo_detail(id_atractivo):
         user=current_user
     )
 
+@catalogo_bp.route('/atractivos/mapa')
+@login_required
+def atractivos_mapa():
+    """
+    Vista geográfica interactiva con Leaflet de todos los atractivos turísticos activos.
+    Accesible para todos los roles autenticados.
+    """
+    from app.models.atractivo import Atractivo
+    import json
+
+    atractivos_query = Atractivo.query.filter(
+        Atractivo.deleted_at.is_(None),
+        Atractivo.latitud.isnot(None),
+        Atractivo.longitud.isnot(None)
+    ).all()
+
+    atractivos_data = []
+    for a in atractivos_query:
+        atractivos_data.append({
+            'id_atractivo': a.id_atractivo,
+            'nombre': a.nombre,
+            'latitud': float(a.latitud),
+            'longitud': float(a.longitud),
+            'categoria': a.categoria.nombre if a.categoria else 'General',
+            'costo_entrada': float(a.costo_entrada) if a.costo_entrada is not None else 0.0,
+            'direccion': a.direccion or '',
+            'imagen_url': a.imagen_url or ''
+        })
+
+    return render_template(
+        'catalogo/atractivos_mapa.html',
+        atractivos=atractivos_query,
+        atractivos_json=json.dumps(atractivos_data),
+        user=current_user
+    )
+
+@catalogo_bp.route('/atractivos/<int:id_atractivo>/mapa')
+@login_required
+def atractivo_mapa(id_atractivo):
+    """
+    Vista geográfica interactiva con Leaflet enfocada en un solo atractivo turístico.
+    Accesible para todos los roles autenticados.
+    """
+    import json
+
+    atractivo = atractivo_service.obtener_atractivo(id_atractivo, include_deleted=(current_user.rol.nombre == 'admin'))
+    if not atractivo:
+        flash('El atractivo turístico solicitado no existe o no se encuentra disponible.', 'warning')
+        return redirect(url_for('catalogo.atractivos_list'))
+
+    if not atractivo.latitud or not atractivo.longitud:
+        flash(f"El atractivo '{atractivo.nombre}' no tiene coordenadas geográficas registradas para visualizar en el mapa.", 'info')
+        return redirect(url_for('catalogo.atractivo_detail', id_atractivo=id_atractivo))
+
+    atractivo_data = {
+        'id_atractivo': atractivo.id_atractivo,
+        'nombre': atractivo.nombre,
+        'latitud': float(atractivo.latitud),
+        'longitud': float(atractivo.longitud),
+        'categoria': atractivo.categoria.nombre if atractivo.categoria else 'General',
+        'costo_entrada': float(atractivo.costo_entrada) if atractivo.costo_entrada is not None else 0.0,
+        'direccion': atractivo.direccion or '',
+        'imagen_url': atractivo.imagen_url or ''
+    }
+
+    return render_template(
+        'catalogo/atractivo_mapa.html',
+        atractivo=atractivo,
+        atractivo_json=json.dumps(atractivo_data),
+        user=current_user
+    )
+
 @catalogo_bp.route('/transportes')
 @login_required
 def transportes_list():

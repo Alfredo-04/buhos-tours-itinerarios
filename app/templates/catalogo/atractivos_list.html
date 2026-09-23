@@ -37,6 +37,9 @@
     </div>
     
     <div class="d-flex align-items-center gap-2">
+      <a href="{{ url_for('catalogo.atractivos_mapa') }}" class="btn btn-outline-primary" style="border-radius: var(--radius-sm);" title="Ver todos los puntos en el mapa interactivo">
+        <i class="bi bi-map-fill me-1"></i> Ver todos en el Mapa
+      </a>
       {% if current_user.rol.nombre == 'admin' %}
         <a href="{{ url_for('admin.atractivo_crear') }}" class="btn-emerald">
           <i class="bi bi-plus-circle-fill me-1"></i> Nuevo Atractivo
@@ -112,31 +115,47 @@
         <div class="col-12 col-md-6 col-lg-4">
           <div class="attraction-card">
             
-            <!-- Placeholder Visual de Imagen -->
-            <div class="attraction-image-placeholder">
-              <div class="placeholder-icon-wrap">
-                {% if 'Naturaleza' in a.categoria.nombre %}
-                  <i class="bi bi-tree-fill"></i>
-                {% elif 'Arqueológico' in a.categoria.nombre or 'Cultural' in a.categoria.nombre %}
-                  <i class="bi bi-bank2"></i>
-                {% elif 'Aventura' in a.categoria.nombre %}
-                  <i class="bi bi-compass-fill"></i>
-                {% elif 'Urbano' in a.categoria.nombre %}
-                  <i class="bi bi-building"></i>
-                {% else %}
-                  <i class="bi bi-geo-alt-fill"></i>
-                {% endif %}
-              </div>
-              <div class="placeholder-tag">
-                <span>{{ a.categoria.nombre }}</span>
-              </div>
+            <!-- Visual de Imagen (Foto Real o Placeholder) -->
+            <div class="attraction-image-placeholder position-relative overflow-hidden" style="height: 180px;">
+              {% if a.imagen_url %}
+                <img src="{{ url_for('static', filename=a.imagen_url) }}" alt="{{ a.nombre }}" class="w-100 h-100" style="object-fit: cover;">
+                <div class="position-absolute bottom-0 start-0 end-0 p-2" style="background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);">
+                  <span class="text-white small fw-semibold px-2 py-1 rounded" style="background: rgba(0,0,0,0.4);">
+                    <i class="bi bi-tag-fill me-1"></i>{{ a.categoria.nombre }}
+                  </span>
+                </div>
+              {% else %}
+                <div class="placeholder-icon-wrap">
+                  {% if 'Naturaleza' in a.categoria.nombre %}
+                    <i class="bi bi-tree-fill"></i>
+                  {% elif 'Arqueológico' in a.categoria.nombre or 'Cultural' in a.categoria.nombre %}
+                    <i class="bi bi-bank2"></i>
+                  {% elif 'Aventura' in a.categoria.nombre %}
+                    <i class="bi bi-compass-fill"></i>
+                  {% elif 'Urbano' in a.categoria.nombre %}
+                    <i class="bi bi-building"></i>
+                  {% else %}
+                    <i class="bi bi-geo-alt-fill"></i>
+                  {% endif %}
+                </div>
+                <div class="placeholder-tag">
+                  <span>{{ a.categoria.nombre }}</span>
+                </div>
+              {% endif %}
 
               <!-- Badge de Costo o Gratuito sobre la imagen -->
               <div class="position-absolute top-0 end-0 p-3">
                 {% if a.costo_entrada and a.costo_entrada > 0 %}
-                  <span class="badge bg-dark bg-opacity-75 text-white px-2 py-1 rounded-pill shadow-sm" style="font-size: 0.8rem;">
-                    Bs. {{ "%.2f"|format(a.costo_entrada) }}
-                  </span>
+                  <div class="badge bg-dark bg-opacity-75 text-white px-2 py-1 rounded-pill shadow-sm">
+                    {% if current_user.is_authenticated and current_user.rol and current_user.rol.nombre in ['admin', 'agente'] %}
+                      <span class="text-white">${{ a.costo_entrada | usd }} USD</span>
+                      <span class="text-white-50 mx-1">|</span>
+                      <span class="text-success">{{ "%.2f"|format(a.costo_entrada) }} BOB</span>
+                    {% else %}
+                      <span class="fw-bold text-white">${{ a.costo_entrada | usd }} USD</span>
+                      <span class="text-white-50 ms-1" style="font-size: 0.72rem;">({{ "%.2f"|format(a.costo_entrada) }} BOB)</span>
+                    {% endif %}
+                  </div>
                 {% else %}
                   <span class="badge bg-success text-white px-2 py-1 rounded-pill shadow-sm" style="font-size: 0.78rem;">
                     Acceso Libre
@@ -173,24 +192,31 @@
 
                 {% if a.direccion %}
                   <span class="badge" style="background-color: #F8FAFC; color: #64748B; border: 1px solid #E2E8F0; font-weight: 500;" title="{{ a.direccion }}">
-                    <i class="bi bi-geo-alt me-1 text-muted"></i> {{ a.direccion[:25] }}{% if a.direccion|length > 25 %}...{% endif %}
+                    <i class="bi bi-geo-alt me-1 text-muted"></i> {{ a.direccion[:22] }}{% if a.direccion|length > 22 %}...{% endif %}
                   </span>
                 {% endif %}
               </div>
 
               <!-- Pie de Tarjeta con Acciones según Rol -->
               <div class="pt-3 border-top d-flex align-items-center justify-content-between mt-auto">
-                <a href="{{ url_for('catalogo.atractivo_detail', id_atractivo=a.id_atractivo) }}" class="btn btn-outline-primary btn-sm" style="border-radius: var(--radius-sm);">
-                  <i class="bi bi-eye-fill me-1"></i> Ver Detalle
-                </a>
+                <div class="d-flex gap-1">
+                  <a href="{{ url_for('catalogo.atractivo_detail', id_atractivo=a.id_atractivo) }}" class="btn btn-outline-primary btn-sm" style="border-radius: var(--radius-sm);">
+                    <i class="bi bi-eye-fill me-1"></i> Detalle
+                  </a>
+                  {% if a.latitud and a.longitud %}
+                    <a href="{{ url_for('catalogo.atractivo_mapa', id_atractivo=a.id_atractivo) }}" class="btn btn-outline-info btn-sm" style="border-radius: var(--radius-sm);" title="Ver punto en el mapa">
+                      <i class="bi bi-geo-alt-fill"></i> Mapa
+                    </a>
+                  {% endif %}
+                </div>
 
                 {% if current_user.rol.nombre == 'admin' %}
                   <a href="{{ url_for('admin.atractivo_editar', id_atractivo=a.id_atractivo) }}" class="btn btn-sm btn-outline-secondary" style="border-radius: var(--radius-sm);" title="Edición Administrador">
-                    <i class="bi bi-pencil-fill"></i> Editar
+                    <i class="bi bi-pencil-fill"></i>
                   </a>
                 {% elif current_user.rol.nombre == 'agente' %}
                   <a href="{{ url_for('agente.atractivo_editar_parcial', id_atractivo=a.id_atractivo) }}" class="btn btn-sm btn-outline-secondary" style="border-radius: var(--radius-sm);" title="Edición Operativa">
-                    <i class="bi bi-pencil-square me-1"></i> Modificar
+                    <i class="bi bi-pencil-square"></i>
                   </a>
                 {% endif %}
               </div>

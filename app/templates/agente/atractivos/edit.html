@@ -68,11 +68,15 @@
               <div class="field-locked-card">
                 <div>
                   <div class="field-locked-label">Tarifa Comercial de Entrada</div>
-                  <div class="field-locked-value text-success">
+                  <div class="field-locked-value">
                     {% if atractivo.costo_entrada and atractivo.costo_entrada > 0 %}
-                      Bs. {{ "%.2f"|format(atractivo.costo_entrada) }}
+                      <div class="precio-dual">
+                        <span class="usd">${{ atractivo.costo_entrada | usd }} USD</span>
+                        <span class="separador">|</span>
+                        <span class="bob">{{ "%.2f"|format(atractivo.costo_entrada) }} BOB</span>
+                      </div>
                     {% else %}
-                      Entrada Gratuita
+                      <span class="text-success">Acceso Libre</span>
                     {% endif %}
                   </div>
                 </div>

@@ -204,7 +204,8 @@ def atractivo_crear():
     proveedores = proveedor_service.obtener_todos_activos()
 
     if request.method == 'POST':
-        success, message, nuevo = atractivo_service.crear_atractivo(request.form)
+        imagen_file = request.files.get('imagen')
+        success, message, nuevo = atractivo_service.crear_atractivo(request.form, imagen_file=imagen_file)
         if success:
             flash(message, 'success')
             return redirect(url_for('admin.atractivos'))
@@ -237,7 +238,8 @@ def atractivo_editar(id_atractivo):
     proveedores = proveedor_service.obtener_todos_activos()
 
     if request.method == 'POST':
-        success, message, _ = atractivo_service.actualizar_atractivo(id_atractivo, request.form, rol='admin')
+        imagen_file = request.files.get('imagen')
+        success, message, _ = atractivo_service.actualizar_atractivo(id_atractivo, request.form, rol='admin', imagen_file=imagen_file)
         if success:
             flash(message, 'success')
             return redirect(url_for('admin.atractivos'))
@@ -585,7 +587,7 @@ def transporte_editar(id_transporte):
         'horario_fin': transporte.horario_fin.strftime('%H:%M') if transporte.horario_fin else '',
         'costo_por_tramo': str(transporte.costo_por_tramo) if transporte.costo_por_tramo is not None else '0.00',
         'tipo_costo': transporte.tipo_costo,
-        'tiempo_recorrido_base': str(transporte.tiempo_recorrido_base) if transporte.tiempo_recorrido_base else ''
+        'velocidad_promedio_kmh': str(transporte.velocidad_promedio_kmh) if transporte.velocidad_promedio_kmh is not None else '30.0'
     })
 
 @admin_bp.route('/transportes/<int:id_transporte>')

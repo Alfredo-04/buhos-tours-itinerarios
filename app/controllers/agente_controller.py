@@ -89,6 +89,6 @@ def transporte_editar_parcial(id_transporte):
             'capacidad': str(transporte.capacidad) if transporte.capacidad else '',
             'horario_inicio': transporte.horario_inicio.strftime('%H:%M') if transporte.horario_inicio else '',
             'horario_fin': transporte.horario_fin.strftime('%H:%M') if transporte.horario_fin else '',
-            'tiempo_recorrido_base': str(transporte.tiempo_recorrido_base) if transporte.tiempo_recorrido_base else ''
+            'velocidad_promedio_kmh': str(transporte.velocidad_promedio_kmh) if transporte.velocidad_promedio_kmh is not None else '30.0'
         }
     )

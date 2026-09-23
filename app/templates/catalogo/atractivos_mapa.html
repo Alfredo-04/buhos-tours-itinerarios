@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Mapa de Atractivos Turísticos | Buhos Tours{% endblock %}
+
+{% block extra_css %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<style>
+  #map {
+    height: 700px;
+    width: 100%;
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    border: 1px solid var(--color-border);
+    z-index: 1;
+  }
+  .leaflet-popup-content-wrapper {
+    border-radius: var(--radius-sm);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    padding: 2px;
+  }
+  .leaflet-popup-content {
+    margin: 12px 14px;
+    line-height: 1.4;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- Encabezado de Página -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small">
+          <li class="breadcrumb-item">
+            <a href="{% if current_user.rol.nombre == 'admin' %}{{ url_for('admin.dashboard') }}{% elif current_user.rol.nombre == 'agente' %}{{ url_for('agente.dashboard') }}{% else %}{{ url_for('turista.dashboard') }}{% endif %}" class="text-decoration-none">
+              Dashboard
+            </a>
+          </li>
+          <li class="breadcrumb-item">
+            <a href="{{ url_for('catalogo.atractivos_list') }}" class="text-decoration-none">Atractivos</a>
+          </li>
+          <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-muted);">Mapa General</li>
+        </ol>
+      </nav>
+      <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">
+        <i class="bi bi-map-fill me-2" style="color: var(--color-primary-green);"></i>
+        Mapa de Puntos de Interés Turístico
+      </h1>
+      <p class="text-muted small mb-0">
+        Visualización geográfica interactiva de todos los atractivos activos disponibles en La Paz.
+      </p>
+    </div>
+    
+    <div class="d-flex align-items-center gap-2">
+      <a href="{{ url_for('catalogo.atractivos_list') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+        <i class="bi bi-grid-fill me-1"></i> Ver en Cuadrícula
+      </a>
+      {% if current_user.rol.nombre == 'admin' %}
+        <a href="{{ url_for('admin.atractivos') }}" class="btn-emerald">
+          <i class="bi bi-gear-fill me-1"></i> Panel Admin
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Contenedor del Mapa Leaflet -->
+  <div class="card-floating p-3 mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+      <span class="small fw-semibold text-muted">
+        <i class="bi bi-geo-alt-fill text-danger me-1"></i> Mostrando {{ atractivos|length }} atractivos activos
+      </span>
+      <span class="badge bg-light text-dark border">
+        <i class="bi bi-compass me-1 text-primary"></i> La Paz, Bolivia
+      </span>
+    </div>
+    <div id="map"></div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // 1. Inicializar mapa centrado en La Paz
+    var map = L.map('map').setView([-16.4957, -68.1335], 13);
+
+    // 2. Capa de teselas de OpenStreetMap
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // 3. Cargar datos de atractivos
+    var atractivosData = JSON.parse('{{ atractivos_json | safe }}');
+    var bounds = [];
+
+    if (atractivosData && atractivosData.length > 0) {
+      atractivosData.forEach(function(item) {
+        if (item.latitud && item.longitud) {
+          var marker = L.marker([item.latitud, item.longitud]).addTo(map);
+          bounds.push([item.latitud, item.longitud]);
+
+          var popupContent = `
+            <div style="font-family: inherit; min-width: 180px;">
+              <div class="fw-bold mb-1" style="color: #064E3B; font-size: 0.95rem;">${item.nombre}</div>
+              <div class="text-muted small mb-1"><i class="bi bi-tag-fill me-1 text-secondary"></i>${item.categoria}</div>
+              <div class="small mb-2 fw-semibold text-dark">
+                ${item.costo_entrada > 0 ? 'Bs. ' + item.costo_entrada.toFixed(2) : '<span class="text-success">Acceso Libre</span>'}
+              </div>
+              <a href="/catalogo/atractivos/${item.id_atractivo}" class="btn btn-sm btn-primary w-100 py-1" style="font-size: 0.75rem; border-radius: 4px; text-decoration: none;">
+                Ver Detalle
+              </a>
+            </div>
+          `;
+          marker.bindPopup(popupContent);
+        }
+      });
+
+      if (bounds.length > 0) {
+        map.fitBounds(bounds, { padding: [50, 50] });
+      }
+    }
+  });
+</script>
+{% endblock %}

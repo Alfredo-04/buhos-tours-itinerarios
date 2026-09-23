@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Mapa: {{ atractivo.nombre }} | Buhos Tours{% endblock %}
+
+{% block extra_css %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<style>
+  #map {
+    height: 650px;
+    width: 100%;
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    border: 1px solid var(--color-border);
+    z-index: 1;
+  }
+  .leaflet-popup-content-wrapper {
+    border-radius: var(--radius-sm);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- Encabezado y Breadcrumbs -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small">
+          <li class="breadcrumb-item">
+            <a href="{% if current_user.rol.nombre == 'admin' %}{{ url_for('admin.dashboard') }}{% elif current_user.rol.nombre == 'agente' %}{{ url_for('agente.dashboard') }}{% else %}{{ url_for('turista.dashboard') }}{% endif %}" class="text-decoration-none">
+              Dashboard
+            </a>
+          </li>
+          <li class="breadcrumb-item">
+            <a href="{{ url_for('catalogo.atractivos_list') }}" class="text-decoration-none">Atractivos</a>
+          </li>
+          <li class="breadcrumb-item">
+            <a href="{{ url_for('catalogo.atractivo_detail', id_atractivo=atractivo.id_atractivo) }}" class="text-decoration-none">{{ atractivo.nombre }}</a>
+          </li>
+          <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-muted);">Ubicación en Mapa</li>
+        </ol>
+      </nav>
+      <div class="d-flex align-items-center gap-2">
+        <h1 class="h3 fw-bold mb-0" style="color: var(--color-text);">
+          <i class="bi bi-geo-alt-fill text-danger me-1"></i>
+          {{ atractivo.nombre }}
+        </h1>
+        <span class="badge bg-light text-dark border">{{ atractivo.categoria.nombre }}</span>
+      </div>
+      <p class="text-muted small mb-0 mt-1">
+        {{ atractivo.direccion or 'Coordenadas GPS: ' ~ atractivo.latitud ~ ', ' ~ atractivo.longitud }}
+      </p>
+    </div>
+
+    <!-- Botones de Acción -->
+    <div class="d-flex align-items-center gap-2">
+      <a href="{{ url_for('catalogo.atractivo_detail', id_atractivo=atractivo.id_atractivo) }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+        <i class="bi bi-arrow-left me-1"></i> Volver al Detalle
+      </a>
+      <a href="{{ url_for('catalogo.atractivos_mapa') }}" class="btn-emerald">
+        <i class="bi bi-map-fill me-1"></i> Ver Todos en Mapa
+      </a>
+    </div>
+  </div>
+
+  <!-- Contenedor del Mapa Leaflet -->
+  <div class="card-floating p-3 mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+      <span class="small fw-semibold text-muted">
+        <i class="bi bi-pin-map-fill text-primary me-1"></i> Vista de Alta Precisión (Zoom 16)
+      </span>
+      <span class="badge bg-light text-dark border font-monospace">
+        {{ "%.5f"|format(atractivo.latitud) }}, {{ "%.5f"|format(atractivo.longitud) }}
+      </span>
+    </div>
+    <div id="map"></div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var atractivoData = JSON.parse('{{ atractivo_json | safe }}');
+
+    if (atractivoData && atractivoData.latitud && atractivoData.longitud) {
+      // 1. Inicializar mapa centrado en el punto con zoom 16
+      var map = L.map('map').setView([atractivoData.latitud, atractivoData.longitud], 16);
+
+      // 2. Capa de teselas de OpenStreetMap
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+
+      // 3. Marcador y Popup
+      var marker = L.marker([atractivoData.latitud, atractivoData.longitud]).addTo(map);
+      var popupContent = `
+        <div style="font-family: inherit; min-width: 180px; padding: 4px;">
+          <div class="fw-bold mb-1" style="color: #064E3B; font-size: 1rem;">${atractivoData.nombre}</div>
+          <div class="text-muted small mb-1"><i class="bi bi-tag-fill me-1 text-secondary"></i>${atractivoData.categoria}</div>
+          <div class="small mb-1 text-secondary">${atractivoData.direccion}</div>
+          <div class="small fw-bold text-dark mt-2">
+            ${atractivoData.costo_entrada > 0 ? 'Bs. ' + atractivoData.costo_entrada.toFixed(2) : '<span class="text-success">Acceso Libre</span>'}
+          </div>
+        </div>
+      `;
+      marker.bindPopup(popupContent).openPopup();
+    }
+  });
+</script>
+{% endblock %}

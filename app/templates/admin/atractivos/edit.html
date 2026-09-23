@@ -32,7 +32,7 @@
   <div class="row justify-content-center">
     <div class="col-lg-10">
       
-      <form method="POST" action="{{ url_for('admin.atractivo_editar', id_atractivo=atractivo.id_atractivo) }}" class="card-floating p-4">
+      <form method="POST" action="{{ url_for('admin.atractivo_editar', id_atractivo=atractivo.id_atractivo) }}" enctype="multipart/form-data" class="card-floating p-4">
         
         <!-- Sección 1: Información General -->
         <div class="mb-4">
@@ -72,7 +72,10 @@
                   required
                 >
               </div>
-              <div class="form-text">Ingresa 0 para atractivos gratuitos.</div>
+              <div class="preview-usd">
+                Equivalente: $<span id="preview_usd_atractivo" class="preview-val">0.00</span> USD
+                <small class="text-muted ms-1">(TC Oficial BCB: {{ tc_oficial }})</small>
+              </div>
             </div>
 
             <div class="col-12">
@@ -237,15 +240,35 @@
             </div>
 
             <div class="col-12">
-              <label for="imagen_url" class="form-label fw-semibold">URL de Imagen (Opcional - Reservado para futuro)</label>
+              <label class="form-label fw-semibold">Fotografía del Atractivo</label>
+              
+              {% if atractivo.imagen_url %}
+                <div class="d-flex align-items-center gap-3 p-3 bg-light rounded border mb-2">
+                  <img src="{{ url_for('static', filename=atractivo.imagen_url) }}" alt="{{ atractivo.nombre }}" class="rounded shadow-sm" style="width: 120px; height: 80px; object-fit: cover;">
+                  <div>
+                    <div class="small fw-semibold text-dark mb-1">Imagen actual registrada</div>
+                    <div class="text-muted small mb-2">{{ atractivo.imagen_url }}</div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="eliminar_imagen" value="1" id="eliminar_imagen">
+                      <label class="form-check-label text-danger small" for="eliminar_imagen">
+                        <i class="bi bi-trash me-1"></i> Eliminar imagen actual (usar placeholder)
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              {% endif %}
+
+              <label for="imagen" class="form-label small text-muted">
+                {% if atractivo.imagen_url %}Reemplazar con una nueva imagen:{% else %}Subir fotografía (PNG, JPG, WEBP - Máx 5 MB):{% endif %}
+              </label>
               <input 
-                type="text" 
+                type="file" 
                 class="form-control" 
-                id="imagen_url" 
-                name="imagen_url" 
-                value="{{ form_data.get('imagen_url', '') }}" 
-                maxlength="255"
+                id="imagen" 
+                name="imagen" 
+                accept="image/png, image/jpeg, image/webp"
               >
+              <div class="form-text">La imagen se redimensiona automáticamente a 1200px de ancho máximo manteniendo su proporción.</div>
             </div>
 
           </div>
@@ -423,6 +446,20 @@
         }
       });
     }
+
+    // Conversión reactiva de precio a USD
+    const costoInput = document.getElementById('costo_entrada');
+    const previewUsd = document.getElementById('preview_usd_atractivo');
+    const tcOficial = {{ tc_oficial or 6.96 }};
+    if (costoInput && previewUsd) {
+      const actualizarPreviewUsd = () => {
+        const bob = parseFloat(costoInput.value) || 0;
+        previewUsd.textContent = (bob / tcOficial).toFixed(2);
+      };
+      costoInput.addEventListener('input', actualizarPreviewUsd);
+      actualizarPreviewUsd();
+    }
+
   });
 </script>
 {% endblock %}

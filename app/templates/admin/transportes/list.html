@@ -127,6 +127,8 @@
           <option value="nombre_asc" {% if sort_by == 'nombre_asc' %}selected{% endif %}>Nombre (A-Z)</option>
           <option value="costo_desc" {% if sort_by == 'costo_desc' %}selected{% endif %}>Mayor costo</option>
           <option value="costo_asc" {% if sort_by == 'costo_asc' %}selected{% endif %}>Menor costo</option>
+          <option value="velocidad_desc" {% if sort_by == 'velocidad_desc' %}selected{% endif %}>Mayor velocidad</option>
+          <option value="velocidad_asc" {% if sort_by == 'velocidad_asc' %}selected{% endif %}>Menor velocidad</option>
         </select>
       </div>
 
@@ -165,7 +167,7 @@
             <th scope="col" class="text-muted small text-uppercase fw-semibold">Nombre & Tipo</th>
             <th scope="col" class="text-muted small text-uppercase fw-semibold">Capacidad & Horario</th>
             <th scope="col" class="text-muted small text-uppercase fw-semibold">Costo por Tramo</th>
-            <th scope="col" class="text-muted small text-uppercase fw-semibold">Tiempo Base</th>
+            <th scope="col" class="text-muted small text-uppercase fw-semibold">Velocidad Promedio</th>
             <th scope="col" class="text-muted small text-uppercase fw-semibold">Estado</th>
             <th scope="col" class="text-end pe-4 text-muted small text-uppercase fw-semibold" style="width: 170px;">Acciones</th>
           </tr>
@@ -197,11 +199,15 @@
                   </div>
                 </td>
                 <td>
-                  <span class="fw-bold text-success">Bs. {{ "%.2f"|format(t.costo_por_tramo or 0) }}</span>
+                  <div class="precio-dual">
+                    <span class="usd">${{ (t.costo_por_tramo or 0) | usd }} USD</span>
+                    <span class="separador">|</span>
+                    <span class="bob">{{ "%.2f"|format(t.costo_por_tramo or 0) }} BOB</span>
+                  </div>
                   <div class="small text-muted">({{ t.tipo_costo|replace('_', ' ') }})</div>
                 </td>
                 <td>
-                  <span class="badge bg-light text-dark border">{{ t.tiempo_recorrido_base or 'S/D' }} min</span>
+                  <span class="badge bg-light text-dark border"><i class="bi bi-speedometer2 me-1 text-primary"></i>{{ t.velocidad_promedio_kmh or '30.00' }} km/h</span>
                 </td>
                 <td>
                   {% if t.is_deleted %}

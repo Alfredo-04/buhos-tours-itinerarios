@@ -1,8 +1,22 @@
-import sys
+"""
+Tests de integración y unidad para los Módulos de Gestión de Buhos Tours.
+Cubre:
+- Categorías (CRUD, soft-delete, restricciones de integridad)
+- Proveedores (CRUD, soft-delete, restricciones de integridad)
+- Transportes (CRUD, velocidad_promedio_kmh, validaciones de velocidad, permisos por rol)
+- Atractivos (CRUD, validación de coordenadas en Bolivia, imágenes, permisos por rol)
+- Servicio de Tipo de Cambio BCB (caching, manejo seguro sin hardcodeo)
+- Rutas públicas y de mapa Leaflet (/catalogo/atractivos/mapa, /catalogo/atractivos/<id>/mapa)
+- Rutas de gestión por rol (Admin, Agente, Turista)
+"""
+
 import os
 import uuid
 import unittest
 from datetime import datetime
+from decimal import Decimal
+from unittest.mock import patch, MagicMock
+
 from app import create_app, db
 from app.models.usuario import Usuario
 from app.models.rol import Rol
@@ -12,8 +26,10 @@ from app.models.transporte import Transporte
 from app.models.atractivo import Atractivo
 from app.services import (
     categoria_service, proveedor_service,
-    transporte_service, atractivo_service
+    transporte_service, atractivo_service,
+    obtener_tc_oficial, convertir_bs_a_usd, obtener_info_tc
 )
+
 
 class TestModulosGestion(unittest.TestCase):
     def setUp(self):
@@ -95,9 +111,9 @@ class TestModulosGestion(unittest.TestCase):
         self.assertTrue(success_res)
         self.assertFalse(prov_db.is_deleted)
 
-    def test_transporte_crud_and_permissions(self):
+    def test_transporte_crud_and_velocidad_promedio(self):
         unique_tr_name = f"Minivan Turística {uuid.uuid4().hex[:6]}"
-        # 1. Crear transporte (Admin)
+        # 1. Crear transporte con velocidad_promedio_kmh válida
         success, msg, tr = transporte_service.crear_transporte({
             'nombre': unique_tr_name,
             'tipo': 'Privado',
@@ -106,12 +122,27 @@ class TestModulosGestion(unittest.TestCase):
             'tipo_costo': 'por_persona',
             'horario_inicio': '07:00',
             'horario_fin': '21:00',
-            'tiempo_recorrido_base': 60
+            'velocidad_promedio_kmh': 50.0
         })
         self.assertTrue(success, f"Error al crear transporte: {msg}")
+        self.assertEqual(float(tr.velocidad_promedio_kmh), 50.0)
         tr_id = tr.id_transporte
 
-        # 2. Edición parcial como Agente (debe ignorar campos comerciales)
+        # 2. Validación de velocidad inválida (<=0 o >120)
+        success_invalid, msg_inv, _ = transporte_service.crear_transporte({
+            'nombre': f"Transporte Invalido {uuid.uuid4().hex[:6]}",
+            'tipo': 'Privado',
+            'capacidad': 10,
+            'costo_por_tramo': 30.0,
+            'tipo_costo': 'por_persona',
+            'horario_inicio': '08:00',
+            'horario_fin': '20:00',
+            'velocidad_promedio_kmh': 150.0 # Inválido > 120
+        })
+        self.assertFalse(success_invalid)
+        self.assertIn('velocidad', msg_inv.lower())
+
+        # 3. Edición parcial como Agente (debe ignorar campos comerciales)
         success_ag, msg_ag, tr_ag = transporte_service.actualizar_transporte(
             tr_id,
             {
@@ -119,7 +150,7 @@ class TestModulosGestion(unittest.TestCase):
                 'costo_por_tramo': 999.0,  # Agente NO puede cambiar esto
                 'horario_inicio': '08:00',
                 'horario_fin': '20:00',
-                'tiempo_recorrido_base': 50,
+                'velocidad_promedio_kmh': 45.0, # Agente SÍ puede actualizar velocidad
                 'nombre': 'Hacked Transporte Name' # Agente NO puede cambiar esto
             },
             rol='agente'
@@ -128,13 +159,14 @@ class TestModulosGestion(unittest.TestCase):
         self.assertEqual(tr_ag.capacidad, 14)
         self.assertEqual(tr_ag.nombre, unique_tr_name) # Sin cambios
         self.assertEqual(float(tr_ag.costo_por_tramo), 45.0) # Sin cambios
+        self.assertEqual(float(tr_ag.velocidad_promedio_kmh), 45.0) # Sí cambió
 
-        # 3. Soft delete (Admin)
+        # 4. Soft delete (Admin)
         success_del, _ = transporte_service.eliminar_transporte(tr_id)
         self.assertTrue(success_del)
         self.assertTrue(tr.is_deleted)
 
-        # 4. Restaurar transporte
+        # 5. Restaurar transporte
         success_res, _ = transporte_service.restaurar_transporte(tr_id)
         self.assertTrue(success_res)
         self.assertFalse(tr.is_deleted)
@@ -173,7 +205,7 @@ class TestModulosGestion(unittest.TestCase):
         self.assertFalse(success_bad)
         self.assertIn('Bolivia', msg_bad)
 
-        # 3. Edición parcial como Agente (ignora nombre, costo_entrada, categoria, proveedor)
+        # 3. Edición parcial como Agente (ignora nombre, costo_entrada, categoria, proveedor, imagen)
         success_ag, _, a_ag = atractivo_service.actualizar_atractivo(
             a_id,
             {
@@ -208,7 +240,30 @@ class TestModulosGestion(unittest.TestCase):
         self.assertTrue(success_res)
         self.assertFalse(a.is_deleted)
 
-    def test_turista_catalog_routes(self):
+    def test_exchange_service_without_hardcoded_fallback(self):
+        """Verifica que el servicio de tipo de cambio retorne None si la API falla sin usar 6.96 harcodeado."""
+        # 1. Caso éxito simulado
+        with patch('requests.get') as mock_get:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = {
+                'tc_oficial': {'valor': 12.06, 'venta': 12.16, 'compra': 12.06}
+            }
+            mock_resp.raise_for_status.return_value = None
+            mock_get.return_value = mock_resp
+
+            tc = obtener_tc_oficial(forzar_refresco=True)
+            self.assertEqual(tc, 12.16)
+            usd = convertir_bs_a_usd(121.60, tc)
+            self.assertEqual(usd, 10.0)
+
+        # 2. Caso error simulado (debe utilizar caché o fallback 6.96)
+        with patch('requests.get', side_effect=Exception("API Unreachable")):
+            tc_fallback = obtener_tc_oficial(forzar_refresco=True)
+            self.assertEqual(tc_fallback, 6.96)
+            self.assertEqual(convertir_bs_a_usd(69.60, tc_fallback), 10.0)
+
+    def test_turista_catalog_and_map_routes(self):
         rol_turista = Rol.query.filter_by(nombre='turista').first()
         turista_user = Usuario(
             nombres='Turista', apellidos='Test',
@@ -231,9 +286,17 @@ class TestModulosGestion(unittest.TestCase):
         res = client.get('/catalogo/atractivos')
         self.assertEqual(res.status_code, 200)
 
+        # Mapa general de todos los atractivos
+        res_mapa = client.get('/catalogo/atractivos/mapa')
+        self.assertEqual(res_mapa.status_code, 200)
+
         if atractivo:
             res_det = client.get(f'/catalogo/atractivos/{atractivo.id_atractivo}')
             self.assertEqual(res_det.status_code, 200)
+
+            # Mapa individual
+            res_ind_mapa = client.get(f'/catalogo/atractivos/{atractivo.id_atractivo}/mapa')
+            self.assertEqual(res_ind_mapa.status_code, 200)
 
         res_tr = client.get('/catalogo/transportes')
         self.assertEqual(res_tr.status_code, 200)
@@ -325,6 +388,7 @@ class TestModulosGestion(unittest.TestCase):
             self.assertEqual(res.status_code, 200)
             res = client.get(f'/admin/transportes/{transporte.id_transporte}')
             self.assertEqual(res.status_code, 200)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -18,3 +18,8 @@ class Config:
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', os.environ.get('MAIL_USERNAME', 'alfredocortez12god@gmail.com'))
     MAIL_DEBUG = False
     MAIL_SUPPRESS_SEND = False  # Poner True para tests y no enviar correos reales
+
+    # === CONFIGURACIÓN DE CARGA DE ARCHIVOS ===
+    MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5 MB
+    UPLOAD_FOLDER_ATRACTIVOS = 'app/static/uploads/atractivos'
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}

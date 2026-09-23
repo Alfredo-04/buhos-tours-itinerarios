@@ -69,17 +69,23 @@
           </div>
 
           <div class="col-md-6">
-            <label for="tiempo_recorrido_base" class="form-label fw-semibold">Tiempo Recorrido Base (Minutos) <span class="text-danger">*</span></label>
-            <input 
-              type="number" 
-              min="1" 
-              class="form-control" 
-              id="tiempo_recorrido_base" 
-              name="tiempo_recorrido_base" 
-              placeholder="Ej. 45" 
-              value="{{ form_data.get('tiempo_recorrido_base', '') }}" 
-              required
-            >
+            <label for="velocidad_promedio_kmh" class="form-label fw-semibold">Velocidad Promedio (km/h) <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <input 
+                type="number" 
+                step="0.1"
+                min="0.1" 
+                max="120"
+                class="form-control" 
+                id="velocidad_promedio_kmh" 
+                name="velocidad_promedio_kmh" 
+                placeholder="Ej. 30.0" 
+                value="{{ form_data.get('velocidad_promedio_kmh', '30.0') }}" 
+                required
+              >
+              <span class="input-group-text bg-white">km/h</span>
+            </div>
+            <div class="form-text">Valores guía: Caminata 5, Teleférico 20, Bus 30, Taxi 40 km/h.</div>
           </div>
 
           <div class="col-md-6">
@@ -97,6 +103,10 @@
                 value="{{ form_data.get('costo_por_tramo', '0.00') }}" 
                 required
               >
+            </div>
+            <div class="preview-usd">
+              Equivalente: $<span id="preview_usd_transporte" class="preview-val">0.00</span> USD
+              <small class="text-muted ms-1">(TC Oficial BCB: {{ tc_oficial }})</small>
             </div>
           </div>
 
@@ -150,4 +160,20 @@
   </div>
 
 </div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const costoInput = document.getElementById('costo_por_tramo');
+    const previewUsd = document.getElementById('preview_usd_transporte');
+    const tcOficial = {{ tc_oficial or 6.96 }};
+    if (costoInput && previewUsd) {
+      const actualizarPreviewUsd = () => {
+        const bob = parseFloat(costoInput.value) || 0;
+        previewUsd.textContent = (bob / tcOficial).toFixed(2);
+      };
+      costoInput.addEventListener('input', actualizarPreviewUsd);
+      actualizarPreviewUsd();
+    }
+  });
+</script>
 {% endblock %}

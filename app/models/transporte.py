@@ -14,7 +14,7 @@ class Transporte(db.Model):
     horario_fin = db.Column(db.Time)
     costo_por_tramo = db.Column(db.Numeric(10, 2), default=0.0)
     tipo_costo = db.Column(db.String(20), nullable=False)  # 'por_persona' o 'por_vehiculo'
-    tiempo_recorrido_base = db.Column(db.Integer)  # en minutos
+    velocidad_promedio_kmh = db.Column(db.Numeric(5, 2), nullable=False, default=30.0)  # en km/h (ej. 5.0, 20.0, 30.0, 40.0)
 
     # Soft delete
     deleted_at = db.Column(db.DateTime, nullable=True, default=None)

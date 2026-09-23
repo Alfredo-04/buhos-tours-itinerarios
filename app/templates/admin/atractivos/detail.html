@@ -30,6 +30,11 @@
       <a href="{{ url_for('admin.atractivos') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
         <i class="bi bi-arrow-left me-1"></i> Volver a la Lista
       </a>
+      {% if atractivo.latitud and atractivo.longitud %}
+        <a href="{{ url_for('catalogo.atractivo_mapa', id_atractivo=atractivo.id_atractivo) }}" class="btn btn-outline-info" style="border-radius: var(--radius-sm);" title="Ver ubicación en mapa interactivo">
+          <i class="bi bi-geo-alt-fill me-1"></i> Ver en Mapa
+        </a>
+      {% endif %}
       <a href="{{ url_for('admin.atractivo_editar', id_atractivo=atractivo.id_atractivo) }}" class="btn-emerald">
         <i class="bi bi-pencil-square me-1"></i> Editar
       </a>
@@ -87,8 +92,15 @@
           </div>
 
           <div class="col-sm-6">
-            <span class="text-muted small d-block">URL Imagen:</span>
-            <span class="font-monospace small text-muted text-truncate d-block">{{ atractivo.imagen_url or 'Sin imagen (Usa placeholder)' }}</span>
+            <span class="text-muted small d-block">Fotografía:</span>
+            {% if atractivo.imagen_url %}
+              <div class="d-flex align-items-center gap-2 mt-1">
+                <img src="{{ url_for('static', filename=atractivo.imagen_url) }}" alt="{{ atractivo.nombre }}" class="rounded shadow-sm" style="width: 60px; height: 42px; object-fit: cover;">
+                <span class="small font-monospace text-muted text-truncate">{{ atractivo.imagen_url }}</span>
+              </div>
+            {% else %}
+              <span class="small text-muted">Sin fotografía subida (Utiliza placeholder de categoría)</span>
+            {% endif %}
           </div>
         </div>
 
@@ -106,9 +118,13 @@
         </h2>
 
         <div class="d-flex flex-column gap-3">
-          <div class="d-flex justify-content-between py-2 border-bottom">
+          <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
             <span class="text-muted small">Tarifa al Turista:</span>
-            <span class="fw-bold text-success fs-6">Bs. {{ "%.2f"|format(atractivo.costo_entrada or 0) }}</span>
+            <div class="precio-dual text-end">
+              <span class="usd">${{ (atractivo.costo_entrada or 0) | usd }} USD</span>
+              <span class="separador">|</span>
+              <span class="bob">{{ "%.2f"|format(atractivo.costo_entrada or 0) }} BOB</span>
+            </div>
           </div>
 
           <div class="d-flex justify-content-between py-2 border-bottom">

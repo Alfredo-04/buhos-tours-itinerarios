@@ -66,10 +66,10 @@ def listar_transportes(
         query = query.order_by(Transporte.capacidad.asc())
     elif sort_by == 'capacidad_desc':
         query = query.order_by(Transporte.capacidad.desc())
-    elif sort_by == 'tiempo_asc':
-        query = query.order_by(Transporte.tiempo_recorrido_base.asc())
-    elif sort_by == 'tiempo_desc':
-        query = query.order_by(Transporte.tiempo_recorrido_base.desc())
+    elif sort_by in ['velocidad_asc', 'tiempo_asc']:
+        query = query.order_by(Transporte.velocidad_promedio_kmh.asc())
+    elif sort_by in ['velocidad_desc', 'tiempo_desc']:
+        query = query.order_by(Transporte.velocidad_promedio_kmh.desc())
     else:  # nombre_asc
         query = query.order_by(Transporte.nombre.asc())
 
@@ -95,7 +95,7 @@ def crear_transporte(data: dict) -> tuple[bool, str, Transporte | None]:
     horario_fin_raw = data.get('horario_fin')
     costo_por_tramo_raw = data.get('costo_por_tramo')
     tipo_costo = (data.get('tipo_costo') or '').strip()
-    tiempo_recorrido_base_raw = data.get('tiempo_recorrido_base')
+    velocidad_promedio_kmh_raw = data.get('velocidad_promedio_kmh')
 
     if not nombre or len(nombre) < 3:
         return False, "El nombre del transporte es obligatorio y debe tener al menos 3 caracteres.", None
@@ -142,13 +142,13 @@ def crear_transporte(data: dict) -> tuple[bool, str, Transporte | None]:
     except Exception:
         return False, "El costo por tramo debe ser un valor decimal válido.", None
 
-    # Tiempo recorrido base
+    # Velocidad promedio (km/h)
     try:
-        tiempo_recorrido_base = int(tiempo_recorrido_base_raw)
-        if tiempo_recorrido_base <= 0:
-            return False, "El tiempo de recorrido base debe ser mayor a 0 minutos.", None
-    except (TypeError, ValueError):
-        return False, "El tiempo de recorrido base es obligatorio y debe ser mayor a 0 minutos.", None
+        velocidad_promedio_kmh = Decimal(str(velocidad_promedio_kmh_raw))
+        if velocidad_promedio_kmh <= Decimal('0.0') or velocidad_promedio_kmh > Decimal('120.0'):
+            return False, "La velocidad promedio debe ser mayor a 0 km/h y menor o igual a 120 km/h.", None
+    except Exception:
+        return False, "La velocidad promedio debe ser un número decimal válido (ej. 30.0).", None
 
     try:
         nuevo_transporte = Transporte(
@@ -159,7 +159,7 @@ def crear_transporte(data: dict) -> tuple[bool, str, Transporte | None]:
             horario_fin=h_fin,
             costo_por_tramo=costo_por_tramo,
             tipo_costo=tipo_costo,
-            tiempo_recorrido_base=tiempo_recorrido_base
+            velocidad_promedio_kmh=velocidad_promedio_kmh
         )
         db.session.add(nuevo_transporte)
         db.session.commit()
@@ -172,7 +172,7 @@ def actualizar_transporte(id_transporte: int, data: dict, rol: str = 'admin') ->
     """
     Actualiza un transporte existente con control de permisos según rol:
     - Admin: Puede modificar todos los campos.
-    - Agente: Solo puede modificar campos operativos (capacidad, horarios, tiempo recorrido base).
+    - Agente: Solo puede modificar campos operativos (capacidad, horarios, velocidad promedio).
     """
     t = db.session.get(Transporte, id_transporte)
     if not t:
@@ -182,7 +182,7 @@ def actualizar_transporte(id_transporte: int, data: dict, rol: str = 'admin') ->
     capacidad_raw = data.get('capacidad')
     horario_inicio_raw = data.get('horario_inicio')
     horario_fin_raw = data.get('horario_fin')
-    tiempo_recorrido_base_raw = data.get('tiempo_recorrido_base')
+    velocidad_promedio_kmh_raw = data.get('velocidad_promedio_kmh')
 
     try:
         capacidad = int(capacidad_raw)
@@ -203,17 +203,17 @@ def actualizar_transporte(id_transporte: int, data: dict, rol: str = 'admin') ->
         return False, "El horario de finalización debe ser posterior al horario de inicio.", None
 
     try:
-        tiempo_recorrido_base = int(tiempo_recorrido_base_raw)
-        if tiempo_recorrido_base <= 0:
-            return False, "El tiempo de recorrido base debe ser mayor a 0 minutos.", None
-    except (TypeError, ValueError):
-        return False, "El tiempo de recorrido base debe ser mayor a 0 minutos.", None
+        velocidad_promedio_kmh = Decimal(str(velocidad_promedio_kmh_raw))
+        if velocidad_promedio_kmh <= Decimal('0.0') or velocidad_promedio_kmh > Decimal('120.0'):
+            return False, "La velocidad promedio debe ser mayor a 0 km/h y menor o igual a 120 km/h.", None
+    except Exception:
+        return False, "La velocidad promedio debe ser un número decimal válido (ej. 30.0).", None
 
     # Actualizar campos operativos
     t.capacidad = capacidad
     t.horario_inicio = h_inicio
     t.horario_fin = h_fin
-    t.tiempo_recorrido_base = tiempo_recorrido_base
+    t.velocidad_promedio_kmh = velocidad_promedio_kmh
 
     # Si es Administrador, validar y actualizar también campos comerciales y estructurales
     if rol == 'admin':

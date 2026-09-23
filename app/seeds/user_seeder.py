@@ -16,40 +16,12 @@ SEED_USERS = [
         "email": "admin@buhostours.com",
         "password": "Admin123!Secure",
         "rol": "admin"
-    },
-    {
-        "nombres": "Carlos",
-        "apellidos": "Mendoza Ríos",
-        "email": "carlos.mendoza@buhostours.com",
-        "password": "Agente123!Pass",
-        "rol": "agente"
-    },
-    {
-        "nombres": "Valeria",
-        "apellidos": "Torres Vargas",
-        "email": "valeria.torres@buhostours.com",
-        "password": "Agente123!Pass",
-        "rol": "agente"
-    },
-    {
-        "nombres": "Diego",
-        "apellidos": "Quispe Huamán",
-        "email": "diego.quispe@buhostours.com",
-        "password": "Agente123!Pass",
-        "rol": "agente"
-    },
-    {
-        "nombres": "Lucía",
-        "apellidos": "Flores Salas",
-        "email": "lucia.flores@buhostours.com",
-        "password": "Agente123!Pass",
-        "rol": "agente"
     }
 ]
 
 def seed_usuarios():
     """
-    Inserta o actualiza los 5 usuarios iniciales (1 Admin y 4 Agentes)
+    Inserta o actualiza el usuario Administrador maestro inicial
     garantizando idempotencia y asignación de FK a la tabla Rol.
     """
     seed_roles()

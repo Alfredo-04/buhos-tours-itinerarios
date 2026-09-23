@@ -1,10 +1,89 @@
+import os
+import uuid
 from datetime import datetime, time
 from decimal import Decimal
+from PIL import Image
 from sqlalchemy import or_
 from app import db
 from app.models.atractivo import Atractivo
 from app.models.categoria import Categoria
 from app.models.proveedor import Proveedor
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
+MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5 MB
+
+def get_upload_dir():
+    """Retorna la ruta absoluta del directorio de subida de imágenes de atractivos."""
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static', 'uploads', 'atractivos'))
+    os.makedirs(base_dir, exist_ok=True)
+    return base_dir
+
+def guardar_imagen_atractivo(archivo) -> tuple[bool, str, str | None]:
+    """
+    Valida, redimensiona con Pillow (ancho máx 1200px) y guarda físicamente la imagen de un atractivo.
+    Retorna (éxito, mensaje, ruta_relativa).
+    """
+    if not archivo or not hasattr(archivo, 'filename') or not archivo.filename:
+        return True, "No se proporcionó archivo de imagen.", None
+
+    filename = archivo.filename.strip()
+    if not filename:
+        return True, "Nombre de archivo vacío.", None
+
+    if '.' not in filename:
+        return False, "El archivo debe tener una extensión válida (png, jpg, jpeg, webp).", None
+
+    ext = filename.rsplit('.', 1)[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        return False, f"Formato no permitido (.{ext}). Formatos aceptados: png, jpg, jpeg, webp.", None
+
+    # Validar tamaño del archivo
+    archivo.seek(0, os.SEEK_END)
+    file_length = archivo.tell()
+    archivo.seek(0)
+    if file_length > MAX_IMAGE_SIZE:
+        return False, "La imagen excede el tamaño máximo permitido de 5 MB.", None
+
+    try:
+        img = Image.open(archivo)
+        
+        # Redimensionar si el ancho supera los 1200px manteniendo la proporción
+        max_width = 1200
+        if img.width > max_width:
+            ratio = max_width / float(img.width)
+            new_height = int(float(img.height) * float(ratio))
+            resample_filter = getattr(Image, 'Resampling', Image).LANCZOS
+            img = img.resize((max_width, new_height), resample_filter)
+
+        # Generar nombre único con UUID
+        unique_name = f"{uuid.uuid4().hex}.{ext}"
+        upload_dir = get_upload_dir()
+        dest_path = os.path.join(upload_dir, unique_name)
+
+        # Normalizar modo de color para JPEG
+        if ext in ['jpg', 'jpeg'] and img.mode in ('RGBA', 'P', 'LA'):
+            img = img.convert('RGB')
+        
+        img.save(dest_path, optimize=True, quality=85)
+        
+        relative_path = f"uploads/atractivos/{unique_name}"
+        return True, "Imagen guardada exitosamente.", relative_path
+    except Exception as e:
+        return False, f"Error al procesar la imagen: {str(e)}", None
+
+def eliminar_archivo_imagen(ruta_relativa: str | None):
+    """Elimina físicamente del disco el archivo de imagen anterior de un atractivo."""
+    if not ruta_relativa:
+        return
+    try:
+        clean_rel = ruta_relativa.replace('\\', '/').lstrip('/')
+        if clean_rel.startswith('uploads/atractivos/'):
+            filename = os.path.basename(clean_rel)
+            file_path = os.path.join(get_upload_dir(), filename)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+    except Exception as e:
+        print(f"Advertencia: no se pudo eliminar archivo físico {ruta_relativa}: {e}")
 
 def parse_time_str(time_val):
     """Convierte cadena de texto (HH:MM o HH:MM:SS) a objeto time de Python."""
@@ -85,10 +164,10 @@ def obtener_atractivo(id_atractivo: int, include_deleted: bool = False) -> Atrac
         return None
     return atractivo
 
-def crear_atractivo(data: dict) -> tuple[bool, str, Atractivo | None]:
+def crear_atractivo(data: dict, imagen_file=None) -> tuple[bool, str, Atractivo | None]:
     """
     Crea un nuevo atractivo turístico validando reglas comerciales, geográficas y de horario.
-    (Solo Administrador).
+    Soporta subida física de imagen con Pillow (Solo Administrador).
     """
     nombre = (data.get('nombre') or '').strip()
     descripcion = (data.get('descripcion') or '').strip()
@@ -102,7 +181,6 @@ def crear_atractivo(data: dict) -> tuple[bool, str, Atractivo | None]:
     dias_cerrado = (data.get('dias_cerrado') or '').strip()
     id_categoria_raw = data.get('id_categoria')
     id_proveedor_raw = data.get('id_proveedor')
-    imagen_url = (data.get('imagen_url') or '').strip()
 
     # 1. Nombre
     if not nombre or len(nombre) < 3:
@@ -188,9 +266,15 @@ def crear_atractivo(data: dict) -> tuple[bool, str, Atractivo | None]:
         except (TypeError, ValueError):
             return False, "El tiempo de visita estimado debe ser un número entero válido.", None
 
-    # 8. Imagen URL
-    if imagen_url and len(imagen_url) > 255:
-        return False, "La URL de imagen no puede exceder los 255 caracteres.", None
+    # 8. Procesamiento de Imagen (archivo físico o ruta)
+    imagen_url = None
+    if imagen_file and hasattr(imagen_file, 'filename') and imagen_file.filename:
+        ok_img, msg_img, ruta_img = guardar_imagen_atractivo(imagen_file)
+        if not ok_img:
+            return False, msg_img, None
+        imagen_url = ruta_img
+    elif data.get('imagen_url'):
+        imagen_url = str(data.get('imagen_url')).strip() or None
 
     try:
         nuevo_atractivo = Atractivo(
@@ -206,20 +290,23 @@ def crear_atractivo(data: dict) -> tuple[bool, str, Atractivo | None]:
             dias_cerrado=dias_cerrado if dias_cerrado else None,
             id_categoria=id_categoria,
             id_proveedor=id_proveedor,
-            imagen_url=imagen_url if imagen_url else None
+            imagen_url=imagen_url
         )
         db.session.add(nuevo_atractivo)
         db.session.commit()
         return True, f"Atractivo turístico '{nombre}' creado exitosamente.", nuevo_atractivo
     except Exception as e:
         db.session.rollback()
+        # Si falló la BD y se había guardado un archivo, limpiarlo
+        if imagen_url and imagen_url.startswith('uploads/atractivos/'):
+            eliminar_archivo_imagen(imagen_url)
         return False, f"Error al registrar atractivo: {str(e)}", None
 
-def actualizar_atractivo(id_atractivo: int, data: dict, rol: str = 'admin') -> tuple[bool, str, Atractivo | None]:
+def actualizar_atractivo(id_atractivo: int, data: dict, rol: str = 'admin', imagen_file=None) -> tuple[bool, str, Atractivo | None]:
     """
     Actualiza un atractivo turístico diferenciando permisos:
-    - Admin: Puede modificar la totalidad de los datos (comerciales, estructurales y operativos).
-    - Agente: Solo puede modificar campos operativos (descripción, dirección, coordenadas, horarios, días cerrado, tiempo estimado).
+    - Admin: Puede modificar la totalidad de los datos (comerciales, estructurales, operativos e imagen).
+    - Agente: Solo puede modificar campos operativos (descripción, dirección, coordenadas, horarios, días cerrado, tiempo estimado). NO puede modificar imagen.
     """
     atractivo = db.session.get(Atractivo, id_atractivo)
     if not atractivo:
@@ -289,13 +376,13 @@ def actualizar_atractivo(id_atractivo: int, data: dict, rol: str = 'admin') -> t
     atractivo.dias_cerrado = dias_cerrado if dias_cerrado else None
     atractivo.tiempo_visita_estimado = tiempo_visita_estimado
 
-    # 2. Si el rol es Administrador, validar y actualizar campos comerciales y estructurales
+    # 2. Si el rol es Administrador, validar y actualizar campos comerciales, estructurales e imagen
+    archivo_anterior_a_eliminar = None
     if rol == 'admin':
         nombre = (data.get('nombre') or '').strip()
         costo_entrada_raw = data.get('costo_entrada')
         id_categoria_raw = data.get('id_categoria')
         id_proveedor_raw = data.get('id_proveedor')
-        imagen_url = (data.get('imagen_url') or '').strip()
 
         if not nombre or len(nombre) < 3:
             return False, "El nombre del atractivo es obligatorio y debe tener al menos 3 caracteres.", None
@@ -331,17 +418,30 @@ def actualizar_atractivo(id_atractivo: int, data: dict, rol: str = 'admin') -> t
             except Exception:
                 return False, "El costo de entrada debe ser un número decimal válido.", None
 
-        if imagen_url and len(imagen_url) > 255:
-            return False, "La URL de imagen no puede exceder los 255 caracteres.", None
+        # Manejo de imagen
+        if imagen_file and hasattr(imagen_file, 'filename') and imagen_file.filename:
+            ok_img, msg_img, ruta_img = guardar_imagen_atractivo(imagen_file)
+            if not ok_img:
+                return False, msg_img, None
+            archivo_anterior_a_eliminar = atractivo.imagen_url
+            atractivo.imagen_url = ruta_img
+        elif data.get('eliminar_imagen') in ['1', 'true', 'True', True]:
+            archivo_anterior_a_eliminar = atractivo.imagen_url
+            atractivo.imagen_url = None
+        elif 'imagen_url' in data and data.get('imagen_url') != atractivo.imagen_url:
+            # Asignación manual de ruta si se especificó explícitamente
+            nueva_ruta = (data.get('imagen_url') or '').strip() or None
+            atractivo.imagen_url = nueva_ruta
 
         atractivo.nombre = nombre
         atractivo.costo_entrada = costo_entrada
         atractivo.id_categoria = id_categoria
         atractivo.id_proveedor = id_proveedor
-        atractivo.imagen_url = imagen_url if imagen_url else None
 
     try:
         db.session.commit()
+        if archivo_anterior_a_eliminar and archivo_anterior_a_eliminar != atractivo.imagen_url:
+            eliminar_archivo_imagen(archivo_anterior_a_eliminar)
         mensaje = "Atractivo turístico actualizado exitosamente." if rol == 'admin' else "Campos operativos del atractivo actualizados exitosamente."
         return True, mensaje, atractivo
     except Exception as e:

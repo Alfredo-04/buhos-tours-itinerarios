@@ -29,7 +29,7 @@
   <div class="row justify-content-center">
     <div class="col-lg-10">
       
-      <form method="POST" action="{{ url_for('admin.atractivo_crear') }}" class="card-floating p-4">
+      <form method="POST" action="{{ url_for('admin.atractivo_crear') }}" enctype="multipart/form-data" class="card-floating p-4">
         
         <!-- Sección 1: Información General -->
         <div class="mb-4">
@@ -71,7 +71,10 @@
                   required
                 >
               </div>
-              <div class="form-text">Ingresa 0 para atractivos de acceso libre.</div>
+              <div class="preview-usd">
+                Equivalente: $<span id="preview_usd_atractivo" class="preview-val">0.00</span> USD
+                <small class="text-muted ms-1">(TC Oficial BCB: {{ tc_oficial }})</small>
+              </div>
             </div>
 
             <div class="col-12">
@@ -245,17 +248,15 @@
             </div>
 
             <div class="col-12">
-              <label for="imagen_url" class="form-label fw-semibold">URL de Imagen (Opcional - Reservado para futuro)</label>
+              <label for="imagen" class="form-label fw-semibold">Fotografía del Atractivo (PNG, JPG, WEBP - Máx 5 MB)</label>
               <input 
-                type="text" 
+                type="file" 
                 class="form-control" 
-                id="imagen_url" 
-                name="imagen_url" 
-                placeholder="https://ejemplo.com/imagen.jpg" 
-                value="{{ form_data.get('imagen_url', '') }}" 
-                maxlength="255"
+                id="imagen" 
+                name="imagen" 
+                accept="image/png, image/jpeg, image/webp"
               >
-              <div class="form-text">Por ahora se mostrará el placeholder visual predeterminado.</div>
+              <div class="form-text">La imagen será optimizada y redimensionada automáticamente (máximo 1200px de ancho).</div>
             </div>
 
           </div>
@@ -460,6 +461,19 @@
           errDiv.classList.remove('d-none');
         }
       });
+    }
+
+    // Conversión reactiva de precio a USD
+    const costoInput = document.getElementById('costo_entrada');
+    const previewUsd = document.getElementById('preview_usd_atractivo');
+    const tcOficial = {{ tc_oficial or 6.96 }};
+    if (costoInput && previewUsd) {
+      const actualizarPreviewUsd = () => {
+        const bob = parseFloat(costoInput.value) || 0;
+        previewUsd.textContent = (bob / tcOficial).toFixed(2);
+      };
+      costoInput.addEventListener('input', actualizarPreviewUsd);
+      actualizarPreviewUsd();
     }
 
   });

@@ -37,11 +37,11 @@
         <i class="bi bi-arrow-left me-1"></i> Volver al Catálogo
       </a>
 
-      {% if current_user.rol.nombre == 'admin' %}
+      {% if current_user.is_authenticated and current_user.rol and current_user.rol.nombre == 'admin' %}
         <a href="{{ url_for('admin.atractivo_editar', id_atractivo=atractivo.id_atractivo) }}" class="btn-emerald">
           <i class="bi bi-pencil-square me-1"></i> Editar Completo
         </a>
-      {% elif current_user.rol.nombre == 'agente' %}
+      {% elif current_user.is_authenticated and current_user.rol and current_user.rol.nombre == 'agente' %}
         <a href="{{ url_for('agente.atractivo_editar_parcial', id_atractivo=atractivo.id_atractivo) }}" class="btn-emerald">
           <i class="bi bi-pencil-square me-1"></i> Modificar Datos Operativos
         </a>
@@ -54,38 +54,73 @@
     <!-- Columna Principal: Imagen Placeholder y Descripción -->
     <div class="col-lg-8">
       
-      <!-- Placeholder Visual Destacado de Imagen -->
-      <div class="attraction-image-placeholder attraction-image-placeholder-lg mb-4">
-        <div class="placeholder-icon-wrap" style="width: 84px; height: 84px; font-size: 2.4rem;">
-          {% if 'Naturaleza' in atractivo.categoria.nombre %}
-            <i class="bi bi-tree-fill"></i>
-          {% elif 'Arqueológico' in atractivo.categoria.nombre or 'Cultural' in atractivo.categoria.nombre %}
-            <i class="bi bi-bank2"></i>
-          {% elif 'Aventura' in atractivo.categoria.nombre %}
-            <i class="bi bi-compass-fill"></i>
-          {% elif 'Urbano' in atractivo.categoria.nombre %}
-            <i class="bi bi-building"></i>
-          {% else %}
-            <i class="bi bi-geo-alt-fill"></i>
-          {% endif %}
+      {% if atractivo.imagen_url %}
+        <div class="position-relative rounded-4 overflow-hidden shadow-sm mb-4" style="height: 380px; background-color: #0F172A;">
+          <img src="{{ url_for('static', filename=atractivo.imagen_url) }}" alt="{{ atractivo.nombre }}" class="w-100 h-100" style="object-fit: cover;">
+          <div class="position-absolute bottom-0 start-0 end-0 p-3 bg-gradient" style="background: linear-gradient(transparent, rgba(0,0,0,0.75));">
+            <h2 class="h4 text-white fw-bold mb-0">{{ atractivo.nombre }}</h2>
+            <span class="badge bg-light text-dark mt-1">{{ atractivo.categoria.nombre }}</span>
+          </div>
+          <div class="position-absolute top-0 end-0 p-3">
+            {% if atractivo.costo_entrada and atractivo.costo_entrada > 0 %}
+              <div class="badge bg-dark bg-opacity-75 text-white px-3 py-2 rounded-pill shadow">
+                {% if current_user.is_authenticated and current_user.rol and current_user.rol.nombre in ['admin', 'agente'] %}
+                  <span class="text-white">${{ atractivo.costo_entrada | usd }} USD</span>
+                  <span class="text-white-50 mx-1">|</span>
+                  <span class="text-success">{{ "%.2f"|format(atractivo.costo_entrada) }} BOB</span>
+                {% else %}
+                  <span class="fw-bold text-white fs-6">${{ atractivo.costo_entrada | usd }} USD</span>
+                  <span class="text-white-50 ms-1" style="font-size: 0.8rem;">({{ "%.2f"|format(atractivo.costo_entrada) }} BOB)</span>
+                {% endif %}
+              </div>
+            {% else %}
+              <span class="badge bg-success text-white px-3 py-2 rounded-pill shadow" style="font-size: 0.85rem;">
+                Entrada Libre
+              </span>
+            {% endif %}
+          </div>
         </div>
-        <div class="placeholder-tag text-center px-3">
-          <span class="fs-6 text-white fw-bold d-block">{{ atractivo.nombre }}</span>
-          <span class="text-white-50 small">{{ atractivo.categoria.nombre }}</span>
-        </div>
+      {% else %}
+        <!-- Placeholder Visual Destacado de Imagen -->
+        <div class="attraction-image-placeholder attraction-image-placeholder-lg mb-4">
+          <div class="placeholder-icon-wrap" style="width: 84px; height: 84px; font-size: 2.4rem;">
+            {% if 'Naturaleza' in atractivo.categoria.nombre %}
+              <i class="bi bi-tree-fill"></i>
+            {% elif 'Arqueológico' in atractivo.categoria.nombre or 'Cultural' in atractivo.categoria.nombre %}
+              <i class="bi bi-bank2"></i>
+            {% elif 'Aventura' in atractivo.categoria.nombre %}
+              <i class="bi bi-compass-fill"></i>
+            {% elif 'Urbano' in atractivo.categoria.nombre %}
+              <i class="bi bi-building"></i>
+            {% else %}
+              <i class="bi bi-geo-alt-fill"></i>
+            {% endif %}
+          </div>
+          <div class="placeholder-tag text-center px-3">
+            <span class="fs-6 text-white fw-bold d-block">{{ atractivo.nombre }}</span>
+            <span class="text-white-50 small">{{ atractivo.categoria.nombre }}</span>
+          </div>
 
-        <div class="position-absolute top-0 end-0 p-3">
-          {% if atractivo.costo_entrada and atractivo.costo_entrada > 0 %}
-            <span class="badge bg-dark bg-opacity-75 text-white px-3 py-2 rounded-pill shadow" style="font-size: 0.9rem;">
-              Bs. {{ "%.2f"|format(atractivo.costo_entrada) }}
-            </span>
-          {% else %}
-            <span class="badge bg-success text-white px-3 py-2 rounded-pill shadow" style="font-size: 0.85rem;">
-              Entrada Libre
-            </span>
-          {% endif %}
+          <div class="position-absolute top-0 end-0 p-3">
+            {% if atractivo.costo_entrada and atractivo.costo_entrada > 0 %}
+              <div class="badge bg-dark bg-opacity-75 text-white px-3 py-2 rounded-pill shadow">
+                {% if current_user.is_authenticated and current_user.rol and current_user.rol.nombre in ['admin', 'agente'] %}
+                  <span class="text-white">${{ atractivo.costo_entrada | usd }} USD</span>
+                  <span class="text-white-50 mx-1">|</span>
+                  <span class="text-success">{{ "%.2f"|format(atractivo.costo_entrada) }} BOB</span>
+                {% else %}
+                  <span class="fw-bold text-white fs-6">${{ atractivo.costo_entrada | usd }} USD</span>
+                  <span class="text-white-50 ms-1" style="font-size: 0.8rem;">({{ "%.2f"|format(atractivo.costo_entrada) }} BOB)</span>
+                {% endif %}
+              </div>
+            {% else %}
+              <span class="badge bg-success text-white px-3 py-2 rounded-pill shadow" style="font-size: 0.85rem;">
+                Entrada Libre
+              </span>
+            {% endif %}
+          </div>
         </div>
-      </div>
+      {% endif %}
 
       <!-- Tarjeta de Descripción y Reseña -->
       <div class="card-floating mb-4">
@@ -97,7 +132,7 @@
           {{ atractivo.descripcion or 'No se cuenta con una descripción detallada para este destino.' }}
         </p>
 
-        <!-- Botón de Mapa Interactivo (Deshabilitado / Próximamente) -->
+        <!-- Botón de Mapa Interactivo -->
         <div class="mt-4 pt-3 border-top d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3">
           <div>
             <span class="fw-semibold text-dark d-block mb-1">
@@ -108,11 +143,10 @@
             </span>
           </div>
           <div>
-            <button type="button" class="btn btn-map-disabled px-3 py-2 rounded-pill d-inline-flex align-items-center gap-2" disabled title="Módulo de mapas interactivos en desarrollo">
-              <i class="bi bi-geo-alt-fill text-muted"></i>
+            <a href="{{ url_for('catalogo.atractivo_mapa', id_atractivo=atractivo.id_atractivo) }}" class="btn btn-outline-primary px-3 py-2 rounded-pill d-inline-flex align-items-center gap-2">
+              <i class="bi bi-geo-alt-fill"></i>
               <span>Ver ubicación en mapa</span>
-              <span class="badge bg-secondary-subtle text-secondary rounded-pill" style="font-size: 0.68rem;">Próximamente</span>
-            </button>
+            </a>
           </div>
         </div>
 
@@ -172,20 +206,31 @@
           <!-- Costo Entrada -->
           <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
             <span class="text-muted small"><i class="bi bi-cash-coin me-1"></i> Tarifa de Ingreso</span>
-            <span class="fw-bold text-success">
+            <div class="text-end">
               {% if atractivo.costo_entrada and atractivo.costo_entrada > 0 %}
-                Bs. {{ "%.2f"|format(atractivo.costo_entrada) }}
+                {% if current_user.is_authenticated and current_user.rol and current_user.rol.nombre in ['admin', 'agente'] %}
+                  <div class="precio-dual justify-content-end">
+                    <span class="usd">${{ atractivo.costo_entrada | usd }} USD</span>
+                    <span class="separador">|</span>
+                    <span class="bob">{{ "%.2f"|format(atractivo.costo_entrada) }} BOB</span>
+                  </div>
+                {% else %}
+                  <div class="precio-turista text-end">
+                    <div class="precio-principal">${{ atractivo.costo_entrada | usd }} USD</div>
+                    <div class="precio-secundario">({{ "%.2f"|format(atractivo.costo_entrada) }} BOB)</div>
+                  </div>
+                {% endif %}
               {% else %}
-                Gratuito
+                <span class="fw-bold text-success">Acceso Libre</span>
               {% endif %}
-            </span>
+            </div>
           </div>
 
         </div>
       </div>
 
       <!-- Sección de Datos Internos (Solo visible para Agentes y Administradores) -->
-      {% if current_user.rol.nombre in ['admin', 'agente'] %}
+      {% if current_user.is_authenticated and current_user.rol and current_user.rol.nombre in ['admin', 'agente'] %}
         <div class="card-floating" style="background-color: #F8FAFC; border: 1px solid #E2E8F0;">
           <div class="d-flex align-items-center gap-2 mb-3">
             <span class="badge" style="background-color: #EEF2F6; color: #1E293B; border: 1px solid #CBD5E1;">

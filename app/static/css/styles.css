@@ -856,3 +856,65 @@ h1, h2, h3, h4, h5, h6 {
   color: #64748B;
   border-color: #CBD5E1;
 }
+
+/* ==========================================================================
+   Visualización de Precios Diferenciada por Rol (Turista vs Admin/Agente)
+   ========================================================================== */
+.precio-turista {
+  display: flex;
+  flex-direction: column;
+}
+
+.precio-turista .precio-principal {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #1a5490;
+  line-height: 1.2;
+}
+
+.precio-turista .precio-secundario {
+  font-size: 0.85rem;
+  color: #6c757d;
+  margin-top: 0.15rem;
+  font-weight: 500;
+}
+
+.precio-dual {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.precio-dual .usd,
+.precio-dual .bob {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.precio-dual .usd {
+  color: #1a5490;
+}
+
+.precio-dual .bob {
+  color: #28a745;
+}
+
+.precio-dual .separador {
+  color: #adb5bd;
+  font-weight: 400;
+}
+
+/* Previews en Formularios Reactivos */
+.preview-usd {
+  font-size: 0.85rem;
+  color: #4b5563;
+  margin-top: 0.35rem;
+  font-weight: 500;
+}
+
+.preview-usd .preview-val {
+  font-weight: 700;
+  color: #1a5490;
+}
+

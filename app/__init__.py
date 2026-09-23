@@ -79,6 +79,28 @@ def create_app(config_class=Config):
                     flash('Como agente o administrador, debes configurar la autenticación de dos factores (2FA) para continuar.', 'warning')
                     return redirect(url_for('auth.configurar_2fa'))
 
+    # Context Processor para inyectar Tipo de Cambio BCB Oficial a todas las vistas
+    @app.context_processor
+    def inject_exchange_rate():
+        from app.services.exchange_service import obtener_tc_oficial, convertir_bs_a_usd
+        tc = obtener_tc_oficial()
+        return {
+            'tc_oficial': tc,
+            'convertir_bs_a_usd': convertir_bs_a_usd
+        }
+
+    # Filtro Jinja para convertir montos de BOB a USD usando el TC oficial
+    @app.template_filter('usd')
+    def to_usd(bs_amount):
+        from app.services.exchange_service import obtener_tc_oficial
+        tc = obtener_tc_oficial()
+        if bs_amount is None or not tc or tc <= 0:
+            return "0.00"
+        try:
+            return f"{float(bs_amount) / tc:.2f}"
+        except (ValueError, TypeError):
+            return "0.00"
+
     # Comando CLI para ejecutar Seeder de Roles
     @app.cli.command("seed-roles")
     def seed_roles_command():
