@@ -1,0 +1,211 @@
+<!-- Panel de Configuración y Preferencias del Turista -->
+<div class="card card-custom border-0 shadow-sm mb-4">
+  <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0 d-flex align-items-center justify-content-between">
+    <div class="d-flex align-items-center gap-2">
+      <div class="rounded-circle p-2 d-flex align-items-center justify-content-center" style="background: var(--color-ai-bg); color: var(--color-ai-accent); width: 38px; height: 38px;">
+        <i class="bi bi-sliders2-vertical fs-5"></i>
+      </div>
+      <div>
+        <h5 class="mb-0 fw-bold">Parámetros de Entrada</h5>
+        <small class="text-muted">Define preferencias y restricciones del viaje</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="card-body p-4">
+    <form id="formGenerarItinerario" onsubmit="return false;">
+      
+      <!-- 1. Presupuesto y Tiempo -->
+      <div class="mb-4">
+        <label class="form-label fw-semibold text-uppercase small text-muted mb-2" style="letter-spacing: 0.05em;">
+          <i class="bi bi-clock-history text-primary me-1"></i> Restricciones Básicas
+        </label>
+        
+        <div class="row g-3">
+          <div class="col-12 col-sm-6">
+            <label for="tiempo_disponible_horas" class="form-label small fw-medium">Tiempo Disponible</label>
+            <div class="input-group">
+              <input type="number" class="form-control" id="tiempo_disponible_horas" name="tiempo_disponible_horas" value="8.0" min="1" max="48" step="0.5" required>
+              <span class="input-group-text bg-light text-muted small">horas</span>
+            </div>
+            <div class="form-text small text-muted">Ej: 8 horas (un día de tour)</div>
+          </div>
+
+          <div class="col-12 col-sm-6">
+            <label for="presupuesto_max" class="form-label small fw-medium">Presupuesto Máximo</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light text-muted small">Bs.</span>
+              <input type="number" class="form-control" id="presupuesto_max" name="presupuesto_max" value="250" min="10" step="5" required>
+            </div>
+            <div class="form-text small text-muted d-flex justify-content-between">
+              <span>Aprox:</span>
+              <strong id="previewPresupuestoUSD" class="text-success">$0.00 USD</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <hr class="my-4 text-muted opacity-25">
+
+      <!-- 2. Intereses por Categoría (Sliders 0.0 - 1.0) -->
+      <div class="mb-4">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <label class="form-label fw-semibold text-uppercase small text-muted mb-0" style="letter-spacing: 0.05em;">
+            <i class="bi bi-heart-pulse-fill text-danger me-1"></i> Afinidad por Categoría
+          </label>
+          <span class="badge bg-light text-dark border small">0.0 a 1.0</span>
+        </div>
+        <p class="small text-muted mb-3">Pondera el nivel de interés del turista para cada categoría temática.</p>
+
+        <div class="d-flex flex-column gap-3">
+          {% for cat in categorias %}
+            <div class="p-2 px-3 rounded bg-light border-0">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-semibold small d-flex align-items-center gap-2">
+                  <i class="bi bi-tag-fill text-info small"></i> {{ cat.nombre }}
+                </span>
+                <span class="badge rounded-pill bg-white text-dark border px-2 py-1 small fw-bold" id="badge_interes_{{ cat.id_categoria }}">
+                  0.7
+                </span>
+              </div>
+              <input type="range" class="form-range slider-interes" 
+                     id="interes_cat_{{ cat.id_categoria }}" 
+                     data-cat-nombre="{{ cat.nombre }}" 
+                     data-badge-id="badge_interes_{{ cat.id_categoria }}"
+                     min="0.0" max="1.0" step="0.05" value="0.7">
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <hr class="my-4 text-muted opacity-25">
+
+      <!-- 3. Selección de Atractivos Turísticos -->
+      <div class="mb-4">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <label class="form-label fw-semibold text-uppercase small text-muted mb-0" style="letter-spacing: 0.05em;">
+            <i class="bi bi-geo-alt-fill text-success me-1"></i> Atractivos Turísticos
+          </label>
+          <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;" id="btnSelectAllAtractivos">Todos</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;" id="btnDeselectAllAtractivos">Ninguno</button>
+          </div>
+        </div>
+        <p class="small text-muted mb-2">Selecciona los puntos que formarán parte del espacio de búsqueda (mínimo 2).</p>
+
+        <div class="accordion accordion-flush border rounded" id="accordionAtractivos">
+          {% for cat in categorias %}
+            {% set atractivos_cat = cat.atractivos|selectattr('deleted_at', 'none')|list %}
+            {% if atractivos_cat|length > 0 %}
+              <div class="accordion-item">
+                <h2 class="accordion-header" id="headingCat_{{ cat.id_categoria }}">
+                  <button class="accordion-button py-2 px-3 collapsed bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCat_{{ cat.id_categoria }}" aria-expanded="false">
+                    <span class="fw-semibold small">{{ cat.nombre }}</span>
+                    <span class="badge bg-secondary ms-2 rounded-pill small" style="font-size: 0.7rem;">{{ atractivos_cat|length }}</span>
+                  </button>
+                </h2>
+                <div id="collapseCat_{{ cat.id_categoria }}" class="accordion-collapse collapse show">
+                  <div class="accordion-body p-2">
+                    {% for a in atractivos_cat %}
+                      <div class="form-check py-1 px-4 rounded hover-bg-light">
+                        <input class="form-check-input chk-atractivo" type="checkbox" value="{{ a.id_atractivo }}" id="chk_atr_{{ a.id_atractivo }}" checked>
+                        <label class="form-check-label small d-flex justify-content-between align-items-center w-100 cursor-pointer" for="chk_atr_{{ a.id_atractivo }}">
+                          <span class="text-truncate me-2 fw-medium" title="{{ a.nombre }}">{{ a.nombre }}</span>
+                          <span class="badge bg-light text-muted border small" style="font-size: 0.7rem;">
+                            {{ a.tiempo_visita_estimado or 60 }} min | Bs. {{ "%.2f"|format(a.costo_entrada or 0) }}
+                          </span>
+                        </label>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+        <div class="small text-muted mt-2 d-flex justify-content-between">
+          <span>Seleccionados: <strong id="contadorAtractivosSeleccionados">0</strong></span>
+          <span id="alertaAtractivosMinimos" class="text-danger small d-none">Mínimo 2 atractivos</span>
+        </div>
+      </div>
+
+      <hr class="my-4 text-muted opacity-25">
+
+      <!-- 4. Medios de Transporte Disponibles -->
+      <div class="mb-4">
+        <label class="form-label fw-semibold text-uppercase small text-muted mb-2" style="letter-spacing: 0.05em;">
+          <i class="bi bi-bus-front-fill text-warning me-1"></i> Medios de Transporte
+        </label>
+        <p class="small text-muted mb-2">El algoritmo asignará el transporte más rápido disponible para cada tramo.</p>
+
+        <div class="d-flex flex-column gap-2">
+          {% for t in transportes %}
+            <div class="form-check p-2 ps-4 border rounded hover-bg-light">
+              <input class="form-check-input chk-transporte" type="checkbox" value="{{ t.id_transporte }}" id="chk_trans_{{ t.id_transporte }}" checked>
+              <label class="form-check-label small d-flex justify-content-between align-items-center w-100 cursor-pointer" for="chk_trans_{{ t.id_transporte }}">
+                <div>
+                  <div class="fw-semibold">{{ t.nombre }}</div>
+                  <div class="text-muted" style="font-size: 0.72rem;">
+                    Tipo: {{ t.tipo }} | Vel: {{ t.velocidad_promedio_kmh }} km/h
+                  </div>
+                </div>
+                <div class="text-end">
+                  <span class="badge bg-light text-dark border">
+                    Bs. {{ "%.2f"|format(t.costo_por_tramo or 0) }}
+                  </span>
+                  <div class="text-muted small" style="font-size: 0.7rem;">/ tramo</div>
+                </div>
+              </label>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- 5. Parámetros Avanzados del Algoritmo Genético (Colapsable) -->
+      <div class="mb-4">
+        <div class="card bg-light border-0">
+          <div class="card-header bg-transparent border-0 p-3 pb-0">
+            <button class="btn btn-sm btn-link text-decoration-none text-muted p-0 d-flex align-items-center justify-content-between w-100" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAvanzado">
+              <span class="small fw-bold text-uppercase d-flex align-items-center gap-1">
+                <i class="bi bi-gear-fill"></i> Parámetros Algoritmo NSGA-II
+              </span>
+              <i class="bi bi-chevron-down small"></i>
+            </button>
+          </div>
+          <div class="collapse" id="collapseAvanzado">
+            <div class="card-body p-3 pt-2">
+              <div class="row g-2">
+                <div class="col-6">
+                  <label for="tamano_poblacion" class="form-label small" style="font-size: 0.75rem;">Población (N)</label>
+                  <input type="number" class="form-control form-control-sm" id="tamano_poblacion" name="tamano_poblacion" value="50" min="10" max="200" step="10">
+                </div>
+                <div class="col-6">
+                  <label for="generaciones" class="form-label small" style="font-size: 0.75rem;">Generaciones (G)</label>
+                  <input type="number" class="form-control form-control-sm" id="generaciones" name="generaciones" value="40" min="5" max="150" step="5">
+                </div>
+                <div class="col-6">
+                  <label for="prob_cruce" class="form-label small" style="font-size: 0.75rem;">Prob. Cruce (OX)</label>
+                  <input type="number" class="form-control form-control-sm" id="prob_cruce" name="prob_cruce" value="0.9" min="0.1" max="1.0" step="0.05">
+                </div>
+                <div class="col-6">
+                  <label for="prob_mutacion" class="form-label small" style="font-size: 0.75rem;">Prob. Mutación (Inv)</label>
+                  <input type="number" class="form-control form-control-sm" id="prob_mutacion" name="prob_mutacion" value="0.1" min="0.01" max="0.9" step="0.05">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botón de Ejecución -->
+      <div class="d-grid pt-2">
+        <button type="button" class="btn btn-primary btn-lg shadow-sm d-flex align-items-center justify-content-center gap-2" id="btnGenerarItinerarios" style="background: var(--color-ai-accent); border-color: var(--color-ai-accent);">
+          <span class="spinner-border spinner-border-sm d-none" id="spinnerGenerar" role="status" aria-hidden="true"></span>
+          <i class="bi bi-cpu-fill fs-5" id="iconGenerar"></i>
+          <span class="fw-bold" id="btnTextGenerar">Generar Itinerarios</span>
+        </button>
+      </div>
+
+    </form>
+  </div>
+</div>

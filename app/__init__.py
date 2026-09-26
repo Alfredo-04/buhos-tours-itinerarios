@@ -45,6 +45,7 @@ def create_app(config_class=Config):
     from app.controllers.turista_controller import turista_bp
     from app.controllers.usuario_controller import usuario_bp
     from app.controllers.catalogo_controller import catalogo_bp
+    from app.controllers.itinerario_controller import itinerarios_bp
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
@@ -52,6 +53,7 @@ def create_app(config_class=Config):
     app.register_blueprint(turista_bp)
     app.register_blueprint(usuario_bp)
     app.register_blueprint(catalogo_bp)
+    app.register_blueprint(itinerarios_bp)
 
     # Middleware de seguridad global
     @app.before_request

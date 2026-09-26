@@ -1,0 +1,205 @@
+<!-- Panel de Resultados y Visualización de Soluciones -->
+
+<!-- 1. Estado Vacío (Antes de ejecutar la optimización) -->
+<div class="card card-custom border-0 shadow-sm text-center py-5 px-4 mb-4" id="estadoVacioResultados">
+  <div class="py-4">
+    <div class="rounded-circle d-inline-flex align-items-center justify-content-center p-4 mb-3" style="background: #F1F5F9; color: #64748B; width: 90px; height: 90px;">
+      <i class="bi bi-compass-fill" style="font-size: 2.75rem;"></i>
+    </div>
+    <h4 class="fw-bold mb-2">Listo para Generar Itinerarios</h4>
+    <p class="text-muted mx-auto mb-4" style="max-width: 500px;">
+      Configura los parámetros en el panel izquierdo (presupuesto, tiempo, atractivos y afinidad) y presiona 
+      <strong>"Generar Itinerarios"</strong> para ejecutar el motor genético multiobjetivo <strong>NSGA-II</strong>.
+    </p>
+    <div class="d-flex justify-content-center gap-3 flex-wrap">
+      <span class="badge bg-light text-dark border px-3 py-2 small">
+        <i class="bi bi-check-circle-fill text-success me-1"></i> Optimización Multiobjetivo
+      </span>
+      <span class="badge bg-light text-dark border px-3 py-2 small">
+        <i class="bi bi-graph-up text-primary me-1"></i> Frente de Pareto
+      </span>
+      <span class="badge bg-light text-dark border px-3 py-2 small">
+        <i class="bi bi-activity text-info me-1"></i> Análisis de Convergencia
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- 2. Contenedor de Resultados (Oculto inicialmente) -->
+<div id="contenedorResultados" class="d-none">
+
+  <!-- KPI Cards -->
+  <div class="row g-3 mb-4">
+    
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card card-custom border-0 shadow-sm p-3 h-100">
+        <div class="d-flex align-items-center justify-content-between mb-1">
+          <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Frente de Pareto</span>
+          <div class="rounded p-2 text-primary bg-primary-subtle">
+            <i class="bi bi-layers-fill"></i>
+          </div>
+        </div>
+        <div class="d-flex align-items-baseline gap-2">
+          <h3 class="fw-bold mb-0" id="kpi_soluciones_total">0</h3>
+          <span class="text-muted small">soluciones</span>
+        </div>
+        <small class="text-muted" style="font-size: 0.75rem;">Itinerarios óptimos no dominados</small>
+      </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card card-custom border-0 shadow-sm p-3 h-100">
+        <div class="d-flex align-items-center justify-content-between mb-1">
+          <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Máxima Afinidad</span>
+          <div class="rounded p-2 text-success bg-success-subtle">
+            <i class="bi bi-heart-fill"></i>
+          </div>
+        </div>
+        <div class="d-flex align-items-baseline gap-2">
+          <h3 class="fw-bold mb-0 text-success" id="kpi_mejor_afinidad">0.0%</h3>
+        </div>
+        <small class="text-muted" style="font-size: 0.75rem;">Alineación con preferencias del turista</small>
+      </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card card-custom border-0 shadow-sm p-3 h-100">
+        <div class="d-flex align-items-center justify-content-between mb-1">
+          <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Menor Tiempo</span>
+          <div class="rounded p-2 text-warning bg-warning-subtle">
+            <i class="bi bi-lightning-charge-fill"></i>
+          </div>
+        </div>
+        <div class="d-flex align-items-baseline gap-2">
+          <h3 class="fw-bold mb-0" id="kpi_mejor_tiempo">0 min</h3>
+        </div>
+        <small class="text-muted" style="font-size: 0.75rem;">Recorrido más ágil del conjunto</small>
+      </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card card-custom border-0 shadow-sm p-3 h-100">
+        <div class="d-flex align-items-center justify-content-between mb-1">
+          <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Tiempo Cómputo</span>
+          <div class="rounded p-2 text-info bg-info-subtle">
+            <i class="bi bi-stopwatch-fill"></i>
+          </div>
+        </div>
+        <div class="d-flex align-items-baseline gap-2">
+          <h3 class="fw-bold mb-0" id="kpi_tiempo_computo">0.00s</h3>
+        </div>
+        <small class="text-muted" style="font-size: 0.75rem;">Tiempo de ejecución NSGA-II</small>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Sección de Gráficos Analíticos -->
+  <div class="card card-custom border-0 shadow-sm mb-4">
+    <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0 d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div>
+        <h5 class="mb-0 fw-bold">Visualización Analítica de la Optimización</h5>
+        <small class="text-muted">Frente de Pareto, convergencia evolutiva y diversidad de la población</small>
+      </div>
+
+      <!-- Nav Tabs de Gráficos -->
+      <ul class="nav nav-pills nav-pills-custom" id="graficosTab" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active btn-sm" id="tab-pareto" data-bs-toggle="tab" data-bs-target="#panel-pareto" type="button" role="tab">
+            <i class="bi bi-scatter-chart me-1"></i> Frente de Pareto
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link btn-sm" id="tab-convergencia" data-bs-toggle="tab" data-bs-target="#panel-convergencia" type="button" role="tab">
+            <i class="bi bi-graph-up-arrow me-1"></i> Convergencia
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link btn-sm" id="tab-diversidad" data-bs-toggle="tab" data-bs-target="#panel-diversidad" type="button" role="tab">
+            <i class="bi bi-bezier2 me-1"></i> Diversidad
+          </button>
+        </li>
+      </ul>
+    </div>
+
+    <div class="card-body p-4">
+      <div class="tab-content" id="graficosTabContent">
+        
+        <!-- Tab 1: Frente de Pareto -->
+        <div class="tab-pane fade show active" id="panel-pareto" role="tabpanel">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="small text-muted">
+              <strong>Compromiso Multiobjetivo:</strong> Cada punto representa una solución óptima en el espacio Tiempo vs. Afinidad.
+            </div>
+            <span class="badge bg-light text-muted border small">Eje X: Tiempo (min) | Eje Y: Afinidad (0-1)</span>
+          </div>
+          <div style="position: relative; height: 320px; width: 100%;">
+            <canvas id="chartPareto"></canvas>
+          </div>
+        </div>
+
+        <!-- Tab 2: Gráfico de Convergencia -->
+        <div class="tab-pane fade" id="panel-convergencia" role="tabpanel">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="small text-muted">
+              <strong>Progreso por Generación:</strong> Evolución de la mejor afinidad y del mejor tiempo total alcanzados.
+            </div>
+            <span class="badge bg-light text-muted border small">Generaciones 1 a N</span>
+          </div>
+          <div style="position: relative; height: 320px; width: 100%;">
+            <canvas id="chartConvergencia"></canvas>
+          </div>
+        </div>
+
+        <!-- Tab 3: Gráfico de Diversidad -->
+        <div class="tab-pane fade" id="panel-diversidad" role="tabpanel">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="small text-muted">
+              <strong>Dispersión de la Población:</strong> Desviación estándar de afinidad a través de las generaciones evolutivas.
+            </div>
+            <span class="badge bg-light text-muted border small">Desviación estándar ($\sigma$)</span>
+          </div>
+          <div style="position: relative; height: 320px; width: 100%;">
+            <canvas id="chartDiversidad"></canvas>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla de Soluciones Óptimas -->
+  <div class="card card-custom border-0 shadow-sm mb-4">
+    <div class="card-header bg-transparent border-0 pt-4 px-4 pb-2 d-flex align-items-center justify-content-between">
+      <div>
+        <h5 class="mb-0 fw-bold">Itinerarios Óptimos Generados</h5>
+        <small class="text-muted">Ordenados por afinidad turística descendente y menor tiempo total</small>
+      </div>
+      <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 fw-bold" id="badgeTotalSolucionesTabla">
+        0 soluciones
+      </span>
+    </div>
+
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="tablaSolucionesItinerarios">
+          <thead class="bg-light text-muted small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">
+            <tr>
+              <th class="ps-4" style="width: 50px;">#</th>
+              <th>Afinidad</th>
+              <th>Tiempo Total</th>
+              <th>Costo Total</th>
+              <th>Secuencia de Atractivos</th>
+              <th>Restricciones</th>
+              <th class="pe-4 text-end">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="tbodySoluciones">
+            <!-- Renderizado dinámico vía JavaScript -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
