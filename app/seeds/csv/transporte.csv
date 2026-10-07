@@ -1,0 +1,5 @@
+id_transporte;nombre;tipo;capacidad;horario_inicio;horario_fin;costo;tipo_costo;velocidad_promedio_kmh
+1;Taxi;Privado;4;06:00;23:00;150,00;por_dia;25,0
+2;Van Ejecutiva (HiAce/H-1);Privado;10;06:00;22:00;400,00;por_dia;25,0
+3;Minibús Ejecutivo (Sprinter);Privado;22;06:00;22:00;700,00;por_dia;20,0
+4;Caminata;Público;30;06:00;22:00;0,00;por_persona;4,5

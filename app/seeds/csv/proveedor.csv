@@ -1,0 +1,9 @@
+id_proveedor;razon_social;tipo;contacto_nombre;contacto_telefono;contacto_email;tarifa_especial;observaciones
+1;Gobierno Autónomo Municipal de La Paz (GAMLP);Institución pública;Secretaría Culturas y Turismo;22406000;gamlp_turismo@lapaz.bo;0,00;Administrador de la mayoría de museos municipales miradores plazas y áreas protegidas urbanas.
+2;Fundación Cultural del Banco Central de Bolivia (FC-BCB);Fundación estatal;Dirección Nacional MNA-MUSEF;22408600;info@fundacionculturalbcb.bo;0,00;Ente responsable del Museo Nacional de Arte y el MUSEF. Ofrece pases liberados a guías certificados.
+3;Santuario Basílica de San Francisco;Entidad religiosa;Administración del Convento;22315050;museosanfrancisco@gmail.com;15,00;Tarifa corporativa negociable para grupos agenciados de más de 10 personas.
+4;Asociación de Kioskos de Sándwiches de Chola Las Cholas;Asociación comercial;Directiva de las Caseras;;; ;Establecimientos individuales. Se coordina el consumo directo con cada casera por volumen.
+5;Asociación de Vendedoras del Mercado Lanza;Asociación gremial;Secretaría General de Conflictos;;; ;Nexo directo para desayunos o refrigerios grupales tradicionales.
+6;Asociación Gremial del Mercado de las Brujas;Asociación artesanal;Representante de Amautas y Artesanos;;; ;Coordinación de respeto y permisos fotográficos grupales con los yatiris y amautas locales.
+7;Museo de la Coca (Privado);Empresa privada;Administración General;22311998;info@cocamuseum.com;10,00;Tarifa reducida exclusiva para agencias aliadas con flujos semanales.
+8;Arzobispado de La Paz;Institución religiosa;Cancillería del Arzobispado;22406115;info@arzobispadolapaz.org;0,00;Administra los templos e iglesias históricas del centro.

@@ -1,0 +1,10 @@
+id_subcategoria;nombre;descripcion;id_categoria
+1;Museos;Espacios cerrados dedicados a la exhibición resguardo y conservación de patrimonio arqueológico artístico e histórico.;1
+2;Iglesias y Templos;Lugares sagrados y conventos de arquitectura colonial y republicana de alto valor artístico e histórico.;1
+3;Sitios Patrimoniales y Calles Históricas;Arterias viales urbanas y conjuntos arquitectónicos antiguos conservados con identidad tradicional.;1
+4;Miradores;Puntos geográficos altos acondicionados para la observación panorámica y contextualización urbana o natural.;2
+5;Parques y Bosquecillos;Espacios naturales delimitados destinados a la conservación ecológica recreación y avistamiento de fauna.;2
+6;Áreas Protegidas;Zonas de conservación ambiental flora y fauna protegidas y formaciones geológicas de valor singular.;2
+7;Plazas;Espacios públicos abiertos y nodos urbanos decorados con hitos históricos o escultóricos de alta afluencia.;3
+8;Mercados Tradicionales;Centrales de abasto populares organizadas en sectores tradicionales de comercio de artesanías y mística.;3
+9;Gastronomía Tradicional;Puntos de expendio y sectores dedicados exclusivamente a la comida típica y patrimonio culinario paceño.;4

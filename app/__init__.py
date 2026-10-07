@@ -167,4 +167,12 @@ def create_app(config_class=Config):
         seed_usuarios()
         click.echo("Seeder de usuarios ejecutado con éxito.")
 
+    # Comando CLI para ejecutar Seeder de Catálogo desde CSV
+    @app.cli.command("seed-catalogo")
+    def seed_catalogo_command():
+        """Ejecuta el seeder para poblar catálogo desde archivos CSV."""
+        from app.seeds.catalogo_seeder import seed_catalogo
+        seed_catalogo()
+        click.echo("Seeder de catálogo ejecutado con éxito.")
+
     return app
