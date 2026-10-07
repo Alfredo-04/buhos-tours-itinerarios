@@ -111,8 +111,8 @@ def crear_transporte(data: dict) -> tuple[bool, str, Transporte | None]:
     else:
         return False, "El tipo de transporte debe ser 'Privado' o 'Público'.", None
 
-    if tipo_costo not in ['por_persona', 'por_vehiculo']:
-        return False, "El tipo de costo debe ser 'por_persona' o 'por_vehiculo'.", None
+    if tipo_costo not in ['por_dia', 'por_persona']:
+        return False, "El tipo de costo debe ser 'por_dia' o 'por_persona'.", None
 
     # Capacidad
     try:
@@ -235,8 +235,8 @@ def actualizar_transporte(id_transporte: int, data: dict, rol: str = 'admin') ->
         else:
             return False, "El tipo de transporte debe ser 'Privado' o 'Público'.", None
 
-        if tipo_costo not in ['por_persona', 'por_vehiculo']:
-            return False, "El tipo de costo debe ser 'por_persona' o 'por_vehiculo'.", None
+        if tipo_costo not in ['por_dia', 'por_persona']:
+            return False, "El tipo de costo debe ser 'por_dia' o 'por_persona'.", None
 
         try:
             costo = Decimal(str(costo_raw))

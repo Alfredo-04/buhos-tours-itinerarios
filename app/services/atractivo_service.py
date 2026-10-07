@@ -102,8 +102,23 @@ def parse_time_str(time_val):
             continue
     return None
 
+def parse_date_str(date_val):
+    """Convierte cadena de texto (YYYY-MM-DD) a objeto date de Python."""
+    if not date_val:
+        return None
+    if hasattr(date_val, 'year'):
+        return date_val
+    date_str = str(date_val).strip()
+    if not date_str:
+        return None
+    try:
+        return datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return None
+
 def listar_atractivos(
     search_query: str = '',
+    subcategoria_id: int | None = None,
     categoria_id: int | None = None,
     estado: str = 'activos',
     sort_by: str = 'nombre_asc',
@@ -111,7 +126,7 @@ def listar_atractivos(
     per_page: int = 12
 ):
     """
-    Lista atractivos paginados con filtros de búsqueda, categoría, estado (soft delete) y ordenamiento.
+    Lista atractivos paginados con filtros de búsqueda, subcategoría, categoría, estado (soft delete) y ordenamiento.
     """
     query = Atractivo.query
 
@@ -121,8 +136,11 @@ def listar_atractivos(
     elif estado == 'eliminados':
         query = query.filter(Atractivo.deleted_at.isnot(None))
 
-    # Filtro por categoría o subcategoría
-    if categoria_id and str(categoria_id).isdigit() and int(categoria_id) > 0:
+    # Filtro por subcategoría específica
+    if subcategoria_id and str(subcategoria_id).isdigit() and int(subcategoria_id) > 0:
+        query = query.filter(Atractivo.id_subcategoria == int(subcategoria_id))
+    # Filtro por categoría padre
+    elif categoria_id and str(categoria_id).isdigit() and int(categoria_id) > 0:
         query = query.join(Atractivo.subcategoria).filter(Subcategoria.id_categoria == int(categoria_id))
 
     # Búsqueda por texto (nombre, descripción, dirección)
@@ -281,6 +299,12 @@ def crear_atractivo(data: dict, imagen_file=None) -> tuple[bool, str, Atractivo 
     elif data.get('imagen_url'):
         imagen_url = str(data.get('imagen_url')).strip() or None
 
+    fecha_inicio = parse_date_str(data.get('fecha_inicio'))
+    fecha_fin = parse_date_str(data.get('fecha_fin'))
+    afecta_rutas = str(data.get('afecta_rutas', '')).lower() in ['true', '1', 'on', 'yes', 'si']
+    sensible_al_clima = str(data.get('sensible_al_clima', '')).lower() in ['true', '1', 'on', 'yes', 'si']
+    tipo_clima_ideal = (data.get('tipo_clima_ideal') or '').strip() or None
+
     try:
         nuevo_atractivo = Atractivo(
             nombre=nombre,
@@ -296,11 +320,11 @@ def crear_atractivo(data: dict, imagen_file=None) -> tuple[bool, str, Atractivo 
             id_subcategoria=id_subcategoria,
             id_proveedor=id_proveedor,
             imagen_url=imagen_url,
-            fecha_inicio=data.get('fecha_inicio'),
-            fecha_fin=data.get('fecha_fin'),
-            afecta_rutas=bool(data.get('afecta_rutas', False)),
-            sensible_al_clima=bool(data.get('sensible_al_clima', False)),
-            tipo_clima_ideal=data.get('tipo_clima_ideal')
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin,
+            afecta_rutas=afecta_rutas,
+            sensible_al_clima=sensible_al_clima,
+            tipo_clima_ideal=tipo_clima_ideal
         )
         db.session.add(nuevo_atractivo)
         db.session.commit()
@@ -448,6 +472,17 @@ def actualizar_atractivo(id_atractivo: int, data: dict, rol: str = 'admin', imag
         atractivo.costo_entrada = costo_entrada
         atractivo.id_subcategoria = subcat.id_subcategoria
         atractivo.id_proveedor = id_proveedor
+
+        if 'fecha_inicio' in data:
+            atractivo.fecha_inicio = parse_date_str(data.get('fecha_inicio'))
+        if 'fecha_fin' in data:
+            atractivo.fecha_fin = parse_date_str(data.get('fecha_fin'))
+        if 'afecta_rutas' in data:
+            atractivo.afecta_rutas = str(data.get('afecta_rutas', '')).lower() in ['true', '1', 'on', 'yes', 'si']
+        if 'sensible_al_clima' in data:
+            atractivo.sensible_al_clima = str(data.get('sensible_al_clima', '')).lower() in ['true', '1', 'on', 'yes', 'si']
+        if 'tipo_clima_ideal' in data:
+            atractivo.tipo_clima_ideal = (data.get('tipo_clima_ideal') or '').strip() or None
 
     try:
         db.session.commit()

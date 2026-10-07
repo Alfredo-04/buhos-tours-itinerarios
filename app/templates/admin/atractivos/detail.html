@@ -102,6 +102,35 @@
               <span class="small text-muted">Sin fotografía subida (Utiliza placeholder de categoría)</span>
             {% endif %}
           </div>
+
+          <div class="col-sm-6">
+            <span class="text-muted small d-block">Temporada / Disponibilidad:</span>
+            <span class="fw-semibold text-dark">
+              {% if atractivo.fecha_inicio or atractivo.fecha_fin %}
+                {{ atractivo.fecha_inicio.strftime('%d/%m/%Y') if atractivo.fecha_inicio else 'Inicio flexible' }} al {{ atractivo.fecha_fin.strftime('%d/%m/%Y') if atractivo.fecha_fin else 'Fin flexible' }}
+              {% else %}
+                Todo el año
+              {% endif %}
+            </span>
+          </div>
+
+          <div class="col-sm-6">
+            <span class="text-muted small d-block">Condiciones de Clima y Tránsito:</span>
+            <div class="d-flex flex-wrap gap-2 mt-1">
+              {% if atractivo.sensible_al_clima %}
+                <span class="badge bg-warning-subtle text-dark border border-warning-subtle"><i class="bi bi-cloud-rain me-1"></i> Sensible al Clima</span>
+              {% endif %}
+              {% if atractivo.afecta_rutas %}
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle"><i class="bi bi-cone-striped me-1"></i> Afecta Rutas</span>
+              {% endif %}
+              {% if atractivo.tipo_clima_ideal %}
+                <span class="badge bg-info-subtle text-dark border border-info-subtle"><i class="bi bi-sun me-1"></i> Clima Ideal: {{ atractivo.tipo_clima_ideal }}</span>
+              {% endif %}
+              {% if not atractivo.sensible_al_clima and not atractivo.afecta_rutas and not atractivo.tipo_clima_ideal %}
+                <span class="small text-muted">Sin restricciones climáticas</span>
+              {% endif %}
+            </div>
+          </div>
         </div>
 
       </div>
@@ -128,8 +157,13 @@
           </div>
 
           <div class="d-flex justify-content-between py-2 border-bottom">
-            <span class="text-muted small">Categoría:</span>
-            <span class="badge bg-light text-dark border">{{ atractivo.categoria.nombre }}</span>
+            <span class="text-muted small">Subcategoría:</span>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">{{ atractivo.subcategoria.nombre }}</span>
+          </div>
+
+          <div class="d-flex justify-content-between py-2 border-bottom">
+            <span class="text-muted small">Categoría Padre:</span>
+            <span class="badge bg-light text-dark border">{{ atractivo.categoria.nombre if atractivo.categoria else 'N/A' }}</span>
           </div>
 
           <div class="d-flex justify-content-between py-2 border-bottom">

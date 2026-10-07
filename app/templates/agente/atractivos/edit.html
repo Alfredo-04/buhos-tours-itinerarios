@@ -87,8 +87,13 @@
             <div class="col-md-6">
               <div class="field-locked-card">
                 <div>
-                  <div class="field-locked-label">Categoría Temática</div>
-                  <div class="field-locked-value">{{ atractivo.categoria.nombre }}</div>
+                  <div class="field-locked-label">Subcategoría / Categoría</div>
+                  <div class="field-locked-value">
+                    {{ atractivo.subcategoria.nombre }}
+                    {% if atractivo.categoria %}
+                      <span class="text-muted small">({{ atractivo.categoria.nombre }})</span>
+                    {% endif %}
+                  </div>
                 </div>
                 <i class="bi bi-lock text-muted fs-5" title="Este campo solo puede ser modificado por un administrador."></i>
               </div>

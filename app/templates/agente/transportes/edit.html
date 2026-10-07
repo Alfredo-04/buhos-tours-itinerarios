@@ -77,12 +77,12 @@
             <div class="col-md-6">
               <div class="field-locked-card">
                 <div>
-                  <div class="field-locked-label">Costo por Tramo</div>
+                  <div class="field-locked-label">Costo</div>
                   <div class="field-locked-value">
                     <div class="precio-dual">
-                      <span class="usd">${{ (transporte.costo_por_tramo or 0) | usd }} USD</span>
+                      <span class="usd">${{ (transporte.costo or 0) | usd }} USD</span>
                       <span class="separador">|</span>
-                      <span class="bob">{{ "%.2f"|format(transporte.costo_por_tramo or 0) }} BOB</span>
+                      <span class="bob">{{ "%.2f"|format(transporte.costo or 0) }} BOB</span>
                     </div>
                   </div>
                 </div>

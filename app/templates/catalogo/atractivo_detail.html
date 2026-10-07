@@ -59,7 +59,12 @@
           <img src="{{ url_for('static', filename=atractivo.imagen_url) }}" alt="{{ atractivo.nombre }}" class="w-100 h-100" style="object-fit: cover;">
           <div class="position-absolute bottom-0 start-0 end-0 p-3 bg-gradient" style="background: linear-gradient(transparent, rgba(0,0,0,0.75));">
             <h2 class="h4 text-white fw-bold mb-0">{{ atractivo.nombre }}</h2>
-            <span class="badge bg-light text-dark mt-1">{{ atractivo.categoria.nombre }}</span>
+            <div class="d-flex gap-1 mt-1">
+              <span class="badge bg-primary text-white">{{ atractivo.subcategoria.nombre }}</span>
+              {% if atractivo.categoria %}
+                <span class="badge bg-light text-dark">{{ atractivo.categoria.nombre }}</span>
+              {% endif %}
+            </div>
           </div>
           <div class="position-absolute top-0 end-0 p-3">
             {% if atractivo.costo_entrada and atractivo.costo_entrada > 0 %}
@@ -84,13 +89,13 @@
         <!-- Placeholder Visual Destacado de Imagen -->
         <div class="attraction-image-placeholder attraction-image-placeholder-lg mb-4">
           <div class="placeholder-icon-wrap" style="width: 84px; height: 84px; font-size: 2.4rem;">
-            {% if 'Naturaleza' in atractivo.categoria.nombre %}
+            {% if atractivo.categoria and 'Naturaleza' in atractivo.categoria.nombre %}
               <i class="bi bi-tree-fill"></i>
-            {% elif 'Arqueológico' in atractivo.categoria.nombre or 'Cultural' in atractivo.categoria.nombre %}
+            {% elif atractivo.categoria and ('Arqueológico' in atractivo.categoria.nombre or 'Cultural' in atractivo.categoria.nombre) %}
               <i class="bi bi-bank2"></i>
-            {% elif 'Aventura' in atractivo.categoria.nombre %}
+            {% elif atractivo.categoria and 'Aventura' in atractivo.categoria.nombre %}
               <i class="bi bi-compass-fill"></i>
-            {% elif 'Urbano' in atractivo.categoria.nombre %}
+            {% elif atractivo.categoria and 'Urbano' in atractivo.categoria.nombre %}
               <i class="bi bi-building"></i>
             {% else %}
               <i class="bi bi-geo-alt-fill"></i>
@@ -98,7 +103,7 @@
           </div>
           <div class="placeholder-tag text-center px-3">
             <span class="fs-6 text-white fw-bold d-block">{{ atractivo.nombre }}</span>
-            <span class="text-white-50 small">{{ atractivo.categoria.nombre }}</span>
+            <span class="text-white-50 small">{{ atractivo.subcategoria.nombre }}{% if atractivo.categoria %} ({{ atractivo.categoria.nombre }}){% endif %}</span>
           </div>
 
           <div class="position-absolute top-0 end-0 p-3">
@@ -165,10 +170,15 @@
 
         <div class="d-flex flex-column gap-3">
           
-          <!-- Categoría -->
+          <!-- Subcategoría y Categoría Padre -->
           <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
-            <span class="text-muted small"><i class="bi bi-tags me-1"></i> Categoría</span>
-            <span class="fw-semibold text-dark">{{ atractivo.categoria.nombre }}</span>
+            <span class="text-muted small"><i class="bi bi-tag me-1"></i> Subcategoría</span>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">{{ atractivo.subcategoria.nombre }}</span>
+          </div>
+
+          <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+            <span class="text-muted small"><i class="bi bi-tags me-1"></i> Categoría Padre</span>
+            <span class="fw-semibold text-dark">{{ atractivo.categoria.nombre if atractivo.categoria else 'N/A' }}</span>
           </div>
 
           <!-- Tiempo Estimado -->

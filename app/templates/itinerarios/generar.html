@@ -665,6 +665,7 @@ document.addEventListener('DOMContentLoaded', function () {
     for (let i = 0; i < sol.atractivos_nombres.length; i++) {
       const nombreAtr = sol.atractivos_nombres[i];
       const cat = sol.categorias[i] || 'General';
+      const subcat = sol.subcategorias ? sol.subcategorias[i] : '';
       const tramo = sol.tramos ? sol.tramos[i] : null;
 
       // Parada de atractivo
@@ -675,7 +676,8 @@ document.addEventListener('DOMContentLoaded', function () {
         <div class="card border bg-white p-3 shadow-none">
           <div class="d-flex justify-content-between align-items-start">
             <div>
-              <span class="badge bg-light text-primary border mb-1">${cat}</span>
+              <span class="badge bg-primary text-white mb-1 me-1">${subcat || cat}</span>
+              ${subcat && subcat !== cat ? `<span class="badge bg-light text-muted border mb-1">${cat}</span>` : ''}
               <h6 class="fw-bold mb-1 text-dark">${nombreAtr}</h6>
             </div>
             <div class="text-end">

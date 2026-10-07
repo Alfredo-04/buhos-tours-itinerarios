@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from app.utils.decorators import admin_required
 from app.services import (
     usuario_service, atractivo_service, transporte_service,
-    categoria_service, proveedor_service
+    categoria_service, subcategoria_service, proveedor_service
 )
 from app.models.rol import Rol
 
@@ -167,14 +167,17 @@ def usuario_reset_password(id_usuario):
 def atractivos():
     search_query = request.args.get('q', '').strip()
     categoria_filtro = request.args.get('categoria', '').strip()
+    subcategoria_filtro = request.args.get('subcategoria', '').strip()
     estado_filtro = request.args.get('estado', 'activos').strip()
     sort_by = request.args.get('sort', 'id_asc').strip()
     page = request.args.get('page', 1, type=int)
 
     cat_id = int(categoria_filtro) if categoria_filtro.isdigit() else None
+    subcat_id = int(subcategoria_filtro) if subcategoria_filtro.isdigit() else None
 
     pagination = atractivo_service.listar_atractivos(
         search_query=search_query,
+        subcategoria_id=subcat_id,
         categoria_id=cat_id,
         estado=estado_filtro,
         sort_by=sort_by,
@@ -182,6 +185,7 @@ def atractivos():
         per_page=10
     )
     categorias = categoria_service.obtener_todas_activas()
+    subcategorias = subcategoria_service.obtener_todas_activas()
     stats = atractivo_service.get_estadisticas_atractivos()
 
     return render_template(
@@ -189,9 +193,11 @@ def atractivos():
         pagination=pagination,
         atractivos=pagination.items,
         categorias=categorias,
+        subcategorias=subcategorias,
         stats=stats,
         search_query=search_query,
         categoria_filtro=categoria_filtro,
+        subcategoria_filtro=subcategoria_filtro,
         estado_filtro=estado_filtro,
         sort_by=sort_by
     )
@@ -201,6 +207,7 @@ def atractivos():
 @admin_required
 def atractivo_crear():
     categorias = categoria_service.obtener_todas_activas()
+    subcategorias = subcategoria_service.obtener_todas_activas()
     proveedores = proveedor_service.obtener_todos_activos()
 
     if request.method == 'POST':
@@ -214,6 +221,7 @@ def atractivo_crear():
             return render_template(
                 'admin/atractivos/create.html',
                 categorias=categorias,
+                subcategorias=subcategorias,
                 proveedores=proveedores,
                 form_data=request.form
             )
@@ -221,6 +229,7 @@ def atractivo_crear():
     return render_template(
         'admin/atractivos/create.html',
         categorias=categorias,
+        subcategorias=subcategorias,
         proveedores=proveedores,
         form_data={}
     )
@@ -235,6 +244,7 @@ def atractivo_editar(id_atractivo):
         return redirect(url_for('admin.atractivos'))
 
     categorias = categoria_service.obtener_todas_activas()
+    subcategorias = subcategoria_service.obtener_todas_activas()
     proveedores = proveedor_service.obtener_todos_activos()
 
     if request.method == 'POST':
@@ -249,6 +259,7 @@ def atractivo_editar(id_atractivo):
                 'admin/atractivos/edit.html',
                 atractivo=atractivo,
                 categorias=categorias,
+                subcategorias=subcategorias,
                 proveedores=proveedores,
                 form_data=request.form
             )
@@ -257,6 +268,7 @@ def atractivo_editar(id_atractivo):
         'admin/atractivos/edit.html',
         atractivo=atractivo,
         categorias=categorias,
+        subcategorias=subcategorias,
         proveedores=proveedores,
         form_data={
             'nombre': atractivo.nombre,
@@ -269,9 +281,15 @@ def atractivo_editar(id_atractivo):
             'costo_entrada': str(atractivo.costo_entrada) if atractivo.costo_entrada is not None else '0.00',
             'tiempo_visita_estimado': str(atractivo.tiempo_visita_estimado) if atractivo.tiempo_visita_estimado else '',
             'dias_cerrado': atractivo.dias_cerrado or '',
+            'id_subcategoria': atractivo.id_subcategoria,
             'id_categoria': atractivo.id_categoria,
             'id_proveedor': atractivo.id_proveedor,
-            'imagen_url': atractivo.imagen_url or ''
+            'imagen_url': atractivo.imagen_url or '',
+            'fecha_inicio': atractivo.fecha_inicio.strftime('%Y-%m-%d') if atractivo.fecha_inicio else '',
+            'fecha_fin': atractivo.fecha_fin.strftime('%Y-%m-%d') if atractivo.fecha_fin else '',
+            'afecta_rutas': atractivo.afecta_rutas,
+            'sensible_al_clima': atractivo.sensible_al_clima,
+            'tipo_clima_ideal': atractivo.tipo_clima_ideal or ''
         }
     )
 
@@ -403,6 +421,120 @@ def api_categoria_crear_rapida():
             }
         }), 201
     return jsonify({'success': False, 'message': message}), 400
+
+
+# ==============================================================================
+# GESTIÓN DE SUBCATEGORÍAS
+# ==============================================================================
+@admin_bp.route('/subcategorias')
+@login_required
+@admin_required
+def subcategorias():
+    search_query = request.args.get('q', '').strip()
+    categoria_id = request.args.get('categoria_id', type=int)
+    estado_filtro = request.args.get('estado', 'activos')
+    sort_by = request.args.get('sort', 'nombre_asc')
+    page = request.args.get('page', 1, type=int)
+
+    pagination = subcategoria_service.listar_subcategorias(
+        categoria_id=categoria_id,
+        search_query=search_query,
+        estado=estado_filtro,
+        sort_by=sort_by,
+        page=page,
+        per_page=10
+    )
+    stats = subcategoria_service.get_estadisticas_subcategorias()
+    categorias_activas = categoria_service.obtener_todas_activas()
+
+    return render_template(
+        'admin/subcategorias/list.html',
+        subcategorias=pagination.items,
+        pagination=pagination,
+        stats=stats,
+        categorias=categorias_activas,
+        categoria_id_filtro=categoria_id,
+        search_query=search_query,
+        estado_filtro=estado_filtro,
+        sort_by=sort_by
+    )
+
+@admin_bp.route('/subcategorias/crear', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def subcategoria_crear():
+    categorias_activas = categoria_service.obtener_todas_activas()
+    if request.method == 'POST':
+        success, message, nueva = subcategoria_service.crear_subcategoria(request.form)
+        if success:
+            flash(message, 'success')
+            return redirect(url_for('admin.subcategorias'))
+        else:
+            flash(message, 'danger')
+            return render_template('admin/subcategorias/create.html', categorias=categorias_activas, form_data=request.form)
+    return render_template('admin/subcategorias/create.html', categorias=categorias_activas, form_data={})
+
+@admin_bp.route('/subcategorias/<int:id_subcategoria>/editar', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def subcategoria_editar(id_subcategoria):
+    subcat = subcategoria_service.obtener_subcategoria(id_subcategoria)
+    if not subcat:
+        flash('Subcategoría no encontrada.', 'danger')
+        return redirect(url_for('admin.subcategorias'))
+
+    categorias_activas = categoria_service.obtener_todas_activas()
+
+    if request.method == 'POST':
+        success, message, _ = subcategoria_service.actualizar_subcategoria(id_subcategoria, request.form)
+        if success:
+            flash(message, 'success')
+            return redirect(url_for('admin.subcategorias'))
+        else:
+            flash(message, 'danger')
+            return render_template('admin/subcategorias/edit.html', subcategoria=subcat, categorias=categorias_activas, form_data=request.form)
+
+    return render_template('admin/subcategorias/edit.html', subcategoria=subcat, categorias=categorias_activas, form_data={
+        'nombre': subcat.nombre,
+        'descripcion': subcat.descripcion or '',
+        'id_categoria': subcat.id_categoria
+    })
+
+@admin_bp.route('/subcategorias/<int:id_subcategoria>/eliminar', methods=['POST'])
+@login_required
+@admin_required
+def subcategoria_eliminar(id_subcategoria):
+    success, message = subcategoria_service.eliminar_subcategoria(id_subcategoria)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('admin.subcategorias'))
+
+@admin_bp.route('/subcategorias/<int:id_subcategoria>/restaurar', methods=['POST'])
+@login_required
+@admin_required
+def subcategoria_restaurar(id_subcategoria):
+    success, message = subcategoria_service.restaurar_subcategoria(id_subcategoria)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('admin.subcategorias', estado='activos'))
+
+@admin_bp.route('/api/subcategorias/crear-rapida', methods=['POST'])
+@login_required
+@admin_required
+def api_subcategoria_crear_rapida():
+    data = request.get_json() if request.is_json else request.form
+    success, message, nueva = subcategoria_service.crear_subcategoria(data)
+    if success:
+        return jsonify({
+            'success': True,
+            'message': message,
+            'subcategoria': {
+                'id_subcategoria': nueva.id_subcategoria,
+                'nombre': nueva.nombre,
+                'id_categoria': nueva.id_categoria,
+                'categoria_nombre': nueva.categoria.nombre if nueva.categoria else ''
+            }
+        }), 201
+    return jsonify({'success': False, 'message': message}), 400
+
 
 
 # ==============================================================================
@@ -585,7 +717,8 @@ def transporte_editar(id_transporte):
         'capacidad': str(transporte.capacidad) if transporte.capacidad else '',
         'horario_inicio': transporte.horario_inicio.strftime('%H:%M') if transporte.horario_inicio else '',
         'horario_fin': transporte.horario_fin.strftime('%H:%M') if transporte.horario_fin else '',
-        'costo_por_tramo': str(transporte.costo_por_tramo) if transporte.costo_por_tramo is not None else '0.00',
+        'costo': str(transporte.costo) if transporte.costo is not None else '0.00',
+        'costo_por_tramo': str(transporte.costo) if transporte.costo is not None else '0.00',
         'tipo_costo': transporte.tipo_costo,
         'velocidad_promedio_kmh': str(transporte.velocidad_promedio_kmh) if transporte.velocidad_promedio_kmh is not None else '30.0'
     })

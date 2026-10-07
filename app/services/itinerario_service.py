@@ -26,6 +26,7 @@ def preparar_datos_nsga2(
     atractivos_dict = []
     for a in query_atractivos:
         nombre_cat = a.categoria.nombre if a.categoria and not a.categoria.is_deleted else "General"
+        nombre_subcat = a.subcategoria.nombre if a.subcategoria and not a.subcategoria.is_deleted else "General"
         atractivos_dict.append({
             "id": a.id_atractivo,
             "nombre": a.nombre,
@@ -33,6 +34,7 @@ def preparar_datos_nsga2(
             "lon": float(a.longitud) if a.longitud is not None else 0.0,
             "tiempo_visita": int(a.tiempo_visita_estimado or 60),
             "categoria": nombre_cat,
+            "subcategoria": nombre_subcat,
             "costo_entrada": float(a.costo_entrada or 0.0),
             "direccion": a.direccion or "",
             "imagen_url": a.imagen_url or "",

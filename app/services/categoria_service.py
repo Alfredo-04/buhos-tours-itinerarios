@@ -2,6 +2,7 @@ from datetime import datetime
 from sqlalchemy import or_
 from app import db
 from app.models.categoria import Categoria
+from app.models.subcategoria import Subcategoria
 from app.models.atractivo import Atractivo
 
 def listar_categorias(
@@ -127,10 +128,10 @@ def eliminar_categoria(id_categoria: int) -> tuple[bool, str]:
     if not cat:
         return False, "Categoría no encontrada."
 
-    # Verificar si tiene atractivos activos asociados
-    atractivos_asociados = Atractivo.query.filter_by(id_categoria=id_categoria, deleted_at=None).count()
-    if atractivos_asociados > 0:
-        return False, f"No se puede eliminar la categoría '{cat.nombre}' porque tiene {atractivos_asociados} atractivo(s) activo(s) asociado(s). Reasigna o desactiva esos atractivos primero."
+    # Verificar si tiene subcategorías activas asociadas
+    subcats_activas = Subcategoria.query.filter_by(id_categoria=id_categoria, deleted_at=None).count()
+    if subcats_activas > 0:
+        return False, f"No se puede desactivar la categoría '{cat.nombre}' porque tiene {subcats_activas} subcategoría(s) activa(s) asociada(s). Reasigna o desactiva esas subcategorías primero."
 
     try:
         cat.deleted_at = datetime.utcnow()

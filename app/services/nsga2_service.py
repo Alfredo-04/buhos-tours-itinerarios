@@ -69,9 +69,10 @@ class ItinerarioProblem(Problem):
         self.intereses = intereses
         self.n_atractivos = n_atractivos
 
-        # Precalcular afinidad individual y costo de entrada de cada atractivo
+        # Precalcular afinidad individual y costo de entrada de cada atractivo:
+        # Se evalúa afinidad buscando por nombre de subcategoría o heredando el peso de la categoría padre
         self.afinidad_individual = np.array([
-            float(self.intereses.get(a.get("categoria", ""), 0.0))
+            float(self.intereses.get(a.get("subcategoria", ""), self.intereses.get(a.get("categoria", ""), 0.0)))
             for a in self.atractivos
         ], dtype=float)
 
@@ -241,6 +242,7 @@ def ejecutar_nsga2(
         ids_ordenados = [atractivos[idx]["id"] for idx in perm]
         nombres_ordenados = [atractivos[idx]["nombre"] for idx in perm]
         categorias_ordenadas = [atractivos[idx].get("categoria", "General") for idx in perm]
+        subcategorias_ordenadas = [atractivos[idx].get("subcategoria", "General") for idx in perm]
         costos_ordenados = [float(atractivos[idx].get("costo_entrada", 0.0) or 0.0) for idx in perm]
         tiempos_visita_ordenados = [int(atractivos[idx].get("tiempo_visita", 60) or 60) for idx in perm]
 
@@ -286,6 +288,7 @@ def ejecutar_nsga2(
             "atractivos_ids": ids_ordenados,
             "atractivos_nombres": nombres_ordenados,
             "categorias": categorias_ordenadas,
+            "subcategorias": subcategorias_ordenadas,
             "tiempo_total_min": round(tiempo_total_min, 1),
             "tiempo_visitas_min": round(tiempo_visitas_total_min, 1),
             "tiempo_traslado_min": round(tiempo_traslado_total_min, 1),

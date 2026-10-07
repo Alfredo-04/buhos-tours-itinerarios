@@ -71,12 +71,24 @@
       </div>
 
       <!-- Filtro por Categoría -->
-      <div class="col-sm-6 col-md-3">
-        <select class="form-select" name="categoria" aria-label="Filtrar por categoría">
+      <div class="col-sm-6 col-md-2">
+        <select class="form-select" name="categoria" id="filtroCategoria" aria-label="Filtrar por categoría">
           <option value="" {% if not categoria_id %}selected{% endif %}>Todas las categorías</option>
           {% for cat in categorias %}
             <option value="{{ cat.id_categoria }}" {% if categoria_id == cat.id_categoria|string %}selected{% endif %}>
               {{ cat.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Filtro por Subcategoría -->
+      <div class="col-sm-6 col-md-2">
+        <select class="form-select" name="subcategoria" id="filtroSubcategoria" aria-label="Filtrar por subcategoría">
+          <option value="" {% if not subcategoria_id %}selected{% endif %}>Todas las subcategorías</option>
+          {% for sub in subcategorias %}
+            <option value="{{ sub.id_subcategoria }}" data-categoria="{{ sub.id_categoria }}" {% if subcategoria_id == sub.id_subcategoria|string %}selected{% endif %}>
+              {{ sub.nombre }}
             </option>
           {% endfor %}
         </select>
@@ -98,7 +110,7 @@
         <button type="submit" class="btn-emerald flex-grow-1">
           <i class="bi bi-funnel-fill"></i> Filtrar
         </button>
-        {% if search_query or categoria_id or sort_by != 'nombre_asc' %}
+        {% if search_query or categoria_id or subcategoria_id or sort_by != 'nombre_asc' %}
           <a href="{{ url_for('catalogo.atractivos_list') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);" title="Limpiar filtros">
             <i class="bi bi-x-lg"></i>
           </a>
@@ -119,27 +131,30 @@
             <div class="attraction-image-placeholder position-relative overflow-hidden" style="height: 180px;">
               {% if a.imagen_url %}
                 <img src="{{ url_for('static', filename=a.imagen_url) }}" alt="{{ a.nombre }}" class="w-100 h-100" style="object-fit: cover;">
-                <div class="position-absolute bottom-0 start-0 end-0 p-2" style="background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);">
-                  <span class="text-white small fw-semibold px-2 py-1 rounded" style="background: rgba(0,0,0,0.4);">
-                    <i class="bi bi-tag-fill me-1"></i>{{ a.categoria.nombre }}
+                <div class="position-absolute bottom-0 start-0 end-0 p-2" style="background: linear-gradient(to top, rgba(0,0,0,0.65), transparent);">
+                  <span class="text-white small fw-semibold px-2 py-1 rounded" style="background: rgba(0,0,0,0.5);">
+                    <i class="bi bi-tag-fill me-1"></i>{{ a.subcategoria.nombre }}
+                    {% if a.categoria %}
+                      <span class="text-white-50 ms-1" style="font-size: 0.72rem;">({{ a.categoria.nombre }})</span>
+                    {% endif %}
                   </span>
                 </div>
               {% else %}
                 <div class="placeholder-icon-wrap">
-                  {% if 'Naturaleza' in a.categoria.nombre %}
+                  {% if a.categoria and 'Naturaleza' in a.categoria.nombre %}
                     <i class="bi bi-tree-fill"></i>
-                  {% elif 'Arqueológico' in a.categoria.nombre or 'Cultural' in a.categoria.nombre %}
+                  {% elif a.categoria and ('Arqueológico' in a.categoria.nombre or 'Cultural' in a.categoria.nombre) %}
                     <i class="bi bi-bank2"></i>
-                  {% elif 'Aventura' in a.categoria.nombre %}
+                  {% elif a.categoria and 'Aventura' in a.categoria.nombre %}
                     <i class="bi bi-compass-fill"></i>
-                  {% elif 'Urbano' in a.categoria.nombre %}
+                  {% elif a.categoria and 'Urbano' in a.categoria.nombre %}
                     <i class="bi bi-building"></i>
                   {% else %}
                     <i class="bi bi-geo-alt-fill"></i>
                   {% endif %}
                 </div>
                 <div class="placeholder-tag">
-                  <span>{{ a.categoria.nombre }}</span>
+                  <span>{{ a.subcategoria.nombre }}</span>
                 </div>
               {% endif %}
 

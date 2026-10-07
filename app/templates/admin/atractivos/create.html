@@ -93,27 +93,34 @@
           </div>
         </div>
 
-        <!-- Sección 2: Dependencias (Categoría y Proveedor) con Modales Rápidos -->
+        <!-- Sección 2: Dependencias (Subcategoría y Proveedor) con Modales Rápidos -->
         <div class="mb-4">
           <h2 class="h6 fw-bold text-uppercase text-muted border-bottom pb-2 mb-3" style="letter-spacing: 0.05em; font-size: 0.8rem;">
-            2. Categoría y Proveedor Comercial
+            2. Subcategoría y Proveedor Comercial
           </h2>
 
           <div class="row g-3">
             
             <div class="col-md-6">
               <div class="d-flex justify-content-between align-items-center mb-1">
-                <label for="id_categoria" class="form-label fw-semibold mb-0">Categoría <span class="text-danger">*</span></label>
-                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" data-bs-toggle="modal" data-bs-target="#modalCrearCategoriaRapida">
-                  <i class="bi bi-plus-circle me-1"></i> Nueva Categoría
+                <label for="id_subcategoria" class="form-label fw-semibold mb-0">Subcategoría <span class="text-danger">*</span></label>
+                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" data-bs-toggle="modal" data-bs-target="#modalCrearSubcategoriaRapida">
+                  <i class="bi bi-plus-circle me-1"></i> Nueva Subcategoría
                 </button>
               </div>
-              <select class="form-select" id="id_categoria" name="id_categoria" required>
-                <option value="" disabled {% if not form_data.get('id_categoria') %}selected{% endif %}>Selecciona una categoría...</option>
+              <select class="form-select" id="id_subcategoria" name="id_subcategoria" required>
+                <option value="" disabled {% if not form_data.get('id_subcategoria') %}selected{% endif %}>Selecciona una subcategoría...</option>
                 {% for cat in categorias %}
-                  <option value="{{ cat.id_categoria }}" {% if form_data.get('id_categoria')|string == cat.id_categoria|string %}selected{% endif %}>
-                    {{ cat.nombre }}
-                  </option>
+                  {% set subcats_de_cat = cat.subcategorias|rejectattr('is_deleted')|list %}
+                  {% if subcats_de_cat %}
+                    <optgroup label="{{ cat.nombre }}">
+                      {% for subcat in subcats_de_cat %}
+                        <option value="{{ subcat.id_subcategoria }}" {% if form_data.get('id_subcategoria')|string == subcat.id_subcategoria|string %}selected{% endif %}>
+                          {{ subcat.nombre }}
+                        </option>
+                      {% endfor %}
+                    </optgroup>
+                  {% endif %}
                 {% endfor %}
               </select>
             </div>
@@ -262,6 +269,44 @@
           </div>
         </div>
 
+        <!-- Sección 5: Temporada y Condiciones de Ruta / Clima -->
+        <div class="mb-4">
+          <h2 class="h6 fw-bold text-uppercase text-muted border-bottom pb-2 mb-3" style="letter-spacing: 0.05em; font-size: 0.8rem;">
+            5. Temporada y Condiciones Climáticas / Rutas
+          </h2>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="fecha_inicio" class="form-label fw-semibold">Fecha Inicio Temporada / Evento</label>
+              <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" value="{{ form_data.get('fecha_inicio', '') }}">
+              <div class="form-text">Opcional. Para atractivos de temporada o festividades temporales.</div>
+            </div>
+
+            <div class="col-md-6">
+              <label for="fecha_fin" class="form-label fw-semibold">Fecha Fin Temporada / Evento</label>
+              <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" value="{{ form_data.get('fecha_fin', '') }}">
+              <div class="form-text">Opcional. Dejar vacío si está disponible todo el año.</div>
+            </div>
+
+            <div class="col-md-6">
+              <label for="tipo_clima_ideal" class="form-label fw-semibold">Tipo de Clima Ideal</label>
+              <input type="text" class="form-control" id="tipo_clima_ideal" name="tipo_clima_ideal" placeholder="Ej. Seco, Soleado, Templado..." value="{{ form_data.get('tipo_clima_ideal', '') }}" maxlength="100">
+            </div>
+
+            <div class="col-md-6 d-flex align-items-center pt-3 gap-4">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="sensible_al_clima" name="sensible_al_clima" value="true" {% if form_data.get('sensible_al_clima') in [True, 'true', 'on', '1'] %}checked{% endif %}>
+                <label class="form-check-label fw-semibold" for="sensible_al_clima">Sensible al Clima</label>
+              </div>
+
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="afecta_rutas" name="afecta_rutas" value="true" {% if form_data.get('afecta_rutas') in [True, 'true', 'on', '1'] %}checked{% endif %}>
+                <label class="form-check-label fw-semibold" for="afecta_rutas">Afecta Rutas / Tránsito</label>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Botones de Acción -->
         <div class="pt-3 border-top d-flex justify-content-end gap-2">
           <a href="{{ url_for('admin.atractivos') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
@@ -279,32 +324,42 @@
 
 </div>
 
-<!-- Modal 1: Crear Categoría Rápida vía AJAX -->
-<div class="modal fade" id="modalCrearCategoriaRapida" tabindex="-1" aria-labelledby="modalCatLabel" aria-hidden="true">
+<!-- Modal 1: Crear Subcategoría Rápida vía AJAX -->
+<div class="modal fade" id="modalCrearSubcategoriaRapida" tabindex="-1" aria-labelledby="modalSubcatLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow">
       <div class="modal-header" style="background-color: var(--color-sidebar-bg); color: #FFF;">
-        <h5 class="modal-title h6 fw-bold" id="modalCatLabel">
-          <i class="bi bi-tag-fill me-1 text-info"></i> Nueva Categoría Rápida
+        <h5 class="modal-title h6 fw-bold" id="modalSubcatLabel">
+          <i class="bi bi-tag-fill me-1 text-info"></i> Nueva Subcategoría Rápida
         </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body p-4">
-        <div id="catModalError" class="alert alert-danger py-2 px-3 small d-none mb-3"></div>
+        <div id="subcatModalError" class="alert alert-danger py-2 px-3 small d-none mb-3"></div>
         
         <div class="mb-3">
-          <label for="cat_rapida_nombre" class="form-label fw-semibold">Nombre de Categoría <span class="text-danger">*</span></label>
-          <input type="text" class="form-control" id="cat_rapida_nombre" placeholder="Ej. Termales, Vivencial..." required minlength="3" maxlength="50">
+          <label for="subcat_rapida_categoria" class="form-label fw-semibold">Categoría Padre <span class="text-danger">*</span></label>
+          <select class="form-select" id="subcat_rapida_categoria" required>
+            <option value="" disabled selected>Selecciona una categoría...</option>
+            {% for cat in categorias %}
+              <option value="{{ cat.id_categoria }}">{{ cat.nombre }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label for="subcat_rapida_nombre" class="form-label fw-semibold">Nombre de Subcategoría <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="subcat_rapida_nombre" placeholder="Ej. Arqueológico, Trekking..." required minlength="3" maxlength="50">
         </div>
 
         <div class="mb-2">
-          <label for="cat_rapida_descripcion" class="form-label fw-semibold">Descripción (Opcional)</label>
-          <textarea class="form-control" id="cat_rapida_descripcion" rows="2" maxlength="200" placeholder="Breve descripción..."></textarea>
+          <label for="subcat_rapida_descripcion" class="form-label fw-semibold">Descripción (Opcional)</label>
+          <textarea class="form-control" id="subcat_rapida_descripcion" rows="2" maxlength="200" placeholder="Breve descripción..."></textarea>
         </div>
       </div>
       <div class="modal-footer bg-light">
         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
-        <button type="button" class="btn-emerald btn-sm" id="btnGuardarCategoriaRapida">
+        <button type="button" class="btn-emerald btn-sm" id="btnGuardarSubcategoriaRapida">
           <i class="bi bi-check-lg me-1"></i> Crear y Seleccionar
         </button>
       </div>
@@ -357,19 +412,27 @@
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     
-    // Handler para Categoría Rápida
-    const btnGuardarCat = document.getElementById('btnGuardarCategoriaRapida');
-    if (btnGuardarCat) {
-      btnGuardarCat.addEventListener('click', async function() {
-        const nombreInput = document.getElementById('cat_rapida_nombre');
-        const descInput = document.getElementById('cat_rapida_descripcion');
-        const errDiv = document.getElementById('catModalError');
+    // Handler para Subcategoría Rápida
+    const btnGuardarSubcat = document.getElementById('btnGuardarSubcategoriaRapida');
+    if (btnGuardarSubcat) {
+      btnGuardarSubcat.addEventListener('click', async function() {
+        const catSelect = document.getElementById('subcat_rapida_categoria');
+        const nombreInput = document.getElementById('subcat_rapida_nombre');
+        const descInput = document.getElementById('subcat_rapida_descripcion');
+        const errDiv = document.getElementById('subcatModalError');
         
         errDiv.classList.add('d-none');
         errDiv.textContent = '';
 
+        const id_categoria = catSelect.value;
         const nombre = nombreInput.value.trim();
         const descripcion = descInput.value.trim();
+
+        if (!id_categoria) {
+          errDiv.textContent = 'Debes seleccionar una categoría padre.';
+          errDiv.classList.remove('d-none');
+          return;
+        }
 
         if (nombre.length < 3) {
           errDiv.textContent = 'El nombre debe tener al menos 3 caracteres.';
@@ -378,25 +441,29 @@
         }
 
         try {
-          const res = await fetch("{{ url_for('admin.api_categoria_crear_rapida') }}", {
+          const res = await fetch("{{ url_for('admin.api_subcategoria_crear_rapida') }}", {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre: nombre, descripcion: descripcion })
+            body: JSON.stringify({ 
+              id_categoria: id_categoria,
+              nombre: nombre, 
+              descripcion: descripcion 
+            })
           });
           const data = await res.json();
 
           if (data.success) {
-            const selectCat = document.getElementById('id_categoria');
-            const newOption = new Option(data.categoria.nombre, data.categoria.id_categoria, true, true);
-            selectCat.add(newOption);
-            selectCat.value = data.categoria.id_categoria;
+            const selectSubcat = document.getElementById('id_subcategoria');
+            const newOption = new Option(data.subcategoria.nombre, data.subcategoria.id_subcategoria, true, true);
+            selectSubcat.add(newOption);
+            selectSubcat.value = data.subcategoria.id_subcategoria;
 
-            const modal = bootstrap.Modal.getInstance(document.getElementById('modalCrearCategoriaRapida'));
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalCrearSubcategoriaRapida'));
             modal.hide();
             nombreInput.value = '';
             descInput.value = '';
           } else {
-            errDiv.textContent = data.message || 'Error al crear la categoría.';
+            errDiv.textContent = data.message || 'Error al crear la subcategoría.';
             errDiv.classList.remove('d-none');
           }
         } catch (e) {

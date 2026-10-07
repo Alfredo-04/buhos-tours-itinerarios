@@ -166,7 +166,7 @@
             <th scope="col" class="ps-4 text-muted small text-uppercase fw-semibold" style="width: 70px;">ID</th>
             <th scope="col" class="text-muted small text-uppercase fw-semibold">Nombre & Tipo</th>
             <th scope="col" class="text-muted small text-uppercase fw-semibold">Capacidad & Horario</th>
-            <th scope="col" class="text-muted small text-uppercase fw-semibold">Costo por Tramo</th>
+            <th scope="col" class="text-muted small text-uppercase fw-semibold">Costo</th>
             <th scope="col" class="text-muted small text-uppercase fw-semibold">Velocidad Promedio</th>
             <th scope="col" class="text-muted small text-uppercase fw-semibold">Estado</th>
             <th scope="col" class="text-end pe-4 text-muted small text-uppercase fw-semibold" style="width: 170px;">Acciones</th>
@@ -200,9 +200,9 @@
                 </td>
                 <td>
                   <div class="precio-dual">
-                    <span class="usd">${{ (t.costo_por_tramo or 0) | usd }} USD</span>
+                    <span class="usd">${{ (t.costo or 0) | usd }} USD</span>
                     <span class="separador">|</span>
-                    <span class="bob">{{ "%.2f"|format(t.costo_por_tramo or 0) }} BOB</span>
+                    <span class="bob">{{ "%.2f"|format(t.costo or 0) }} BOB</span>
                   </div>
                   <div class="small text-muted">({{ t.tipo_costo|replace('_', ' ') }})</div>
                 </td>

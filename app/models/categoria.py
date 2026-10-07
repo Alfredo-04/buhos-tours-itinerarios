@@ -16,6 +16,14 @@ class Categoria(db.Model):
         """Indica si la categoría se encuentra eliminada lógicamente"""
         return self.deleted_at is not None
 
+    @property
+    def atractivos(self):
+        """Retorna los atractivos de todas las subcategorías asociadas a esta categoría"""
+        res = []
+        for s in self.subcategorias:
+            res.extend(s.atractivos)
+        return res
+
     def __repr__(self):
         status = " (Eliminado)" if self.is_deleted else ""
         return f"<Categoria #{self.id_categoria} {self.nombre}{status}>"

@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Subcategorías | Panel Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- Encabezado de Página -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small">
+          <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}" class="text-decoration-none">Dashboard Admin</a></li>
+          <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-muted);">Subcategorías</li>
+        </ol>
+      </nav>
+      <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">Gestión de Subcategorías</h1>
+      <p class="text-muted small mb-0">Especialización de categorías temáticas para clasificar atractivos turísticos con integridad referencial.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <a href="{{ url_for('admin.subcategoria_crear') }}" class="btn-emerald">
+        <i class="bi bi-plus-circle-fill me-1"></i> Nueva Subcategoría
+      </a>
+      <a href="{{ url_for('admin.categorias') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+        <i class="bi bi-tags-fill me-1"></i> Ver Categorías
+      </a>
+    </div>
+  </div>
+
+  <!-- Tarjetas de Métricas -->
+  <div class="row g-3 mb-4">
+    <div class="col-sm-4">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="module-icon-box module-icon-blue" style="width: 42px; height: 42px;">
+            <i class="bi bi-diagram-3-fill"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Total Subcategorías</div>
+            <div class="h5 fw-bold mb-0" style="color: var(--color-text);">{{ stats.total }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-4">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="module-icon-box module-icon-emerald" style="width: 42px; height: 42px;">
+            <i class="bi bi-check-circle-fill"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Activas</div>
+            <div class="h5 fw-bold mb-0" style="color: var(--color-text);">{{ stats.activos }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-4">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="module-icon-box module-icon-amber" style="width: 42px; height: 42px;">
+            <i class="bi bi-archive-fill"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Desactivadas (Papelera)</div>
+            <div class="h5 fw-bold mb-0" style="color: var(--color-text);">{{ stats.eliminados }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra de Filtros y Búsqueda -->
+  <div class="card-floating p-3 mb-4">
+    <form method="GET" action="{{ url_for('admin.subcategorias') }}" class="row g-2 align-items-center">
+      
+      <div class="col-md-4">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-transparent border-end-0 text-muted">
+            <i class="bi bi-search"></i>
+          </span>
+          <input 
+            type="text" 
+            name="q" 
+            class="form-control border-start-0" 
+            placeholder="Buscar por nombre o descripción..." 
+            value="{{ search_query }}"
+          >
+        </div>
+      </div>
+
+      <div class="col-sm-6 col-md-3">
+        <select name="categoria_id" class="form-select form-select-sm" aria-label="Filtrar por categoría">
+          <option value="">Todas las categorías</option>
+          {% for cat in categorias %}
+          <option value="{{ cat.id_categoria }}" {% if categoria_id_filtro == cat.id_categoria %}selected{% endif %}>
+            {{ cat.nombre }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-sm-6 col-md-2">
+        <select name="estado" class="form-select form-select-sm" aria-label="Filtrar por estado">
+          <option value="activos" {% if estado_filtro == 'activos' %}selected{% endif %}>Solo Activas</option>
+          <option value="eliminados" {% if estado_filtro == 'eliminados' %}selected{% endif %}>Solo Desactivadas</option>
+          <option value="todos" {% if estado_filtro == 'todos' %}selected{% endif %}>Todos los estados</option>
+        </select>
+      </div>
+
+      <div class="col-sm-6 col-md-2">
+        <select name="sort" class="form-select form-select-sm" aria-label="Ordenar">
+          <option value="nombre_asc" {% if sort_by == 'nombre_asc' %}selected{% endif %}>Nombre (A-Z)</option>
+          <option value="nombre_desc" {% if sort_by == 'nombre_desc' %}selected{% endif %}>Nombre (Z-A)</option>
+          <option value="categoria_asc" {% if sort_by == 'categoria_asc' %}selected{% endif %}>Categoría (A-Z)</option>
+          <option value="id_desc" {% if sort_by == 'id_desc' %}selected{% endif %}>Más recientes</option>
+          <option value="id_asc" {% if sort_by == 'id_asc' %}selected{% endif %}>Más antiguos</option>
+        </select>
+      </div>
+
+      <div class="col-sm-6 col-md-1 d-flex gap-1">
+        <button type="submit" class="btn btn-sm btn-primary flex-grow-1" style="border-radius: var(--radius-sm);" title="Aplicar filtros">
+          <i class="bi bi-funnel-fill"></i>
+        </button>
+        {% if search_query or categoria_id_filtro or estado_filtro != 'activos' or sort_by != 'nombre_asc' %}
+          <a href="{{ url_for('admin.subcategorias') }}" class="btn btn-sm btn-outline-secondary" style="border-radius: var(--radius-sm);" title="Limpiar filtros">
+            <i class="bi bi-x-lg"></i>
+          </a>
+        {% endif %}
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Tabla de Subcategorías -->
+  <div class="card-floating p-0 overflow-hidden mb-4">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light text-uppercase small" style="letter-spacing: 0.5px;">
+          <tr>
+            <th class="ps-4" style="width: 70px;">ID</th>
+            <th>Subcategoría</th>
+            <th>Categoría Padre</th>
+            <th>Descripción</th>
+            <th style="width: 120px;">Estado</th>
+            <th class="text-end pe-4" style="width: 140px;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if subcategorias %}
+            {% for s in subcategorias %}
+              <tr class="{% if s.is_deleted %}table-secondary text-muted opacity-75{% endif %}">
+                <td class="ps-4 fw-bold text-muted">#{{ s.id_subcategoria }}</td>
+                <td>
+                  <div class="fw-semibold text-dark">{{ s.nombre }}</div>
+                </td>
+                <td>
+                  <span class="badge bg-light text-dark border">
+                    <i class="bi bi-tag-fill text-emerald me-1"></i>{{ s.categoria.nombre if s.categoria else 'N/A' }}
+                  </span>
+                </td>
+                <td>
+                  <div class="small text-muted text-truncate" style="max-width: 320px;" title="{{ s.descripcion or 'Sin descripción' }}">
+                    {{ s.descripcion or '—' }}
+                  </div>
+                </td>
+                <td>
+                  {% if not s.is_deleted %}
+                    <span class="badge badge-subtle-success">Activa</span>
+                  {% else %}
+                    <span class="badge badge-subtle-warning" title="Desactivada el {{ s.deleted_at.strftime('%d/%m/%Y %H:%M') if s.deleted_at else '' }}">
+                      Desactivada
+                    </span>
+                  {% endif %}
+                </td>
+                <td class="text-end pe-4">
+                  {% if not s.is_deleted %}
+                    <div class="btn-group btn-group-sm">
+                      <a href="{{ url_for('admin.subcategoria_editar', id_subcategoria=s.id_subcategoria) }}" class="btn btn-outline-primary" title="Editar">
+                        <i class="bi bi-pencil-fill"></i>
+                      </a>
+                      <form method="POST" action="{{ url_for('admin.subcategoria_eliminar', id_subcategoria=s.id_subcategoria) }}" class="d-inline" onsubmit="return confirm('¿Estás seguro de que deseas desactivar la subcategoría {{ s.nombre }}?');">
+                        <button type="submit" class="btn btn-outline-danger" title="Desactivar">
+                          <i class="bi bi-archive-fill"></i>
+                        </button>
+                      </form>
+                    </div>
+                  {% else %}
+                    <form method="POST" action="{{ url_for('admin.subcategoria_restaurar', id_subcategoria=s.id_subcategoria) }}" class="d-inline">
+                      <button type="submit" class="btn btn-sm btn-outline-success" title="Restaurar subcategoría">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Restaurar
+                      </button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="6" class="text-center py-5 text-muted">
+                <i class="bi bi-diagram-3 fs-2 d-block mb-2 text-secondary"></i>
+                <div class="fw-semibold">No se encontraron subcategorías</div>
+                <small class="text-muted">Prueba cambiando los filtros de búsqueda o registra una nueva subcategoría.</small>
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginación -->
+    {% if pagination.pages > 1 %}
+      <div class="d-flex justify-content-between align-items-center p-3 border-top bg-light">
+        <small class="text-muted">
+          Página {{ pagination.page }} de {{ pagination.pages }} ({{ pagination.total }} registros en total)
+        </small>
+        <nav aria-label="Navegación de subcategorías">
+          <ul class="pagination pagination-sm mb-0">
+            {% if pagination.has_prev %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('admin.subcategorias', page=pagination.prev_num, q=search_query, categoria_id=categoria_id_filtro, estado=estado_filtro, sort=sort_by) }}">
+                  Anterior
+                </a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+            {% endif %}
+
+            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+              {% if p %}
+                {% if p == pagination.page %}
+                  <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                {% else %}
+                  <li class="page-item"><a class="page-link" href="{{ url_for('admin.subcategorias', page=p, q=search_query, categoria_id=categoria_id_filtro, estado=estado_filtro, sort=sort_by) }}">{{ p }}</a></li>
+                {% endif %}
+              {% else %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+              {% endif %}
+            {% endfor %}
+
+            {% if pagination.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('admin.subcategorias', page=pagination.next_num, q=search_query, categoria_id=categoria_id_filtro, estado=estado_filtro, sort=sort_by) }}">
+                  Siguiente
+                </a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">Siguiente</span></li>
+            {% endif %}
+          </ul>
+        </nav>
+      </div>
+    {% endif %}
+
+  </div>
+
+</div>
+{% endblock %}

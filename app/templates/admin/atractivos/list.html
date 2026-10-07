@@ -173,7 +173,7 @@
         <thead style="background-color: #F8FAFC;">
           <tr style="border-bottom: 1px solid var(--color-border);">
             <th scope="col" class="ps-4 text-muted small text-uppercase fw-semibold" style="width: 70px;">ID</th>
-            <th scope="col" class="text-muted small text-uppercase fw-semibold">Atractivo & Categoría</th>
+            <th scope="col" class="text-muted small text-uppercase fw-semibold">Atractivo & Subcategoría</th>
             <th scope="col" class="text-muted small text-uppercase fw-semibold">Horarios & Visita</th>
             <th scope="col" class="text-muted small text-uppercase fw-semibold">Tarifa Entrada</th>
             <th scope="col" class="text-muted small text-uppercase fw-semibold">Proveedor</th>
@@ -201,9 +201,16 @@
                           {{ a.nombre }}
                         </a>
                       </div>
-                      <span class="badge bg-light text-muted border" style="font-size: 0.72rem;">
-                        {{ a.categoria.nombre }}
-                      </span>
+                      <div class="d-flex flex-wrap gap-1 mt-1">
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.72rem;">
+                          {{ a.subcategoria.nombre }}
+                        </span>
+                        {% if a.categoria %}
+                          <span class="badge bg-light text-muted border" style="font-size: 0.72rem;">
+                            {{ a.categoria.nombre }}
+                          </span>
+                        {% endif %}
+                      </div>
                     </div>
                   </div>
                 </td>

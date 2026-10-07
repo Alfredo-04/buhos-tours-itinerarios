@@ -66,9 +66,14 @@
               <span>Transporte</span>
             </a>
 
-            <a href="{{ url_for('admin.categorias') }}" class="nav-link-custom {% if 'admin.categoria' in request.endpoint %}active{% endif %}">
+            <a href="{{ url_for('admin.categorias') }}" class="nav-link-custom {% if request.endpoint and request.endpoint.startswith('admin.categoria') and 'subcategoria' not in request.endpoint %}active{% endif %}">
               <i class="bi bi-tags-fill text-info"></i>
               <span>Categorías</span>
+            </a>
+
+            <a href="{{ url_for('admin.subcategorias') }}" class="nav-link-custom {% if 'admin.subcategoria' in request.endpoint %}active{% endif %}">
+              <i class="bi bi-diagram-3-fill text-cyan"></i>
+              <span>Subcategorías</span>
             </a>
 
             <a href="{{ url_for('admin.proveedores') }}" class="nav-link-custom {% if 'admin.proveedor' in request.endpoint %}active{% endif %}">

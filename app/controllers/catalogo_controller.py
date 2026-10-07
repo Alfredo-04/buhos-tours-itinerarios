@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
-from app.services import atractivo_service, transporte_service, categoria_service
+from app.services import atractivo_service, transporte_service, categoria_service, subcategoria_service
 
 catalogo_bp = Blueprint('catalogo', __name__, url_prefix='/catalogo')
 
@@ -9,17 +9,20 @@ catalogo_bp = Blueprint('catalogo', __name__, url_prefix='/catalogo')
 def atractivos_list():
     """
     Catálogo de Atractivos Turísticos accesible para todos los roles autenticados.
-    Permite búsqueda, filtrado por categoría y ordenamiento con paginación.
+    Permite búsqueda, filtrado por categoría, subcategoría y ordenamiento con paginación.
     """
     search_query = request.args.get('q', '').strip()
     categoria_id = request.args.get('categoria', '').strip()
+    subcategoria_id = request.args.get('subcategoria', '').strip()
     sort_by = request.args.get('sort', 'nombre_asc').strip()
     page = request.args.get('page', 1, type=int)
 
     categoria_id_int = int(categoria_id) if categoria_id.isdigit() else None
+    subcategoria_id_int = int(subcategoria_id) if subcategoria_id.isdigit() else None
 
     pagination = atractivo_service.listar_atractivos(
         search_query=search_query,
+        subcategoria_id=subcategoria_id_int,
         categoria_id=categoria_id_int,
         estado='activos',
         sort_by=sort_by,
@@ -28,14 +31,17 @@ def atractivos_list():
     )
 
     categorias = categoria_service.obtener_todas_activas()
+    subcategorias = subcategoria_service.obtener_todas_activas()
 
     return render_template(
         'catalogo/atractivos_list.html',
         pagination=pagination,
         atractivos=pagination.items,
         categorias=categorias,
+        subcategorias=subcategorias,
         search_query=search_query,
         categoria_id=categoria_id,
+        subcategoria_id=subcategoria_id,
         sort_by=sort_by,
         user=current_user
     )

@@ -157,15 +157,15 @@
                 <span class="fw-semibold text-dark">{{ t.velocidad_promedio_kmh or '30.00' }} km/h</span>
               </div>
 
-              <!-- Costo por Tramo diferenciado por rol -->
+              <!-- Costo diferenciado por rol -->
               {% if current_user.is_authenticated and current_user.rol and current_user.rol.nombre in ['admin', 'agente'] %}
                 <div class="d-flex justify-content-between align-items-center py-1 bg-light rounded px-2 mt-1">
-                  <span class="text-muted"><i class="bi bi-currency-dollar me-1"></i> Costo / Tramo:</span>
+                  <span class="text-muted"><i class="bi bi-currency-dollar me-1"></i> Costo:</span>
                   <div class="text-end">
                     <div class="precio-dual justify-content-end">
-                      <span class="usd">${{ (t.costo_por_tramo or 0) | usd }} USD</span>
+                      <span class="usd">${{ (t.costo or 0) | usd }} USD</span>
                       <span class="separador">|</span>
-                      <span class="bob">{{ "%.2f"|format(t.costo_por_tramo or 0) }} BOB</span>
+                      <span class="bob">{{ "%.2f"|format(t.costo or 0) }} BOB</span>
                     </div>
                     <div class="text-muted" style="font-size: 0.7rem;">({{ t.tipo_costo|replace('_', ' ') }})</div>
                   </div>
@@ -174,8 +174,8 @@
                 <div class="d-flex justify-content-between align-items-center py-1 bg-light rounded px-2 mt-1">
                   <span class="text-muted"><i class="bi bi-currency-dollar me-1"></i> Tarifa:</span>
                   <div class="precio-turista text-end">
-                    <div class="precio-principal" style="font-size: 1.1rem;">${{ (t.costo_por_tramo or 0) | usd }} USD</div>
-                    <div class="precio-secundario" style="font-size: 0.75rem;">({{ "%.2f"|format(t.costo_por_tramo or 0) }} BOB - {{ t.tipo_costo|replace('_', ' ') }})</div>
+                    <div class="precio-principal" style="font-size: 1.1rem;">${{ (t.costo or 0) | usd }} USD</div>
+                    <div class="precio-secundario" style="font-size: 0.75rem;">({{ "%.2f"|format(t.costo or 0) }} BOB - {{ t.tipo_costo|replace('_', ' ') }})</div>
                   </div>
                 </div>
               {% endif %}
