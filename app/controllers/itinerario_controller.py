@@ -12,11 +12,12 @@ itinerarios_bp = Blueprint('itinerarios', __name__, url_prefix='/itinerarios')
 
 @itinerarios_bp.route('/generar', methods=['GET'])
 @login_required
-@role_required('admin', 'agente')
+@role_required('admin')
 def generar_view():
     """
     Renderiza la interfaz principal para la generación y optimización de itinerarios turísticos.
     Carga atractivos agrupados por categoría y transportes activos desde la base de datos real.
+    Acceso exclusivo para el Administrador.
     """
     # Categorías activas con sus atractivos no eliminados
     categorias = Categoria.query.filter_by(deleted_at=None).order_by(Categoria.nombre.asc()).all()
@@ -41,7 +42,7 @@ def generar_view():
 
 @itinerarios_bp.route('/generar', methods=['POST'])
 @login_required
-@role_required('admin', 'agente')
+@role_required('admin')
 def generar_action():
     """
     Endpoint asíncrono (JSON) para procesar la optimización de itinerarios con NSGA-II.
@@ -60,25 +61,27 @@ def generar_action():
         presupuesto_max = data.get('presupuesto_max')
         tiempo_disponible_horas = data.get('tiempo_disponible_horas')
         intereses = data.get('intereses', {})
+        num_personas = data.get('num_personas', 1)
+        forzar_atractivos = bool(data.get('forzar_atractivos', False))
+        forzar_transporte = bool(data.get('forzar_transporte', False))
         
         # Parámetros avanzados con valores por defecto
         tamano_poblacion = data.get('tamano_poblacion', 50)
         generaciones = data.get('generaciones', 40)
         prob_cruce = data.get('prob_cruce', 0.9)
-        prob_mutacion = data.get('prob_mutacion', 0.1)
+        prob_mutacion = data.get('prob_mutacion', 0.2)
 
-        # Validaciones de entrada
-        if not atractivos_ids or not isinstance(atractivos_ids, list) or len(atractivos_ids) < 2:
+        # Validaciones de entrada (si el usuario seleccionó atractivos, deben ser al menos 2; si no seleccionó ninguno, se usa todo el catálogo)
+        if atractivos_ids and isinstance(atractivos_ids, list) and len(atractivos_ids) == 1:
             return jsonify({
                 "success": False,
-                "error": "Debes seleccionar al menos 2 atractivos turísticos para construir un itinerario."
+                "error": "Si especificas atractivos, debes seleccionar al menos 2 para formar una ruta de viaje."
             }), 400
 
-        if not transporte_ids or not isinstance(transporte_ids, list) or len(transporte_ids) < 1:
-            return jsonify({
-                "success": False,
-                "error": "Debes seleccionar al menos un medio de transporte disponible."
-            }), 400
+        try:
+            num_personas = max(1, int(num_personas))
+        except (TypeError, ValueError):
+            num_personas = 1
 
         try:
             presupuesto_max = float(presupuesto_max)
@@ -109,24 +112,36 @@ def generar_action():
             prob_cruce = float(prob_cruce)
             prob_mutacion = float(prob_mutacion)
 
-            if tamano_poblacion < 10 or tamano_poblacion > 200:
-                tamano_poblacion = 50
-            if generaciones < 5 or generaciones > 150:
-                generaciones = 40
+            if tamano_poblacion < 10 or tamano_poblacion > 250:
+                tamano_poblacion = 100
+            if generaciones < 5 or generaciones > 200:
+                generaciones = 100
             if not (0.1 <= prob_cruce <= 1.0):
-                prob_cruce = 0.9
+                prob_cruce = 0.85
             if not (0.01 <= prob_mutacion <= 0.9):
-                prob_mutacion = 0.1
+                prob_mutacion = 0.15
         except (TypeError, ValueError):
-            tamano_poblacion = 50
-            generaciones = 40
-            prob_cruce = 0.9
-            prob_mutacion = 0.1
+            tamano_poblacion = 100
+            generaciones = 100
+            prob_cruce = 0.85
+            prob_mutacion = 0.15
+
+        min_paradas = data.get('min_paradas', 2)
+        max_paradas = data.get('max_paradas', 15)
+        try:
+            min_paradas = max(1, int(min_paradas))
+        except (TypeError, ValueError):
+            min_paradas = 2
+
+        try:
+            max_paradas = max(min_paradas, int(max_paradas))
+        except (TypeError, ValueError):
+            max_paradas = 15
 
         # Ejecutar orquestador
         resultado = generar_itinerarios(
-            atractivos_ids=[int(aid) for aid in atractivos_ids],
-            transporte_ids=[int(tid) for tid in transporte_ids],
+            atractivos_ids=[int(aid) for aid in atractivos_ids] if atractivos_ids else [],
+            transporte_ids=[int(tid) for tid in transporte_ids] if transporte_ids else [],
             presupuesto_max=presupuesto_max,
             tiempo_disponible_horas=tiempo_disponible_horas,
             intereses=intereses,
@@ -134,6 +149,11 @@ def generar_action():
             generaciones=generaciones,
             prob_cruce=prob_cruce,
             prob_mutacion=prob_mutacion,
+            num_personas=num_personas,
+            forzar_atractivos=forzar_atractivos,
+            forzar_transporte=forzar_transporte,
+            min_paradas=min_paradas,
+            max_paradas=max_paradas,
         )
 
         return jsonify({

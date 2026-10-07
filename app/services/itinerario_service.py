@@ -11,17 +11,23 @@ def preparar_datos_nsga2(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """
     Carga atractivos y transportes activos desde la base de datos según los IDs seleccionados.
+    Si se reciben listas vacías, aplica la FILOSOFÍA GENERAL:
+    - Atractivos vacíos: usa todo el catálogo activo disponible.
+    - Transportes vacíos: usa todos los transportes activos disponibles.
+    
     Retorna dos listas de diccionarios con el formato exacto requerido por el motor NSGA-II.
-
-    :param atractivos_ids: Lista de IDs de atractivos a incluir
-    :param transporte_ids: Lista de IDs de transportes disponibles
-    :return: Tupla (lista_atractivos_dict, lista_transportes_dict)
     """
-    # Consultar atractivos activos
-    query_atractivos = Atractivo.query.filter(
-        Atractivo.id_atractivo.in_(atractivos_ids),
-        Atractivo.deleted_at.is_(None)
-    ).all()
+    # 1. Atractivos
+    if atractivos_ids and len(atractivos_ids) > 0:
+        query_atractivos = Atractivo.query.filter(
+            Atractivo.id_atractivo.in_(atractivos_ids),
+            Atractivo.deleted_at.is_(None)
+        ).all()
+    else:
+        # Filosofía: Si no selecciona nada, usar TODO el catálogo disponible
+        query_atractivos = Atractivo.query.filter(
+            Atractivo.deleted_at.is_(None)
+        ).all()
 
     atractivos_dict = []
     for a in query_atractivos:
@@ -40,11 +46,17 @@ def preparar_datos_nsga2(
             "imagen_url": a.imagen_url or "",
         })
 
-    # Consultar transportes activos
-    query_transportes = Transporte.query.filter(
-        Transporte.id_transporte.in_(transporte_ids),
-        Transporte.deleted_at.is_(None)
-    ).all()
+    # 2. Transportes
+    if transporte_ids and len(transporte_ids) > 0:
+        query_transportes = Transporte.query.filter(
+            Transporte.id_transporte.in_(transporte_ids),
+            Transporte.deleted_at.is_(None)
+        ).all()
+    else:
+        # Filosofía: Si no selecciona nada, usar todos los transportes disponibles
+        query_transportes = Transporte.query.filter(
+            Transporte.deleted_at.is_(None)
+        ).all()
 
     transportes_dict = []
     for t in query_transportes:
@@ -68,43 +80,34 @@ def generar_itinerarios(
     presupuesto_max: float,
     tiempo_disponible_horas: float,
     intereses: dict[str, float],
-    tamano_poblacion: int = 50,
-    generaciones: int = 40,
-    prob_cruce: float = 0.9,
-    prob_mutacion: float = 0.1,
+    tamano_poblacion: int = 100,
+    generaciones: int = 100,
+    prob_cruce: float = 0.85,
+    prob_mutacion: float = 0.15,
+    num_personas: int = 1,
+    forzar_atractivos: bool = False,
+    forzar_transporte: bool = False,
+    min_paradas: int = 2,
+    max_paradas: int = 15,
     **kwargs: Any
 ) -> dict[str, Any]:
     """
-    Orquesta el flujo de generación de itinerarios turísticos multiobjetivo:
-    1. Prepara y transforma los datos desde la BD.
-    2. Ejecuta el motor genético NSGA-II con pymoo.
+    Orquesta el flujo de generación de itinerarios turísticos multiobjetivo con NSGA-II:
+    1. Prepara y transforma los datos desde la BD respetando la filosofía de selección:
+       - forzar_atractivos: si True, obliga a que todos los atractivos seleccionados estén incluidos.
+       - forzar_transporte: si True o si se eligió solo 1, obliga a usar ese transporte.
+       - min_paradas / max_paradas: límites del subconjunto K.
+    2. Ejecuta el motor genético NSGA-II con pymoo, OSRM / matriz pre-calculada y factores de tráfico.
     3. Retorna la respuesta completa estructurada para el controlador y vistas.
-
-    :param atractivos_ids: Lista de IDs de atractivos seleccionados
-    :param transporte_ids: Lista de IDs de transportes seleccionados
-    :param presupuesto_max: Presupuesto máximo en BOB
-    :param tiempo_disponible_horas: Tiempo total en horas
-    :param intereses: Mapa de categorías a pesos de preferencia {categoria: peso (0.0-1.0)}
-    :param tamano_poblacion: Tamaño de población del algoritmo (default 50)
-    :param generaciones: Número de generaciones evolutivas (default 40)
-    :param prob_cruce: Probabilidad de cruce OX (default 0.9)
-    :param prob_mutacion: Probabilidad de mutación por inversión (default 0.1)
-    :return: Diccionario con soluciones, Pareto, convergencia, diversidad y parámetros
     """
-    if not atractivos_ids or len(atractivos_ids) < 2:
-        raise ValueError("Debes seleccionar al menos 2 atractivos turísticos para construir un itinerario.")
-
-    if not transporte_ids or len(transporte_ids) < 1:
-        raise ValueError("Debes seleccionar al menos un medio de transporte disponible.")
-
     # 1. Preparar datos desde la base de datos
     atractivos_data, transportes_data = preparar_datos_nsga2(atractivos_ids, transporte_ids)
 
     if len(atractivos_data) < 2:
-        raise ValueError("Los atractivos seleccionados no están disponibles o están eliminados en la base de datos.")
+        raise ValueError("Se requieren al menos 2 atractivos turísticos disponibles para construir un itinerario.")
 
     if len(transportes_data) < 1:
-        raise ValueError("Los transportes seleccionados no están disponibles en la base de datos.")
+        raise ValueError("No se encontraron medios de transporte disponibles para planificar el viaje.")
 
     # 2. Ejecutar el motor puro NSGA-II
     resultado = ejecutar_nsga2(
@@ -117,6 +120,11 @@ def generar_itinerarios(
         generaciones=int(generaciones),
         prob_cruce=float(prob_cruce),
         prob_mutacion=float(prob_mutacion),
+        num_personas=int(num_personas),
+        forzar_atractivos=bool(forzar_atractivos),
+        forzar_transporte=bool(forzar_transporte),
+        min_paradas=int(min_paradas),
+        max_paradas=int(max_paradas),
     )
 
     return resultado

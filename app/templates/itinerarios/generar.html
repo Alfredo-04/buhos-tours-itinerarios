@@ -66,6 +66,13 @@
     justify-content: center;
     font-size: 0.7rem;
   }
+  .slider-desactivado {
+    opacity: 0.35 !important;
+    pointer-events: none !important;
+  }
+  .categoria-desactivada {
+    opacity: 0.5 !important;
+  }
 </style>
 {% endblock %}
 
@@ -82,7 +89,7 @@
         </span>
       </div>
       <p class="text-muted mb-0">
-        Optimización multiobjetivo de rutas turísticas mediante algoritmos genéticos y cálculo geodésico Haversine.
+        Optimización multiobjetivo de rutas turísticas mediante algoritmos genéticos y ruteo real por calles (OSRM y matriz pre-calculada).
       </p>
     </div>
 
@@ -245,18 +252,121 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   // ==========================================
+  // 2. Sincronización de Checkboxes y Sliders
+  // ==========================================
+  // Desmarcar categoría -> desmarcar sus subcategorías y atractivos, y bloquear sliders
+  document.querySelectorAll('.chk-categoria-padre').forEach(chkCat => {
+    chkCat.addEventListener('change', function() {
+      const catId = this.getAttribute('data-cat-id');
+      const activa = this.checked;
+      const tarjetaContenedora = this.closest('.p-3');
+
+      // Slider de la categoría padre
+      const sliderCat = document.getElementById(`slider_cat_${catId}`);
+      if (sliderCat) {
+        sliderCat.disabled = !activa;
+        sliderCat.classList.toggle('slider-desactivado', !activa);
+      }
+      if (tarjetaContenedora) {
+        tarjetaContenedora.classList.toggle('categoria-desactivada', !activa);
+      }
+
+      // Subcategorías asociadas
+      const subcats = document.querySelectorAll(`.chk-subcat-de-cat-${catId}`);
+      subcats.forEach(sc => {
+        sc.checked = activa;
+        const subcatId = sc.getAttribute('data-subcat-id');
+        const sliderSub = document.getElementById(`slider_subcat_${subcatId}`);
+        if (sliderSub) {
+          sliderSub.disabled = !activa;
+          sliderSub.classList.toggle('slider-desactivado', !activa);
+        }
+      });
+
+      // Atractivos asociados a esta categoría
+      const atractivosCat = document.querySelectorAll(`.chk-atr-cat-${catId}`);
+      atractivosCat.forEach(atr => {
+        atr.checked = activa;
+      });
+
+      actualizarConteoAtractivos();
+    });
+  });
+
+  // Desmarcar subcategoría -> desmarcar sus atractivos y bloquear su slider
+  document.querySelectorAll('.chk-subcategoria').forEach(chkSub => {
+    chkSub.addEventListener('change', function() {
+      const subcatId = this.getAttribute('data-subcat-id');
+      const catId = this.getAttribute('data-cat-id');
+      const activa = this.checked;
+
+      // Slider de la subcategoría
+      const sliderSub = document.getElementById(`slider_subcat_${subcatId}`);
+      if (sliderSub) {
+        sliderSub.disabled = !activa;
+        sliderSub.classList.toggle('slider-desactivado', !activa);
+      }
+
+      // Atractivos asociados a esta subcategoría
+      const atractivosSub = document.querySelectorAll(`.chk-atr-subcat-${subcatId}`);
+      atractivosSub.forEach(atr => {
+        atr.checked = activa;
+      });
+
+      // Si se activa la subcategoría, asegurarse de reactivar la categoría padre
+      if (activa) {
+        const chkPadre = document.getElementById(`chk_cat_padre_${catId}`);
+        if (chkPadre && !chkPadre.checked) {
+          chkPadre.checked = true;
+          const sliderCat = document.getElementById(`slider_cat_${catId}`);
+          if (sliderCat) {
+            sliderCat.disabled = false;
+            sliderCat.classList.remove('slider-desactivado');
+          }
+          const tarjetaContenedora = chkPadre.closest('.p-3');
+          if (tarjetaContenedora) {
+            tarjetaContenedora.classList.remove('categoria-desactivada');
+          }
+        }
+      }
+
+      actualizarConteoAtractivos();
+    });
+  });
+
+  // Botones "Todos" y "Limpiar" por categoría de atractivos
+  document.querySelectorAll('.btn-cat-select-all').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const catId = this.getAttribute('data-cat-id');
+      document.querySelectorAll(`.chk-atr-cat-${catId}`).forEach(chk => chk.checked = true);
+      actualizarConteoAtractivos();
+    });
+  });
+
+  document.querySelectorAll('.btn-cat-clear').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const catId = this.getAttribute('data-cat-id');
+      document.querySelectorAll(`.chk-atr-cat-${catId}`).forEach(chk => chk.checked = false);
+      actualizarConteoAtractivos();
+    });
+  });
+
+  // ==========================================
   // 3. Selección y conteo de atractivos
   // ==========================================
   function actualizarConteoAtractivos() {
     const seleccionados = document.querySelectorAll('.chk-atractivo:checked').length;
     contadorAtractivos.textContent = seleccionados;
-    if (seleccionados < 2) {
+    if (seleccionados === 0) {
       alertaAtractivos.classList.remove('d-none');
     } else {
       alertaAtractivos.classList.add('d-none');
     }
   }
 
+  // Cambio en atractivo individual (NO desmarca categoría ni subcategoría)
   document.querySelectorAll('.chk-atractivo').forEach(chk => {
     chk.addEventListener('change', actualizarConteoAtractivos);
   });
@@ -279,38 +389,65 @@ document.addEventListener('DOMContentLoaded', function () {
     // Recolectar atractivos seleccionados
     const atractivosIds = Array.from(document.querySelectorAll('.chk-atractivo:checked'))
                                .map(el => parseInt(el.value));
-    
-    if (atractivosIds.length < 2) {
-      alert('Debes seleccionar al menos 2 atractivos turísticos para construir un itinerario.');
+
+    // Si especificó 1 solo atractivo, advertir
+    if (atractivosIds.length === 1) {
+      alert('Si seleccionas atractivos manualmente, debes marcar al menos 2 para formar un recorrido de viaje.');
       return;
     }
 
     // Recolectar transportes seleccionados
     const transportesIds = Array.from(document.querySelectorAll('.chk-transporte:checked'))
                                 .map(el => parseInt(el.value));
-    
-    if (transportesIds.length < 1) {
-      alert('Debes seleccionar al menos un medio de transporte disponible.');
-      return;
+
+    // Validar capacidad si hay 1 solo transporte seleccionado
+    const numPersonas = parseInt(document.getElementById('num_personas').value) || 1;
+    if (transportesIds.length === 1) {
+      const chkUnico = document.querySelector('.chk-transporte:checked');
+      if (chkUnico) {
+        const cap = parseInt(chkUnico.getAttribute('data-capacidad') || '999');
+        if (cap < numPersonas) {
+          alert(`El transporte seleccionado no tiene capacidad suficiente (${cap} pasajeros) para el grupo de ${numPersonas} personas.`);
+          return;
+        }
+      }
     }
 
-    // Recolectar preferencias de afinidad
+    // Recolectar preferencias de afinidad (categorías y subcategorías activas)
     const intereses = {};
     document.querySelectorAll('.slider-interes').forEach(slider => {
-      const catNombre = slider.getAttribute('data-cat-nombre');
-      intereses[catNombre] = parseFloat(slider.value);
+      if (!slider.disabled) {
+        const nombreItem = slider.getAttribute('data-cat-nombre');
+        intereses[nombreItem] = parseFloat(slider.value);
+      }
     });
+
+    const forzarAtractivos = document.getElementById('chkForzarAtractivos') ? document.getElementById('chkForzarAtractivos').checked : false;
+    const forzarTransporte = document.getElementById('chkForzarTransporte') ? document.getElementById('chkForzarTransporte').checked : false;
+
+    // Rango configurable de paradas
+    const inputMinParadas = document.getElementById('min_paradas');
+    const inputMaxParadas = document.getElementById('max_paradas');
+    let minParadas = inputMinParadas ? parseInt(inputMinParadas.value) : 2;
+    let maxParadas = inputMaxParadas ? parseInt(inputMaxParadas.value) : 15;
+    if (isNaN(minParadas) || minParadas < 1) minParadas = 2;
+    if (isNaN(maxParadas) || maxParadas < minParadas) maxParadas = Math.max(minParadas, 15);
 
     const payload = {
       atractivos_ids: atractivosIds,
       transporte_ids: transportesIds,
       presupuesto_max: parseFloat(document.getElementById('presupuesto_max').value),
       tiempo_disponible_horas: parseFloat(document.getElementById('tiempo_disponible_horas').value),
+      num_personas: numPersonas,
+      forzar_atractivos: forzarAtractivos,
+      forzar_transporte: forzarTransporte,
+      min_paradas: minParadas,
+      max_paradas: maxParadas,
       intereses: intereses,
-      tamano_poblacion: parseInt(document.getElementById('tamano_poblacion').value) || 50,
-      generaciones: parseInt(document.getElementById('generaciones').value) || 40,
-      prob_cruce: parseFloat(document.getElementById('prob_cruce').value) || 0.9,
-      prob_mutacion: parseFloat(document.getElementById('prob_mutacion').value) || 0.1
+      tamano_poblacion: 100,
+      generaciones: 100,
+      prob_cruce: 0.85,
+      prob_mutacion: 0.15
     };
 
     // Estado de carga en botón
@@ -342,6 +479,23 @@ document.addEventListener('DOMContentLoaded', function () {
       estadoVacio.classList.add('d-none');
       contenedorResultados.classList.remove('d-none');
 
+      // Procesar Aviso de Tráfico (Si cruza zonas moderadas o altas)
+      const bannerTrafico = document.getElementById('bannerAvisoTrafico');
+      const listaAvisos = document.getElementById('listaAvisosTrafico');
+      listaAvisos.innerHTML = '';
+
+      if (data.avisos_trafico && data.avisos_trafico.length > 0) {
+        data.avisos_trafico.forEach(av => {
+          const li = document.createElement('li');
+          const colorBadge = av.color_nivel === 'rojo' ? 'bg-danger text-white' : 'bg-warning text-dark';
+          li.innerHTML = `Zona <strong>"${av.zona_nombre}"</strong> con factor de congestión <strong>${av.factor_congestion}x</strong> <span class="badge ${colorBadge} ms-1 text-uppercase" style="font-size: 0.65rem;">${av.color_nivel}</span> (${av.hora_franja || 'Horario pico'}).`;
+          listaAvisos.appendChild(li);
+        });
+        bannerTrafico.classList.remove('d-none');
+      } else {
+        bannerTrafico.classList.add('d-none');
+      }
+
       // Actualizar KPIs
       kpiSoluciones.textContent = ultimasSoluciones.length;
       kpiComputo.textContent = `${data.tiempo_ejecucion_seg}s`;
@@ -361,12 +515,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
       badgeTotalSolucionesTabla.textContent = `${ultimasSoluciones.length} soluciones`;
 
-      // Actualizar parámetros efectivos
-      opPoblacion.textContent = `${data.parametros_usados.tamano_poblacion} individuos`;
-      opGeneraciones.textContent = `${data.parametros_usados.generaciones} ciclos`;
-      opProbabilidades.textContent = `${data.parametros_usados.prob_cruce.toFixed(2)} / ${data.parametros_usados.prob_mutacion.toFixed(2)}`;
-      opTransporte.textContent = `${data.parametros_usados.transporte_seleccionado} (${data.parametros_usados.velocidad_transporte_kmh} km/h)`;
-
       // Renderizar Gráficos con Chart.js
       renderizarGraficoPareto(data.frente_pareto, ultimasSoluciones);
       renderizarGraficoConvergencia(data.historial_convergencia);
@@ -384,7 +532,7 @@ document.addEventListener('DOMContentLoaded', function () {
       btnGenerar.disabled = false;
       spinnerGenerar.classList.add('d-none');
       iconGenerar.classList.remove('d-none');
-      btnTextGenerar.textContent = 'Generar Itinerarios';
+      btnTextGenerar.textContent = 'Generar Itinerarios Óptimos';
     }
   });
 
@@ -568,7 +716,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!soluciones || soluciones.length === 0) {
       tbodySoluciones.innerHTML = `
         <tr>
-          <td colspan="7" class="text-center py-4 text-muted">
+          <td colspan="8" class="text-center py-4 text-muted">
             No se encontraron soluciones viables con las restricciones actuales.
           </td>
         </tr>
@@ -583,12 +731,20 @@ document.addEventListener('DOMContentLoaded', function () {
       const mins = Math.round(sol.tiempo_total_min % 60);
       const usd = (sol.costo_total_bob / TC_OFICIAL).toFixed(2);
 
-      // Badge de restricciones
+      // Badge y mensajes de restricciones
       let badgeRestriccion = '';
       if (sol.cumple_restricciones) {
         badgeRestriccion = '<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i>Válido</span>';
       } else {
-        badgeRestriccion = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-exclamation-circle-fill me-1"></i>Excede Límites</span>';
+        const excesoDetalle = sol.mensajes_exceso && sol.mensajes_exceso.length > 0 
+          ? `<div class="small text-danger mt-1" style="font-size: 0.72rem;">${sol.mensajes_exceso.join('<br>')}</div>`
+          : '';
+        badgeRestriccion = `
+          <div>
+            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-exclamation-circle-fill me-1"></i>Excede Límites</span>
+            ${excesoDetalle}
+          </div>
+        `;
       }
 
       // Resumen visual de atractivos
@@ -614,10 +770,15 @@ document.addEventListener('DOMContentLoaded', function () {
           <small class="text-success d-block" style="font-size: 0.72rem;">$${usd} USD</small>
         </td>
         <td>
-          <div class="text-truncate fw-medium" style="max-width: 250px;" title="${sol.atractivos_nombres.join(' → ')}">
+          <div class="text-truncate fw-medium" style="max-width: 230px;" title="${sol.atractivos_nombres.join(' → ')}">
             <span class="badge bg-light text-dark border me-1">${sol.num_atractivos} paradas</span>
             <span class="small text-muted">${secuenciaStr}</span>
           </div>
+        </td>
+        <td>
+          <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.75rem;">
+            <i class="bi bi-bus-front text-warning me-1"></i> ${sol.transporte_asignado ? sol.transporte_asignado.nombre : 'Estándar'}
+          </span>
         </td>
         <td>${badgeRestriccion}</td>
         <td class="pe-4 text-end">
@@ -629,15 +790,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
       tbodySoluciones.appendChild(tr);
     });
-
-    // Asignar listeners a botones "Ver Detalle"
-    document.querySelectorAll('.btn-ver-detalle').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const solIndex = parseInt(this.getAttribute('data-sol-index'));
-        mostrarModalDetalle(solIndex);
-      });
-    });
   }
+
+  // Delegación de eventos para el botón "Ver Detalle" (robusto ante re-renderizados)
+  tbodySoluciones.addEventListener('click', function(e) {
+    const btn = e.target.closest('.btn-ver-detalle');
+    if (btn) {
+      const solIndex = parseInt(btn.getAttribute('data-sol-index'));
+      mostrarModalDetalle(solIndex);
+    }
+  });
 
   // ==========================================
   // 7. Modal de Detalle de Itinerario
@@ -647,7 +809,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!sol) return;
 
     document.getElementById('modalDetalleLabel').textContent = `Itinerario Optimizado #${solIndex + 1}`;
-    document.getElementById('modalSubtitulo').textContent = `${sol.num_atractivos} paradas optimizadas con ${sol.transporte_asignado.nombre}`;
+    document.getElementById('modalSubtitulo').textContent = `${sol.num_atractivos} paradas optimizadas con ${sol.transporte_asignado ? sol.transporte_asignado.nombre : 'Transporte seleccionado'}`;
 
     document.getElementById('modalAfinidad').textContent = `${(sol.afinidad * 100).toFixed(1)}%`;
     
@@ -666,7 +828,13 @@ document.addEventListener('DOMContentLoaded', function () {
       const nombreAtr = sol.atractivos_nombres[i];
       const cat = sol.categorias[i] || 'General';
       const subcat = sol.subcategorias ? sol.subcategorias[i] : '';
-      const tramo = sol.tramos ? sol.tramos[i] : null;
+      const parada = sol.paradas ? sol.paradas[i] : null;
+      const tramo = (sol.tramos && i < sol.tramos.length) ? sol.tramos[i] : null;
+
+      const horaLlegada = parada ? parada.hora_llegada : '--:--';
+      const horaSalida = parada ? parada.hora_salida : '--:--';
+      const tiempoVisita = parada ? parada.tiempo_visita_min : 60;
+      const costoEntrada = parada ? (parada.costo_entrada_bob || 0).toFixed(2) : '0.00';
 
       // Parada de atractivo
       const divParada = document.createElement('div');
@@ -679,6 +847,9 @@ document.addEventListener('DOMContentLoaded', function () {
               <span class="badge bg-primary text-white mb-1 me-1">${subcat || cat}</span>
               ${subcat && subcat !== cat ? `<span class="badge bg-light text-muted border mb-1">${cat}</span>` : ''}
               <h6 class="fw-bold mb-1 text-dark">${nombreAtr}</h6>
+              <div class="small text-muted">
+                <i class="bi bi-clock me-1 text-primary"></i>${horaLlegada} - ${horaSalida} (${tiempoVisita} min) &middot; Entrada: Bs. ${costoEntrada}
+              </div>
             </div>
             <div class="text-end">
               <span class="badge bg-success-subtle text-success border border-success-subtle small">Parada #${i + 1}</span>
@@ -692,6 +863,10 @@ document.addEventListener('DOMContentLoaded', function () {
       if (tramo) {
         const divTramo = document.createElement('div');
         divTramo.className = 'timeline-step';
+        const factorTraficoBadge = (tramo.factor_trafico && tramo.factor_trafico > 1.0)
+          ? `<span class="badge bg-warning-subtle text-warning-emphasis border ms-1">Tráfico ${tramo.factor_trafico}x</span>` 
+          : '';
+
         divTramo.innerHTML = `
           <div class="timeline-tramo-badge bg-warning text-dark">
             <i class="bi bi-arrow-down"></i>
@@ -699,11 +874,10 @@ document.addEventListener('DOMContentLoaded', function () {
           <div class="p-2 px-3 rounded bg-light border-0 my-1 small text-muted d-flex justify-content-between align-items-center">
             <div>
               <i class="bi bi-bus-front text-warning me-1"></i>
-              <strong>${tramo.transporte_usado}</strong> &middot; ${tramo.distancia_km} km
+              <strong>${tramo.transporte_usado}</strong> &middot; ${tramo.distancia_km} km ${factorTraficoBadge}
             </div>
             <div>
-              <span class="badge bg-white text-dark border">~${tramo.tiempo_traslado_min} min</span>
-              <span class="ms-1 text-dark fw-semibold">Bs. ${tramo.costo_tramo_bob.toFixed(2)}</span>
+              <span class="badge bg-white text-dark border"><i class="bi bi-clock me-1 text-secondary"></i>${tramo.hora_salida || ''} &rarr; ${tramo.hora_llegada || ''} (~${tramo.tiempo_traslado_min} min)</span>
             </div>
           </div>
         `;
@@ -711,8 +885,11 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
 
-    const modalEl = new bootstrap.Modal(document.getElementById('modalDetalleItinerario'));
-    modalEl.show();
+    const modalEl = document.getElementById('modalDetalleItinerario');
+    if (modalEl) {
+      const modalInst = bootstrap.Modal.getOrCreateInstance(modalEl);
+      modalInst.show();
+    }
   }
 
 });

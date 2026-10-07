@@ -14,4 +14,11 @@ from .email_service import (
     enviar_correo, enviar_bienvenida, enviar_credenciales_temporales,
     enviar_reset_password, enviar_reset_password_link
 )
-from .exchange_service import obtener_tc_oficial, convertir_bs_a_usd, obtener_info_tc
+from .exchange_service import (
+    obtener_tc_oficial, convertir_bs_a_usd, obtener_info_tc,
+    obtener_tc_api, obtener_tc_actual, guardar_tc_desde_api,
+    guardar_tc_manual, listar_tc, eliminar_tc
+)
+from .distance_service import obtener_distancia, precalcular_matriz_completa
+from .routing_service import obtener_ruta_real
+

@@ -16,6 +16,7 @@ from .viaje_turista import ViajeTurista
 from .itinerario_detalle_trafico import ItinerarioDetalleTrafico
 from .tipo_cambio import TipoCambio
 from .consulta_nsga2 import ConsultaNSGA2
+from .distancia_atractivo import DistanciaAtractivo
 
 __all__ = [
     'Rol',
@@ -35,4 +36,5 @@ __all__ = [
     'ItinerarioDetalleTrafico',
     'TipoCambio',
     'ConsultaNSGA2',
+    'DistanciaAtractivo',
 ]

@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}Tipo de Cambio Oficial | Panel Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- Encabezado de Página -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small">
+          <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}" class="text-decoration-none">Dashboard Admin</a></li>
+          <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-muted);">Tipo de Cambio</li>
+        </ol>
+      </nav>
+      <h1 class="h3 fw-bold mb-1" style="color: var(--color-text);">Gestión de Tipo de Cambio</h1>
+      <p class="text-muted small mb-0">Control de cotización oficial BCB (BOB/USD) y cotizaciones manuales de respaldo.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <form action="{{ url_for('admin.tipo_cambio_actualizar_api') }}" method="POST" class="d-inline">
+        <button type="submit" class="btn-emerald">
+          <i class="bi bi-arrow-repeat me-1"></i> Actualizar desde API BCB
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Tarjetas de Estado y Valor Vigente -->
+  <div class="row g-3 mb-4">
+    <!-- Estado de Conexión API -->
+    <div class="col-md-4">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          {% if tc_info.conectado %}
+            <div class="module-icon-box module-icon-emerald" style="width: 44px; height: 44px; font-size: 1.25rem;">
+              <i class="bi bi-wifi"></i>
+            </div>
+            <div>
+              <div class="text-muted small fw-semibold">Estado de API BCB</div>
+              <div class="h6 fw-bold mb-0 text-success">
+                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                  <i class="bi bi-check-circle-fill me-1"></i> Conectado
+                </span>
+              </div>
+              <div class="text-muted small mt-1" style="font-size: 0.75rem;">{{ tc_info.mensaje }}</div>
+            </div>
+          {% else %}
+            <div class="module-icon-box module-icon-rose" style="width: 44px; height: 44px; font-size: 1.25rem;">
+              <i class="bi bi-wifi-off"></i>
+            </div>
+            <div>
+              <div class="text-muted small fw-semibold">Estado de API BCB</div>
+              <div class="h6 fw-bold mb-0 text-danger">
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">
+                  <i class="bi bi-exclamation-triangle-fill me-1"></i> Sin Conexión
+                </span>
+              </div>
+              <div class="text-muted small mt-1" style="font-size: 0.75rem;">{{ tc_info.mensaje }}</div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Valor de Compra Vigente -->
+    <div class="col-md-4">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="module-icon-box module-icon-blue" style="width: 44px; height: 44px; font-size: 1.25rem;">
+            <i class="bi bi-cash-coin"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">TC Compra Vigente</div>
+            <div class="h4 fw-bold mb-0" style="color: var(--color-text);">
+              Bs. {{ "%.2f"|format(tc_info.compra) }} <span class="text-muted small fw-normal">/ USD</span>
+            </div>
+            <div class="text-muted small" style="font-size: 0.75rem;">Fuente actual: <strong>{{ tc_info.fuente|upper }}</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Valor de Venta Vigente (Oficial para catálogo) -->
+    <div class="col-md-4">
+      <div class="card-floating h-100 py-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="module-icon-box module-icon-amber" style="width: 44px; height: 44px; font-size: 1.25rem;">
+            <i class="bi bi-currency-dollar"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">TC Venta Oficial (Sistema)</div>
+            <div class="h4 fw-bold mb-0 text-primary">
+              Bs. {{ "%.2f"|format(tc_info.venta) }} <span class="text-muted small fw-normal">/ USD</span>
+            </div>
+            <div class="text-muted small" style="font-size: 0.75rem;">Aplicado a turistas, agentes y administración</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Formulario de Registro Manual de Tipo de Cambio -->
+    <div class="col-lg-4">
+      <div class="card shadow-sm border-0" style="border-radius: var(--radius-md);">
+        <div class="card-header bg-white py-3 border-bottom">
+          <h5 class="fw-bold mb-0 text-dark">
+            <i class="bi bi-pencil-square me-2 text-primary"></i>Guardar Manualmente
+          </h5>
+          <small class="text-muted">Ingresa una cotización de respaldo si la API del BCB no está disponible.</small>
+        </div>
+        <div class="card-body p-4">
+          <form action="{{ url_for('admin.tipo_cambio_guardar_manual') }}" method="POST">
+            <div class="mb-3">
+              <label class="form-label fw-semibold small text-muted">Valor de Compra (Bs.)</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light">Bs.</span>
+                <input type="number" step="0.0001" min="0.0001" name="valor_compra" class="form-control" required placeholder="6.96" value="{{ tc_info.compra }}">
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold small text-muted">Valor de Venta (Bs.)</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light">Bs.</span>
+                <input type="number" step="0.0001" min="0.0001" name="valor_venta" class="form-control" required placeholder="7.06" value="{{ tc_info.venta }}">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+              <i class="bi bi-save me-1"></i> Guardar Cotización Manual
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabla Histórica de Registros -->
+    <div class="col-lg-8">
+      <div class="card shadow-sm border-0" style="border-radius: var(--radius-md);">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+          <h5 class="fw-bold mb-0 text-dark">
+            <i class="bi bi-clock-history me-2 text-primary"></i>Historial de Cotizaciones
+          </h5>
+          <span class="badge bg-secondary-subtle text-secondary">{{ pagination.total }} registros</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr class="small text-muted text-uppercase">
+                <th class="ps-4">ID</th>
+                <th>Fecha y Hora</th>
+                <th>Compra (Bs.)</th>
+                <th>Venta (Bs.)</th>
+                <th>Fuente</th>
+                <th>Registrado Por</th>
+                <th class="text-end pe-4">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if registros %}
+                {% for tc in registros %}
+                <tr>
+                  <td class="ps-4 fw-bold text-muted">#{{ tc.id_tipo_cambio }}</td>
+                  <td>
+                    <div class="fw-semibold text-dark">{{ tc.fecha.strftime('%d/%m/%Y') }}</div>
+                    <div class="text-muted small" style="font-size: 0.75rem;">{{ tc.fecha.strftime('%H:%M:%S') }} UTC</div>
+                  </td>
+                  <td>
+                    <span class="badge bg-light text-dark border px-2 py-1">Bs. {{ "%.4f"|format(tc.valor_compra) }}</span>
+                  </td>
+                  <td>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 fw-bold">Bs. {{ "%.4f"|format(tc.valor_venta) }}</span>
+                  </td>
+                  <td>
+                    {% if tc.fuente == 'api' %}
+                      <span class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1">
+                        <i class="bi bi-cloud-arrow-down-fill me-1"></i> API BCB
+                      </span>
+                    {% else %}
+                      <span class="badge bg-warning-subtle text-dark border border-warning-subtle px-2 py-1">
+                        <i class="bi bi-person-fill me-1"></i> Manual
+                      </span>
+                    {% endif %}
+                  </td>
+                  <td class="small text-muted">
+                    {% if tc.usuario %}
+                      {{ tc.usuario.nombre_completo or tc.usuario.email }}
+                    {% else %}
+                      <span class="fst-italic text-muted">Sistema / Auto</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end pe-4">
+                    <form action="{{ url_for('admin.tipo_cambio_eliminar', id_tipo_cambio=tc.id_tipo_cambio) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Seguro de eliminar este registro histórico de tipo de cambio?');">
+                      <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar registro">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="7" class="text-center py-5 text-muted">
+                    <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                    No hay registros históricos de tipo de cambio en la base de datos.
+                  </td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Paginación -->
+        {% if pagination.pages > 1 %}
+        <div class="card-footer bg-white py-3 border-top d-flex justify-content-between align-items-center">
+          <small class="text-muted">
+            Página {{ pagination.page }} de {{ pagination.pages }}
+          </small>
+          <nav>
+            <ul class="pagination pagination-sm mb-0">
+              {% if pagination.has_prev %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('admin.tipo_cambio_list', page=pagination.prev_num) }}">Anterior</a>
+              </li>
+              {% else %}
+              <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+              {% endif %}
+
+              {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if p %}
+                  {% if p == pagination.page %}
+                  <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                  {% else %}
+                  <li class="page-item"><a class="page-link" href="{{ url_for('admin.tipo_cambio_list', page=p) }}">{{ p }}</a></li>
+                  {% endif %}
+                {% else %}
+                  <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+              {% endfor %}
+
+              {% if pagination.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('admin.tipo_cambio_list', page=pagination.next_num) }}">Siguiente</a>
+              </li>
+              {% else %}
+              <li class="page-item disabled"><span class="page-link">Siguiente</span></li>
+              {% endif %}
+            </ul>
+          </nav>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

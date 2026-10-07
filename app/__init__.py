@@ -76,7 +76,8 @@ def create_app(config_class=Config):
             rol, usuario, turista, categoria, subcategoria,
             proveedor, transporte, atractivo, zona_trafico, patron_trafico,
             generacion, itinerario, itinerario_detalle, viaje_turista,
-            itinerario_detalle_trafico, tipo_cambio, consulta_nsga2
+            itinerario_detalle_trafico, tipo_cambio, consulta_nsga2,
+            distancia_atractivo
         )
 
     # Registrar blueprints
@@ -174,5 +175,14 @@ def create_app(config_class=Config):
         from app.seeds.catalogo_seeder import seed_catalogo
         seed_catalogo()
         click.echo("Seeder de catálogo ejecutado con éxito.")
+
+    # Comando CLI para precalcular la matriz de distancias por calles
+    @app.cli.command("precalcular-distancias")
+    def precalcular_distancias_command():
+        """Precalcula y guarda la matriz de distancias y tiempos OSRM en DISTANCIA_ATRACTIVO."""
+        from app.services.distance_service import precalcular_matriz_completa
+        click.echo("Iniciando precalculo de matriz de distancias con OSRM...")
+        stats = precalcular_matriz_completa(delay_seg=0.3)
+        click.echo(f"Completado: {stats['calculados']} calculadas, {stats['omitidos']} ya existentes, {stats['errores']} errores.")
 
     return app

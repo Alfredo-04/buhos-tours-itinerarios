@@ -1,6 +1,5 @@
 import os
 import subprocess
-import psycopg2
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -9,7 +8,7 @@ def backup():
     if not os.path.exists(pg_dump):
         pg_dump = "pg_dump"
     
-    backup_file = os.path.join(BASE_DIR, 'backup_pre_alineacion.sql')
+    backup_file = os.path.join(BASE_DIR, 'backup_pre_diversidad.sql')
     env = os.environ.copy()
     env['PGPASSWORD'] = 'admin123'
     
@@ -22,7 +21,7 @@ def backup():
             text=True
         )
         if res.returncode == 0:
-            print(f"[OK] Backup creado: backup_pre_alineacion.sql ({os.path.getsize(backup_file)} bytes)")
+            print(f"[OK] Backup creado: backup_pre_diversidad.sql ({os.path.getsize(backup_file)} bytes)")
         else:
             print(f"[!] Error al crear backup: {res.stderr}")
 

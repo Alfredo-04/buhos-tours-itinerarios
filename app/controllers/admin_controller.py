@@ -3,7 +3,8 @@ from flask_login import login_required, current_user
 from app.utils.decorators import admin_required
 from app.services import (
     usuario_service, atractivo_service, transporte_service,
-    categoria_service, subcategoria_service, proveedor_service
+    categoria_service, subcategoria_service, proveedor_service,
+    exchange_service
 )
 from app.models.rol import Rol
 
@@ -748,3 +749,57 @@ def transporte_restaurar(id_transporte):
     success, message = transporte_service.restaurar_transporte(id_transporte)
     flash(message, 'success' if success else 'danger')
     return redirect(url_for('admin.transportes', estado='activos'))
+
+
+# ==============================================================================
+# GESTIÓN DE TIPO DE CAMBIO (OFICIAL BCB / MANUAL)
+# ==============================================================================
+@admin_bp.route('/tipo-cambio')
+@login_required
+@admin_required
+def tipo_cambio_list():
+    page = request.args.get('page', 1, type=int)
+    pagination = exchange_service.listar_tc(page=page, per_page=10)
+    # Obtener estado de conexión y valor vigente actual
+    tc_info = exchange_service.obtener_tc_actual()
+    return render_template(
+        'admin/tipo_cambio/list.html',
+        pagination=pagination,
+        registros=pagination.items,
+        tc_info=tc_info
+    )
+
+@admin_bp.route('/tipo-cambio/actualizar-api', methods=['POST'])
+@login_required
+@admin_required
+def tipo_cambio_actualizar_api():
+    success, message, _ = exchange_service.guardar_tc_desde_api()
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('admin.tipo_cambio_list'))
+
+@admin_bp.route('/tipo-cambio/guardar-manual', methods=['POST'])
+@login_required
+@admin_required
+def tipo_cambio_guardar_manual():
+    try:
+        valor_compra = float(request.form.get('valor_compra', 0))
+        valor_venta = float(request.form.get('valor_venta', 0))
+    except (ValueError, TypeError):
+        flash('Valores de compra y venta no válidos. Deben ser números decimales.', 'danger')
+        return redirect(url_for('admin.tipo_cambio_list'))
+
+    success, message, _ = exchange_service.guardar_tc_manual(
+        valor_compra=valor_compra,
+        valor_venta=valor_venta,
+        id_usuario=current_user.id_usuario
+    )
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('admin.tipo_cambio_list'))
+
+@admin_bp.route('/tipo-cambio/<int:id_tipo_cambio>/eliminar', methods=['POST'])
+@login_required
+@admin_required
+def tipo_cambio_eliminar(id_tipo_cambio):
+    success, message = exchange_service.eliminar_tc(id_tipo_cambio)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('admin.tipo_cambio_list'))
