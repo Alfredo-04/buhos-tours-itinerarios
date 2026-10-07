@@ -1,33 +1,47 @@
-from app import db
-# pyrefly: ignore [missing-import]
-from sqlalchemy.dialects.postgresql import UUID
-import uuid
 from datetime import datetime
+from app import db
 
 class Atractivo(db.Model):
     __tablename__ = 'atractivo'
+
     id_atractivo = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False, unique=True)
-    descripcion = db.Column(db.String(500))
-    latitud = db.Column(db.Numeric(10, 7))
-    longitud = db.Column(db.Numeric(10, 7))
-    direccion = db.Column(db.String(200))
-    horario_apertura = db.Column(db.Time)
-    horario_cierre = db.Column(db.Time)
-    costo_entrada = db.Column(db.Numeric(10, 2), default=0.0)
-    tiempo_visita_estimado = db.Column(db.Integer)  # en minutos
-    dias_cerrado = db.Column(db.Text)  # multivalorado, ej. "Lunes,Martes"
+    descripcion = db.Column(db.String(500), nullable=True)
+    latitud = db.Column(db.Numeric(10, 7), nullable=True)
+    longitud = db.Column(db.Numeric(10, 7), nullable=True)
+    direccion = db.Column(db.String(200), nullable=True)
+    horario_apertura = db.Column(db.Time, nullable=True)
+    horario_cierre = db.Column(db.Time, nullable=True)
+    costo_entrada = db.Column(db.Numeric(10, 2), nullable=False, default=0.0)
+    tiempo_visita_estimado = db.Column(db.Integer, nullable=True)  # en minutos
+    dias_cerrado = db.Column(db.Text, nullable=True)  # multivalorado, ej. "Lunes,Martes"
     imagen_url = db.Column(db.String(255), nullable=True)
+    fecha_inicio = db.Column(db.Date, nullable=True)
+    fecha_fin = db.Column(db.Date, nullable=True)
+    afecta_rutas = db.Column(db.Boolean, nullable=False, default=False)
+    sensible_al_clima = db.Column(db.Boolean, nullable=False, default=False)
+    tipo_clima_ideal = db.Column(db.String(100), nullable=True)
+
+    # Claves foráneas
+    id_subcategoria = db.Column(db.Integer, db.ForeignKey('subcategoria.id_subcategoria'), nullable=False)
+    id_proveedor = db.Column(db.Integer, db.ForeignKey('proveedor.id_proveedor'), nullable=False)
 
     # Soft delete
     deleted_at = db.Column(db.DateTime, nullable=True, default=None)
 
-    # Claves foráneas
-    id_categoria = db.Column(db.Integer, db.ForeignKey('categoria.id_categoria'), nullable=False)
-    id_proveedor = db.Column(db.Integer, db.ForeignKey('proveedor.id_proveedor'), nullable=False)
+    # Relaciones
+    subcategoria = db.relationship('Subcategoria', backref='atractivos', lazy=True)
+    proveedor = db.relationship('Proveedor', backref='atractivos', lazy=True)
 
-    # Relación 1:N con ITINERARIO_DETALLE (APARECE EN)
-    detalles = db.relationship('ItinerarioDetalle', backref='atractivo', lazy=True)
+    @property
+    def categoria(self):
+        """Propiedad de acceso directo a la categoría padre a través de subcategoría"""
+        return self.subcategoria.categoria if self.subcategoria else None
+
+    @property
+    def id_categoria(self):
+        """Propiedad de compatibilidad con id_categoria"""
+        return self.subcategoria.id_categoria if self.subcategoria else None
 
     @property
     def is_deleted(self):

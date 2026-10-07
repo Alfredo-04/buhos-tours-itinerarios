@@ -33,9 +33,8 @@ class Usuario(UserMixin, db.Model):
 
     # Relaciones
     rol = db.relationship('Rol', backref='usuarios')
-    # Relación 1:1 opcional con TURISTA
-    # Relación 1:N con GENERACION (EJECUTA)
-    generaciones = db.relationship('Generacion', backref='usuario', lazy=True)
+    # Relación 1:1 opcional con TURISTA (vía backref en Turista)
+    # Relación 1:N con GENERACION (vía backref en Generacion)
 
     def get_id(self):
         """Requerido por Flask-Login para identificar al usuario por su clave primaria"""

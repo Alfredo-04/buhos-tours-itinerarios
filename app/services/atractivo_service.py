@@ -7,6 +7,7 @@ from sqlalchemy import or_
 from app import db
 from app.models.atractivo import Atractivo
 from app.models.categoria import Categoria
+from app.models.subcategoria import Subcategoria
 from app.models.proveedor import Proveedor
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
@@ -120,9 +121,9 @@ def listar_atractivos(
     elif estado == 'eliminados':
         query = query.filter(Atractivo.deleted_at.isnot(None))
 
-    # Filtro por categoría
+    # Filtro por categoría o subcategoría
     if categoria_id and str(categoria_id).isdigit() and int(categoria_id) > 0:
-        query = query.filter(Atractivo.id_categoria == int(categoria_id))
+        query = query.join(Atractivo.subcategoria).filter(Subcategoria.id_categoria == int(categoria_id))
 
     # Búsqueda por texto (nombre, descripción, dirección)
     if search_query:
@@ -200,14 +201,18 @@ def crear_atractivo(data: dict, imagen_file=None) -> tuple[bool, str, Atractivo 
     if direccion and len(direccion) > 200:
         return False, "La dirección no puede exceder los 200 caracteres.", None
 
-    # 3. Categoría y Proveedor
-    try:
-        id_categoria = int(id_categoria_raw)
-        cat = db.session.get(Categoria, id_categoria)
-        if not cat:
-            return False, "La categoría seleccionada no existe.", None
-    except (TypeError, ValueError):
-        return False, "Debes seleccionar una categoría válida.", None
+    # 3. Subcategoría y Proveedor
+    id_subcategoria_raw = data.get('id_subcategoria') or data.get('id_categoria')
+    subcat = None
+    if id_subcategoria_raw and str(id_subcategoria_raw).isdigit():
+        subcat = db.session.get(Subcategoria, int(id_subcategoria_raw))
+        if not subcat:
+            # Fallback si se pasó un id_categoria
+            subcat = Subcategoria.query.filter_by(id_categoria=int(id_subcategoria_raw)).first()
+
+    if not subcat:
+        return False, "Debes seleccionar una subcategoría válida.", None
+    id_subcategoria = subcat.id_subcategoria
 
     try:
         id_proveedor = int(id_proveedor_raw)
@@ -288,9 +293,14 @@ def crear_atractivo(data: dict, imagen_file=None) -> tuple[bool, str, Atractivo 
             costo_entrada=costo_entrada,
             tiempo_visita_estimado=tiempo_visita_estimado,
             dias_cerrado=dias_cerrado if dias_cerrado else None,
-            id_categoria=id_categoria,
+            id_subcategoria=id_subcategoria,
             id_proveedor=id_proveedor,
-            imagen_url=imagen_url
+            imagen_url=imagen_url,
+            fecha_inicio=data.get('fecha_inicio'),
+            fecha_fin=data.get('fecha_fin'),
+            afecta_rutas=bool(data.get('afecta_rutas', False)),
+            sensible_al_clima=bool(data.get('sensible_al_clima', False)),
+            tipo_clima_ideal=data.get('tipo_clima_ideal')
         )
         db.session.add(nuevo_atractivo)
         db.session.commit()
@@ -393,13 +403,15 @@ def actualizar_atractivo(id_atractivo: int, data: dict, rol: str = 'admin', imag
         if otro:
             return False, f"Ya existe otro atractivo turístico con el nombre '{nombre}'.", None
 
-        try:
-            id_categoria = int(id_categoria_raw)
-            cat = db.session.get(Categoria, id_categoria)
-            if not cat:
-                return False, "La categoría seleccionada no existe.", None
-        except (TypeError, ValueError):
-            return False, "Debes seleccionar una categoría válida.", None
+        id_subcategoria_raw = data.get('id_subcategoria') or data.get('id_categoria')
+        subcat = None
+        if id_subcategoria_raw and str(id_subcategoria_raw).isdigit():
+            subcat = db.session.get(Subcategoria, int(id_subcategoria_raw))
+            if not subcat:
+                subcat = Subcategoria.query.filter_by(id_categoria=int(id_subcategoria_raw)).first()
+
+        if not subcat:
+            return False, "Debes seleccionar una subcategoría válida.", None
 
         try:
             id_proveedor = int(id_proveedor_raw)
@@ -429,13 +441,12 @@ def actualizar_atractivo(id_atractivo: int, data: dict, rol: str = 'admin', imag
             archivo_anterior_a_eliminar = atractivo.imagen_url
             atractivo.imagen_url = None
         elif 'imagen_url' in data and data.get('imagen_url') != atractivo.imagen_url:
-            # Asignación manual de ruta si se especificó explícitamente
             nueva_ruta = (data.get('imagen_url') or '').strip() or None
             atractivo.imagen_url = nueva_ruta
 
         atractivo.nombre = nombre
         atractivo.costo_entrada = costo_entrada
-        atractivo.id_categoria = id_categoria
+        atractivo.id_subcategoria = subcat.id_subcategoria
         atractivo.id_proveedor = id_proveedor
 
     try:

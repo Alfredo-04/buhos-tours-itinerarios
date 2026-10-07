@@ -32,11 +32,52 @@ def create_app(config_class=Config):
     login_manager.login_message_category = 'warning'
 
     # Importar modelos para registro con SQLAlchemy y migraciones
-    from app.models import (
-        proveedor, categoria, transporte, rol, usuario, 
-        turista, atractivo, generacion, itinerario, 
-        itinerario_detalle, viaje_turista
-    )
+    import os
+    phase = os.environ.get('MIGRATION_PHASE')
+    if phase == '1':
+        from app.models import rol, categoria, proveedor, zona_trafico
+    elif phase == '2':
+        from app.models import (
+            rol, categoria, proveedor, zona_trafico,
+            usuario, subcategoria, patron_trafico, transporte
+        )
+    elif phase == '3':
+        from app.models import (
+            rol, categoria, proveedor, zona_trafico,
+            usuario, subcategoria, patron_trafico, transporte,
+            turista, atractivo
+        )
+    elif phase == '4':
+        from app.models import (
+            rol, categoria, proveedor, zona_trafico,
+            usuario, subcategoria, patron_trafico, transporte,
+            turista, atractivo,
+            generacion, tipo_cambio, consulta_nsga2
+        )
+    elif phase == '5':
+        from app.models import (
+            rol, categoria, proveedor, zona_trafico,
+            usuario, subcategoria, patron_trafico, transporte,
+            turista, atractivo,
+            generacion, tipo_cambio, consulta_nsga2,
+            itinerario, viaje_turista
+        )
+    elif phase == '6':
+        from app.models import (
+            rol, categoria, proveedor, zona_trafico,
+            usuario, subcategoria, patron_trafico, transporte,
+            turista, atractivo,
+            generacion, tipo_cambio, consulta_nsga2,
+            itinerario, viaje_turista,
+            itinerario_detalle
+        )
+    else:
+        from app.models import (
+            rol, usuario, turista, categoria, subcategoria,
+            proveedor, transporte, atractivo, zona_trafico, patron_trafico,
+            generacion, itinerario, itinerario_detalle, viaje_turista,
+            itinerario_detalle_trafico, tipo_cambio, consulta_nsga2
+        )
 
     # Registrar blueprints
     from app.controllers.auth_controller import auth_bp
@@ -112,19 +153,18 @@ def create_app(config_class=Config):
         click.echo("Seeder de roles ejecutado con éxito.")
 
     # Comando CLI para ejecutar Seeders de Usuarios
-    @app.cli.command("seed-users")
-    def seed_users_command():
+    @app.cli.command("seed-usuarios")
+    def seed_usuarios_command():
         """Ejecuta el seeder para poblar usuarios iniciales."""
         from app.seeds.user_seeder import seed_usuarios
         seed_usuarios()
         click.echo("Seeder de usuarios ejecutado con éxito.")
 
-    # Comando CLI para ejecutar Seeder de Catálogo
-    @app.cli.command("seed-catalogo")
-    def seed_catalogo_command():
-        """Ejecuta el seeder para poblar categorías, proveedores, transportes y atractivos iniciales."""
-        from app.seeds.catalogo_seeder import seed_catalogo
-        seed_catalogo()
-        click.echo("Seeder de catálogo ejecutado con éxito.")
+    @app.cli.command("seed-users")
+    def seed_users_command():
+        """Alias para seed-usuarios."""
+        from app.seeds.user_seeder import seed_usuarios
+        seed_usuarios()
+        click.echo("Seeder de usuarios ejecutado con éxito.")
 
     return app

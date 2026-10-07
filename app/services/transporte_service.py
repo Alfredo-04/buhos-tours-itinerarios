@@ -59,9 +59,9 @@ def listar_transportes(
     elif sort_by == 'nombre_desc':
         query = query.order_by(Transporte.nombre.desc())
     elif sort_by == 'costo_asc':
-        query = query.order_by(Transporte.costo_por_tramo.asc())
+        query = query.order_by(Transporte.costo.asc())
     elif sort_by == 'costo_desc':
-        query = query.order_by(Transporte.costo_por_tramo.desc())
+        query = query.order_by(Transporte.costo.desc())
     elif sort_by == 'capacidad_asc':
         query = query.order_by(Transporte.capacidad.asc())
     elif sort_by == 'capacidad_desc':
@@ -134,13 +134,14 @@ def crear_transporte(data: dict) -> tuple[bool, str, Transporte | None]:
     if h_fin <= h_inicio:
         return False, "El horario de finalización debe ser posterior al horario de inicio.", None
 
-    # Costo por tramo
+    # Costo
+    costo_raw = data.get('costo') if 'costo' in data else data.get('costo_por_tramo')
     try:
-        costo_por_tramo = Decimal(str(costo_por_tramo_raw))
-        if costo_por_tramo < 0:
-            return False, "El costo por tramo debe ser mayor o igual a 0.", None
+        costo = Decimal(str(costo_raw))
+        if costo < 0:
+            return False, "El costo debe ser mayor o igual a 0.", None
     except Exception:
-        return False, "El costo por tramo debe ser un valor decimal válido.", None
+        return False, "El costo debe ser un valor decimal válido.", None
 
     # Velocidad promedio (km/h)
     try:
@@ -157,7 +158,7 @@ def crear_transporte(data: dict) -> tuple[bool, str, Transporte | None]:
             capacidad=capacidad,
             horario_inicio=h_inicio,
             horario_fin=h_fin,
-            costo_por_tramo=costo_por_tramo,
+            costo=costo,
             tipo_costo=tipo_costo,
             velocidad_promedio_kmh=velocidad_promedio_kmh
         )
@@ -219,7 +220,7 @@ def actualizar_transporte(id_transporte: int, data: dict, rol: str = 'admin') ->
     if rol == 'admin':
         nombre = (data.get('nombre') or '').strip()
         tipo = (data.get('tipo') or '').strip()
-        costo_por_tramo_raw = data.get('costo_por_tramo')
+        costo_raw = data.get('costo') if 'costo' in data else data.get('costo_por_tramo')
         tipo_costo = (data.get('tipo_costo') or '').strip()
 
         if not nombre or len(nombre) < 3:
@@ -238,15 +239,15 @@ def actualizar_transporte(id_transporte: int, data: dict, rol: str = 'admin') ->
             return False, "El tipo de costo debe ser 'por_persona' o 'por_vehiculo'.", None
 
         try:
-            costo_por_tramo = Decimal(str(costo_por_tramo_raw))
-            if costo_por_tramo < 0:
-                return False, "El costo por tramo debe ser mayor o igual a 0.", None
+            costo = Decimal(str(costo_raw))
+            if costo < 0:
+                return False, "El costo debe ser mayor o igual a 0.", None
         except Exception:
-            return False, "El costo por tramo debe ser un valor decimal válido.", None
+            return False, "El costo debe ser un valor decimal válido.", None
 
         t.nombre = nombre
         t.tipo = tipo
-        t.costo_por_tramo = costo_por_tramo
+        t.costo = costo
         t.tipo_costo = tipo_costo
 
     try:

@@ -52,7 +52,8 @@ def preparar_datos_nsga2(
             "tipo": t.tipo,
             "tipo_costo": t.tipo_costo,
             "velocidad_promedio_kmh": float(t.velocidad_promedio_kmh or 30.0),
-            "costo_por_tramo": float(t.costo_por_tramo or 0.0),
+            "costo": float(t.costo or 0.0),
+            "costo_por_tramo": float(t.costo or 0.0),
             "capacidad": t.capacidad,
         })
 
