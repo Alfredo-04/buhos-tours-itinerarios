@@ -184,15 +184,15 @@
 {% endblock %}
 
 {% block extra_js %}
-<!-- Chart.js desde CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const TC_OFICIAL = {{ tc_oficial or 6.96 }};
-  
-  // Referencias a elementos DOM
-  const formGenerar = document.getElementById('formGenerarItinerario');
+
+  // ==========================================
+  // REFERENCIAS DOM
+  // ==========================================
   const btnGenerar = document.getElementById('btnGenerarItinerarios');
   const btnTextGenerar = document.getElementById('btnTextGenerar');
   const spinnerGenerar = document.getElementById('spinnerGenerar');
@@ -201,132 +201,160 @@ document.addEventListener('DOMContentLoaded', function () {
   const previewUSD = document.getElementById('previewPresupuestoUSD');
   const contadorAtractivos = document.getElementById('contadorAtractivosSeleccionados');
   const alertaAtractivos = document.getElementById('alertaAtractivosMinimos');
-  
   const estadoVacio = document.getElementById('estadoVacioResultados');
   const contenedorResultados = document.getElementById('contenedorResultados');
-
-  // KPI elements
   const kpiSoluciones = document.getElementById('kpi_soluciones_total');
   const kpiAfinidad = document.getElementById('kpi_mejor_afinidad');
   const kpiTiempo = document.getElementById('kpi_mejor_tiempo');
   const kpiComputo = document.getElementById('kpi_tiempo_computo');
   const badgeTotalSolucionesTabla = document.getElementById('badgeTotalSolucionesTabla');
   const tbodySoluciones = document.getElementById('tbodySoluciones');
+  const chkAutoRango = document.getElementById('chkAutoRangoParadas');
+  const inputMinParadas = document.getElementById('min_paradas');
+  const inputMaxParadas = document.getElementById('max_paradas');
 
-  // Operadores efectivos elements
-  const opPoblacion = document.getElementById('op_param_poblacion');
-  const opGeneraciones = document.getElementById('op_param_generaciones');
-  const opProbabilidades = document.getElementById('op_param_probabilidades');
-  const opTransporte = document.getElementById('op_param_transporte');
-
-  // Instancias de Chart.js
   let chartParetoInstance = null;
   let chartConvergenciaInstance = null;
   let chartDiversidadInstance = null;
-
-  // Almacenamiento local de la última respuesta
   let ultimasSoluciones = [];
 
   // ==========================================
-  // 1. Manejo reactivo de Presupuesto en USD
+  // 1. PRESUPUESTO → USD
   // ==========================================
   function actualizarPreviewUSD() {
     const bob = parseFloat(inputPresupuesto.value) || 0;
-    const usd = (bob / TC_OFICIAL).toFixed(2);
-    previewUSD.textContent = `$${usd} USD`;
+    previewUSD.textContent = `$${(bob / TC_OFICIAL).toFixed(2)} USD`;
   }
-  inputPresupuesto.addEventListener('input', actualizarPreviewUSD);
-  actualizarPreviewUSD();
+  if (inputPresupuesto && previewUSD) {
+    inputPresupuesto.addEventListener('input', actualizarPreviewUSD);
+    actualizarPreviewUSD();
+  }
 
   // ==========================================
-  // 2. Sliders de Interés reactivos
+  // 2. SLIDERS → BADGES
   // ==========================================
   document.querySelectorAll('.slider-interes').forEach(slider => {
-    slider.addEventListener('input', function() {
+    slider.addEventListener('input', function () {
       const badgeId = this.getAttribute('data-badge-id');
       const badge = document.getElementById(badgeId);
-      if (badge) {
-        badge.textContent = parseFloat(this.value).toFixed(2);
-      }
+      if (badge) badge.textContent = parseFloat(this.value).toFixed(2);
     });
   });
 
   // ==========================================
-  // 2. Sincronización de Checkboxes y Sliders
+  // 3. AUTO-RANGO PARADAS (inicia DESACTIVADO)
   // ==========================================
-  // Desmarcar categoría -> desmarcar sus subcategorías y atractivos, y bloquear sliders
+  function actualizarEstadoRangoParadas() {
+    if (!chkAutoRango || !inputMinParadas || !inputMaxParadas) return;
+    const autoActivo = chkAutoRango.checked;
+    inputMinParadas.disabled = autoActivo;
+    inputMaxParadas.disabled = autoActivo;
+    inputMinParadas.style.opacity = autoActivo ? '0.55' : '1';
+    inputMaxParadas.style.opacity = autoActivo ? '0.55' : '1';
+  }
+  if (chkAutoRango) {
+    chkAutoRango.checked = false;
+    chkAutoRango.addEventListener('change', actualizarEstadoRangoParadas);
+    actualizarEstadoRangoParadas();
+  }
+
+  // ==========================================
+  // 4. SINCRONIZACIÓN CATEGORÍA ↔ SUBCATEGORÍA ↔ ATRACTIVO
+  // ==========================================
+
+  // 4a. Al marcar/desmarcar CATEGORÍA
   document.querySelectorAll('.chk-categoria-padre').forEach(chkCat => {
-    chkCat.addEventListener('change', function() {
+    chkCat.addEventListener('change', function () {
       const catId = this.getAttribute('data-cat-id');
       const activa = this.checked;
-      const tarjetaContenedora = this.closest('.p-3');
+      const tarjeta = this.closest('.p-3');
 
-      // Slider de la categoría padre
+      // Slider categoría
       const sliderCat = document.getElementById(`slider_cat_${catId}`);
       if (sliderCat) {
         sliderCat.disabled = !activa;
         sliderCat.classList.toggle('slider-desactivado', !activa);
       }
-      if (tarjetaContenedora) {
-        tarjetaContenedora.classList.toggle('categoria-desactivada', !activa);
-      }
+      if (tarjeta) tarjeta.classList.toggle('categoria-desactivada', !activa);
 
-      // Subcategorías asociadas
-      const subcats = document.querySelectorAll(`.chk-subcat-de-cat-${catId}`);
-      subcats.forEach(sc => {
+      // Todas las subcategorías de esta categoría
+      document.querySelectorAll(`.chk-subcat-de-cat-${catId}`).forEach(sc => {
         sc.checked = activa;
         const subcatId = sc.getAttribute('data-subcat-id');
         const sliderSub = document.getElementById(`slider_subcat_${subcatId}`);
+        const filaSub = sc.closest('.py-1');
         if (sliderSub) {
           sliderSub.disabled = !activa;
           sliderSub.classList.toggle('slider-desactivado', !activa);
         }
+        if (filaSub) filaSub.classList.toggle('subcategoria-desactivada', !activa);
+
+        // Atractivos de esa subcategoría
+        document.querySelectorAll(`.chk-atr-subcat-${subcatId}`).forEach(atr => {
+          atr.checked = activa;
+          const caja = atr.closest('.item-atractivo-box');
+          if (caja) caja.classList.toggle('atractivo-desactivado', !activa);
+        });
       });
 
-      // Atractivos asociados a esta categoría
-      const atractivosCat = document.querySelectorAll(`.chk-atr-cat-${catId}`);
-      atractivosCat.forEach(atr => {
+      // Atractivos directos de la categoría (por si no tienen subcategoría)
+      document.querySelectorAll(`.chk-atr-cat-${catId}`).forEach(atr => {
         atr.checked = activa;
+        const caja = atr.closest('.item-atractivo-box');
+        if (caja) caja.classList.toggle('atractivo-desactivado', !activa);
       });
 
       actualizarConteoAtractivos();
     });
   });
 
-  // Desmarcar subcategoría -> desmarcar sus atractivos y bloquear su slider
+  // 4b. Al marcar/desmarcar SUBCATEGORÍA
   document.querySelectorAll('.chk-subcategoria').forEach(chkSub => {
-    chkSub.addEventListener('change', function() {
+    chkSub.addEventListener('change', function () {
       const subcatId = this.getAttribute('data-subcat-id');
       const catId = this.getAttribute('data-cat-id');
       const activa = this.checked;
+      const filaSub = this.closest('.py-1');
 
-      // Slider de la subcategoría
       const sliderSub = document.getElementById(`slider_subcat_${subcatId}`);
       if (sliderSub) {
         sliderSub.disabled = !activa;
         sliderSub.classList.toggle('slider-desactivado', !activa);
       }
+      if (filaSub) filaSub.classList.toggle('subcategoria-desactivada', !activa);
 
-      // Atractivos asociados a esta subcategoría
-      const atractivosSub = document.querySelectorAll(`.chk-atr-subcat-${subcatId}`);
-      atractivosSub.forEach(atr => {
+      // Atractivos de la subcategoría
+      document.querySelectorAll(`.chk-atr-subcat-${subcatId}`).forEach(atr => {
         atr.checked = activa;
+        const caja = atr.closest('.item-atractivo-box');
+        if (caja) caja.classList.toggle('atractivo-desactivado', !activa);
       });
 
-      // Si se activa la subcategoría, asegurarse de reactivar la categoría padre
+      const chkPadre = document.getElementById(`chk_cat_padre_${catId}`);
+      const sliderCat = document.getElementById(`slider_cat_${catId}`);
+      const tarjeta = chkPadre ? chkPadre.closest('.p-3') : null;
+
       if (activa) {
-        const chkPadre = document.getElementById(`chk_cat_padre_${catId}`);
+        // Si la categoría padre estaba desmarcada, marcarla
         if (chkPadre && !chkPadre.checked) {
           chkPadre.checked = true;
-          const sliderCat = document.getElementById(`slider_cat_${catId}`);
           if (sliderCat) {
             sliderCat.disabled = false;
             sliderCat.classList.remove('slider-desactivado');
           }
-          const tarjetaContenedora = chkPadre.closest('.p-3');
-          if (tarjetaContenedora) {
-            tarjetaContenedora.classList.remove('categoria-desactivada');
+          if (tarjeta) tarjeta.classList.remove('categoria-desactivada');
+        }
+      } else {
+        // Si TODAS las subcats quedaron desmarcadas, desmarcar la categoría padre
+        const subcatsDeCat = document.querySelectorAll(`.chk-subcat-de-cat-${catId}`);
+        const algunaActiva = Array.from(subcatsDeCat).some(sc => sc.checked);
+        if (!algunaActiva && chkPadre && chkPadre.checked) {
+          chkPadre.checked = false;
+          if (sliderCat) {
+            sliderCat.disabled = true;
+            sliderCat.classList.add('slider-desactivado');
           }
+          if (tarjeta) tarjeta.classList.add('categoria-desactivada');
         }
       }
 
@@ -334,562 +362,373 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  // Botones "Todos" y "Limpiar" por categoría de atractivos
+  // ==========================================
+  // 5. ATRACTIVO INDIVIDUAL
+  // ==========================================
+  document.querySelectorAll('.chk-atractivo').forEach(chk => {
+    chk.addEventListener('change', function () {
+      const caja = this.closest('.item-atractivo-box');
+      if (caja) caja.classList.toggle('atractivo-desactivado', !this.checked);
+      actualizarConteoAtractivos();
+    });
+  });
+
+  function actualizarConteoAtractivos() {
+    const n = document.querySelectorAll('.chk-atractivo:checked').length;
+    if (contadorAtractivos) contadorAtractivos.textContent = n;
+    if (alertaAtractivos) alertaAtractivos.classList.toggle('d-none', n !== 0);
+  }
+  actualizarConteoAtractivos();
+
+  // ==========================================
+  // 6. BOTONES GLOBALES: TODOS / NINGUNO
+  // ==========================================
+  const btnSelectAll = document.getElementById('btnSelectAllAtractivos');
+  if (btnSelectAll) {
+    btnSelectAll.addEventListener('click', function (e) {
+      e.preventDefault();
+      document.querySelectorAll('.chk-atractivo').forEach(chk => {
+        chk.checked = true;
+        const caja = chk.closest('.item-atractivo-box');
+        if (caja) caja.classList.remove('atractivo-desactivado');
+      });
+      actualizarConteoAtractivos();
+    });
+  }
+
+  const btnDeselectAll = document.getElementById('btnDeselectAllAtractivos');
+  if (btnDeselectAll) {
+    btnDeselectAll.addEventListener('click', function (e) {
+      e.preventDefault();
+      document.querySelectorAll('.chk-atractivo').forEach(chk => {
+        chk.checked = false;
+        const caja = chk.closest('.item-atractivo-box');
+        if (caja) caja.classList.add('atractivo-desactivado');
+      });
+      actualizarConteoAtractivos();
+    });
+  }
+
+  // ==========================================
+  // 7. BOTONES POR CATEGORÍA: TODOS / LIMPIAR
+  // ==========================================
   document.querySelectorAll('.btn-cat-select-all').forEach(btn => {
-    btn.addEventListener('click', function(e) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
       e.stopPropagation();
       const catId = this.getAttribute('data-cat-id');
-      document.querySelectorAll(`.chk-atr-cat-${catId}`).forEach(chk => chk.checked = true);
+      document.querySelectorAll(`.chk-atr-cat-${catId}`).forEach(chk => {
+        chk.checked = true;
+        const caja = chk.closest('.item-atractivo-box');
+        if (caja) caja.classList.remove('atractivo-desactivado');
+      });
       actualizarConteoAtractivos();
     });
   });
 
   document.querySelectorAll('.btn-cat-clear').forEach(btn => {
-    btn.addEventListener('click', function(e) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
       e.stopPropagation();
       const catId = this.getAttribute('data-cat-id');
-      document.querySelectorAll(`.chk-atr-cat-${catId}`).forEach(chk => chk.checked = false);
+      document.querySelectorAll(`.chk-atr-cat-${catId}`).forEach(chk => {
+        chk.checked = false;
+        const caja = chk.closest('.item-atractivo-box');
+        if (caja) caja.classList.add('atractivo-desactivado');
+      });
       actualizarConteoAtractivos();
     });
   });
 
   // ==========================================
-  // 3. Selección y conteo de atractivos
+  // 8. ENVÍO AJAX — GENERAR ITINERARIOS
   // ==========================================
-  function actualizarConteoAtractivos() {
-    const seleccionados = document.querySelectorAll('.chk-atractivo:checked').length;
-    contadorAtractivos.textContent = seleccionados;
-    if (seleccionados === 0) {
-      alertaAtractivos.classList.remove('d-none');
-    } else {
-      alertaAtractivos.classList.add('d-none');
-    }
-  }
+  if (btnGenerar) {
+    btnGenerar.addEventListener('click', async function () {
+      const atractivosIds = Array.from(document.querySelectorAll('.chk-atractivo:checked')).map(el => parseInt(el.value));
+      if (atractivosIds.length === 1) {
+        alert('Debes marcar al menos 2 atractivos o dejar ninguno (el algoritmo decidirá).');
+        return;
+      }
 
-  // Cambio en atractivo individual (NO desmarca categoría ni subcategoría)
-  document.querySelectorAll('.chk-atractivo').forEach(chk => {
-    chk.addEventListener('change', actualizarConteoAtractivos);
-  });
-  actualizarConteoAtractivos();
+      const transportesIds = Array.from(document.querySelectorAll('.chk-transporte:checked')).map(el => parseInt(el.value));
+      const numPersonas = parseInt(document.getElementById('num_personas').value) || 1;
 
-  document.getElementById('btnSelectAllAtractivos').addEventListener('click', function() {
-    document.querySelectorAll('.chk-atractivo').forEach(chk => chk.checked = true);
-    actualizarConteoAtractivos();
-  });
-
-  document.getElementById('btnDeselectAllAtractivos').addEventListener('click', function() {
-    document.querySelectorAll('.chk-atractivo').forEach(chk => chk.checked = false);
-    actualizarConteoAtractivos();
-  });
-
-  // ==========================================
-  // 4. Envío Asíncrono (AJAX Fetch)
-  // ==========================================
-  btnGenerar.addEventListener('click', async function () {
-    // Recolectar atractivos seleccionados
-    const atractivosIds = Array.from(document.querySelectorAll('.chk-atractivo:checked'))
-                               .map(el => parseInt(el.value));
-
-    // Si especificó 1 solo atractivo, advertir
-    if (atractivosIds.length === 1) {
-      alert('Si seleccionas atractivos manualmente, debes marcar al menos 2 para formar un recorrido de viaje.');
-      return;
-    }
-
-    // Recolectar transportes seleccionados
-    const transportesIds = Array.from(document.querySelectorAll('.chk-transporte:checked'))
-                                .map(el => parseInt(el.value));
-
-    // Validar capacidad si hay 1 solo transporte seleccionado
-    const numPersonas = parseInt(document.getElementById('num_personas').value) || 1;
-    if (transportesIds.length === 1) {
-      const chkUnico = document.querySelector('.chk-transporte:checked');
-      if (chkUnico) {
+      if (transportesIds.length === 1) {
+        const chkUnico = document.querySelector('.chk-transporte:checked');
         const cap = parseInt(chkUnico.getAttribute('data-capacidad') || '999');
         if (cap < numPersonas) {
-          alert(`El transporte seleccionado no tiene capacidad suficiente (${cap} pasajeros) para el grupo de ${numPersonas} personas.`);
+          alert(`El transporte no tiene capacidad (${cap}) para ${numPersonas} personas.`);
           return;
         }
       }
-    }
 
-    // Recolectar preferencias de afinidad (categorías y subcategorías activas)
-    const intereses = {};
-    document.querySelectorAll('.slider-interes').forEach(slider => {
-      if (!slider.disabled) {
-        const nombreItem = slider.getAttribute('data-cat-nombre');
-        intereses[nombreItem] = parseFloat(slider.value);
-      }
-    });
+      const categoriasActivasIds = Array.from(document.querySelectorAll('.chk-categoria-padre:checked')).map(el => parseInt(el.value));
+      const subcategoriasActivasIds = Array.from(document.querySelectorAll('.chk-subcategoria:checked')).map(el => parseInt(el.value));
 
-    const forzarAtractivos = document.getElementById('chkForzarAtractivos') ? document.getElementById('chkForzarAtractivos').checked : false;
-    const forzarTransporte = document.getElementById('chkForzarTransporte') ? document.getElementById('chkForzarTransporte').checked : false;
-
-    // Rango configurable de paradas
-    const inputMinParadas = document.getElementById('min_paradas');
-    const inputMaxParadas = document.getElementById('max_paradas');
-    let minParadas = inputMinParadas ? parseInt(inputMinParadas.value) : 2;
-    let maxParadas = inputMaxParadas ? parseInt(inputMaxParadas.value) : 15;
-    if (isNaN(minParadas) || minParadas < 1) minParadas = 2;
-    if (isNaN(maxParadas) || maxParadas < minParadas) maxParadas = Math.max(minParadas, 15);
-
-    const payload = {
-      atractivos_ids: atractivosIds,
-      transporte_ids: transportesIds,
-      presupuesto_max: parseFloat(document.getElementById('presupuesto_max').value),
-      tiempo_disponible_horas: parseFloat(document.getElementById('tiempo_disponible_horas').value),
-      num_personas: numPersonas,
-      forzar_atractivos: forzarAtractivos,
-      forzar_transporte: forzarTransporte,
-      min_paradas: minParadas,
-      max_paradas: maxParadas,
-      intereses: intereses,
-      tamano_poblacion: 100,
-      generaciones: 100,
-      prob_cruce: 0.85,
-      prob_mutacion: 0.15
-    };
-
-    // Estado de carga en botón
-    btnGenerar.disabled = true;
-    spinnerGenerar.classList.remove('d-none');
-    iconGenerar.classList.add('d-none');
-    btnTextGenerar.textContent = 'Optimizando con NSGA-II...';
-
-    try {
-      const response = await fetch("{{ url_for('itinerarios.generar_action') }}", {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: JSON.stringify(payload)
+      const intereses = {};
+      document.querySelectorAll('.slider-interes').forEach(slider => {
+        const nombre = slider.getAttribute('data-cat-nombre');
+        intereses[nombre] = slider.disabled ? 0.0 : parseFloat(slider.value);
       });
 
-      const res = await response.json();
+      const forzarAtractivos = document.getElementById('chkForzarAtractivos')?.checked || false;
+      const forzarTransporte = document.getElementById('chkForzarTransporte')?.checked || false;
+      const autoRango = chkAutoRango ? chkAutoRango.checked : false;
+      let minParadas = parseInt(inputMinParadas?.value) || 2;
+      let maxParadas = parseInt(inputMaxParadas?.value) || 15;
+      if (isNaN(minParadas) || minParadas < 1) minParadas = 2;
+      if (isNaN(maxParadas) || maxParadas < minParadas) maxParadas = Math.max(minParadas, 15);
 
-      if (!res.success) {
-        throw new Error(res.error || 'Error al ejecutar el algoritmo genético.');
-      }
+      const payload = {
+        atractivos_ids: atractivosIds,
+        transporte_ids: transportesIds,
+        presupuesto_max: parseFloat(document.getElementById('presupuesto_max').value),
+        tiempo_disponible_horas: parseFloat(document.getElementById('tiempo_disponible_horas').value),
+        num_personas: numPersonas,
+        forzar_atractivos: forzarAtractivos,
+        forzar_transporte: forzarTransporte,
+        min_paradas: minParadas,
+        max_paradas: maxParadas,
+        auto_rango_paradas: autoRango,
+        categorias_activas_ids: categoriasActivasIds,
+        subcategorias_activas_ids: subcategoriasActivasIds,
+        intereses: intereses,
+        tamano_poblacion: 100,
+        generaciones: 100,
+        prob_cruce: 0.85,
+        prob_mutacion: 0.15
+      };
 
-      const data = res.data;
-      ultimasSoluciones = data.soluciones || [];
+      btnGenerar.disabled = true;
+      spinnerGenerar.classList.remove('d-none');
+      iconGenerar.classList.add('d-none');
+      btnTextGenerar.textContent = 'Optimizando con NSGA-II...';
 
-      // Mostrar contenedor de resultados y ocultar estado vacío
-      estadoVacio.classList.add('d-none');
-      contenedorResultados.classList.remove('d-none');
-
-      // Procesar Aviso de Tráfico (Si cruza zonas moderadas o altas)
-      const bannerTrafico = document.getElementById('bannerAvisoTrafico');
-      const listaAvisos = document.getElementById('listaAvisosTrafico');
-      listaAvisos.innerHTML = '';
-
-      if (data.avisos_trafico && data.avisos_trafico.length > 0) {
-        data.avisos_trafico.forEach(av => {
-          const li = document.createElement('li');
-          const colorBadge = av.color_nivel === 'rojo' ? 'bg-danger text-white' : 'bg-warning text-dark';
-          li.innerHTML = `Zona <strong>"${av.zona_nombre}"</strong> con factor de congestión <strong>${av.factor_congestion}x</strong> <span class="badge ${colorBadge} ms-1 text-uppercase" style="font-size: 0.65rem;">${av.color_nivel}</span> (${av.hora_franja || 'Horario pico'}).`;
-          listaAvisos.appendChild(li);
+      try {
+        const response = await fetch("{{ url_for('itinerarios.generar_action') }}", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          body: JSON.stringify(payload)
         });
-        bannerTrafico.classList.remove('d-none');
-      } else {
-        bannerTrafico.classList.add('d-none');
+        const res = await response.json();
+        if (!res.success) throw new Error(res.error || 'Error al ejecutar el algoritmo.');
+
+        const data = res.data;
+        ultimasSoluciones = data.soluciones || [];
+
+        estadoVacio.classList.add('d-none');
+        contenedorResultados.classList.remove('d-none');
+
+        // Banner no viables
+        const bannerNoViables = document.getElementById('bannerSolucionesNoViables');
+        const tituloTabla = document.getElementById('tituloTablaSoluciones');
+        const subtituloTabla = document.getElementById('subtituloTablaSoluciones');
+        if (!data.hay_viables && ultimasSoluciones.length > 0) {
+          bannerNoViables?.classList.remove('d-none');
+          if (tituloTabla) tituloTabla.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-octagon-fill me-1"></i> Itinerarios Aproximados (Exceden Límites)</span>';
+          if (subtituloTabla) subtituloTabla.textContent = 'Mejores 3-5 soluciones no viables con análisis y sugerencias.';
+        } else {
+          bannerNoViables?.classList.add('d-none');
+          if (tituloTabla) tituloTabla.textContent = 'Itinerarios Óptimos Generados';
+          if (subtituloTabla) subtituloTabla.textContent = 'Ordenados por cumplimiento, afinidad y tiempo total';
+        }
+
+        // Banner tráfico
+        const bannerTrafico = document.getElementById('bannerAvisoTrafico');
+        const listaAvisos = document.getElementById('listaAvisosTrafico');
+        if (listaAvisos) listaAvisos.innerHTML = '';
+        if (data.avisos_trafico?.length > 0 && bannerTrafico) {
+          data.avisos_trafico.forEach(av => {
+            const li = document.createElement('li');
+            const colorBadge = av.color_nivel === 'rojo' ? 'bg-danger text-white' : 'bg-warning text-dark';
+            li.innerHTML = `Zona <strong>"${av.zona_nombre}"</strong> factor <strong>${av.factor_congestion}x</strong> <span class="badge ${colorBadge}">${av.color_nivel}</span>`;
+            listaAvisos.appendChild(li);
+          });
+          bannerTrafico.classList.remove('d-none');
+        } else {
+          bannerTrafico?.classList.add('d-none');
+        }
+
+        // KPIs
+        if (kpiSoluciones) kpiSoluciones.textContent = ultimasSoluciones.length;
+        if (kpiComputo) kpiComputo.textContent = `${data.tiempo_ejecucion_seg}s`;
+        if (ultimasSoluciones.length > 0) {
+          const maxAf = Math.max(...ultimasSoluciones.map(s => s.afinidad));
+          const minT = Math.min(...ultimasSoluciones.map(s => s.tiempo_total_min));
+          if (kpiAfinidad) kpiAfinidad.textContent = `${(maxAf * 100).toFixed(1)}%`;
+          if (kpiTiempo) kpiTiempo.textContent = `${Math.floor(minT / 60)}h ${Math.round(minT % 60)}m`;
+        }
+        if (badgeTotalSolucionesTabla) badgeTotalSolucionesTabla.textContent = `${ultimasSoluciones.length} soluciones`;
+
+        // Gráficos y tabla
+        renderizarGraficoPareto(data.frente_pareto, ultimasSoluciones);
+        renderizarGraficoConvergencia(data.historial_convergencia);
+        renderizarGraficoDiversidad(data.historial_diversidad);
+        renderizarTablaSoluciones(ultimasSoluciones, data.hay_viables);
+
+        contenedorResultados.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      } catch (err) {
+        alert('Error: ' + err.message);
+      } finally {
+        btnGenerar.disabled = false;
+        spinnerGenerar.classList.add('d-none');
+        iconGenerar.classList.remove('d-none');
+        btnTextGenerar.textContent = 'Generar Itinerarios Óptimos';
       }
-
-      // Actualizar KPIs
-      kpiSoluciones.textContent = ultimasSoluciones.length;
-      kpiComputo.textContent = `${data.tiempo_ejecucion_seg}s`;
-
-      if (ultimasSoluciones.length > 0) {
-        const maxAf = Math.max(...ultimasSoluciones.map(s => s.afinidad));
-        const minT = Math.min(...ultimasSoluciones.map(s => s.tiempo_total_min));
-        kpiAfinidad.textContent = `${(maxAf * 100).toFixed(1)}%`;
-        
-        const horas = Math.floor(minT / 60);
-        const mins = Math.round(minT % 60);
-        kpiTiempo.textContent = `${horas}h ${mins}m`;
-      } else {
-        kpiAfinidad.textContent = '0%';
-        kpiTiempo.textContent = '0 min';
-      }
-
-      badgeTotalSolucionesTabla.textContent = `${ultimasSoluciones.length} soluciones`;
-
-      // Renderizar Gráficos con Chart.js
-      renderizarGraficoPareto(data.frente_pareto, ultimasSoluciones);
-      renderizarGraficoConvergencia(data.historial_convergencia);
-      renderizarGraficoDiversidad(data.historial_diversidad);
-
-      // Renderizar Tabla de Soluciones
-      renderizarTablaSoluciones(ultimasSoluciones);
-
-      // Scroll suave a los resultados
-      contenedorResultados.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-    } catch (err) {
-      alert('Error en la optimización: ' + err.message);
-    } finally {
-      btnGenerar.disabled = false;
-      spinnerGenerar.classList.add('d-none');
-      iconGenerar.classList.remove('d-none');
-      btnTextGenerar.textContent = 'Generar Itinerarios Óptimos';
-    }
-  });
+    });
+  }
 
   // ==========================================
-  // 5. Renderizado de Gráficos (Chart.js)
+  // 9. DELEGACIÓN "VER DETALLE"
   // ==========================================
+  if (tbodySoluciones) {
+    tbodySoluciones.addEventListener('click', function (e) {
+      const btn = e.target.closest('.btn-ver-detalle');
+      if (btn) {
+        const idx = parseInt(btn.getAttribute('data-sol-index'));
+        mostrarModalDetalle(idx);
+      }
+    });
+  }
 
-  function renderizarGraficoPareto(frentePareto, soluciones) {
-    const ctx = document.getElementById('chartPareto').getContext('2d');
-    if (chartParetoInstance) {
-      chartParetoInstance.destroy();
-    }
-
-    const scatterData = frentePareto.map((pt, idx) => ({
-      x: pt[0], // Tiempo min
-      y: pt[1], // Afinidad (0-1)
-      solIndex: idx
-    }));
-
+  // ==========================================
+  // 10. GRÁFICOS CHART.JS
+  // ==========================================
+  function renderizarGraficoPareto(frente, soluciones) {
+    const ctx = document.getElementById('chartPareto')?.getContext('2d');
+    if (!ctx) return;
+    if (chartParetoInstance) chartParetoInstance.destroy();
+    const data = (frente || []).map((pt, i) => ({ x: pt[0], y: pt[1], solIndex: i }));
     chartParetoInstance = new Chart(ctx, {
       type: 'scatter',
-      data: {
-        datasets: [{
-          label: 'Soluciones No Dominadas (Frente de Pareto)',
-          data: scatterData,
-          backgroundColor: '#16A085',
-          borderColor: '#0E6655',
-          borderWidth: 1.5,
-          pointRadius: 6,
-          pointHoverRadius: 9,
-          pointHoverBackgroundColor: '#2ECC71'
-        }]
-      },
+      data: { datasets: [{ label: 'Frente de Pareto', data, backgroundColor: '#16A085', borderColor: '#0E6655', pointRadius: 6 }] },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: true, position: 'top' },
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                const pt = context.raw;
-                const sol = soluciones[pt.solIndex];
-                const tiempoH = (pt.x / 60).toFixed(1);
-                const afPct = (pt.y * 100).toFixed(1);
-                const atrCount = sol ? sol.num_atractivos : '-';
-                return `Solución #${pt.solIndex + 1}: ${afPct}% Afinidad | ${pt.x} min (${tiempoH}h) | ${atrCount} atractivos`;
-              }
-            }
-          }
-        },
+        responsive: true, maintainAspectRatio: false,
         scales: {
-          x: {
-            title: { display: true, text: 'Tiempo Total de Recorrido (minutos)', font: { weight: 'bold' } },
-            grid: { color: '#F1F5F9' }
-          },
-          y: {
-            title: { display: true, text: 'Afinidad Turística (0.0 a 1.0)', font: { weight: 'bold' } },
-            min: 0,
-            max: 1.05,
-            grid: { color: '#F1F5F9' }
-          }
+          x: { title: { display: true, text: 'Tiempo Total (min)' } },
+          y: { title: { display: true, text: 'Afinidad (0-1)' }, min: 0, max: 1.05 }
         }
       }
     });
   }
 
-  function renderizarGraficoConvergencia(historial) {
-    const ctx = document.getElementById('chartConvergencia').getContext('2d');
-    if (chartConvergenciaInstance) {
-      chartConvergenciaInstance.destroy();
-    }
-
+  function renderizarGraficoConvergencia(h) {
+    const ctx = document.getElementById('chartConvergencia')?.getContext('2d');
+    if (!ctx || !h) return;
+    if (chartConvergenciaInstance) chartConvergenciaInstance.destroy();
     chartConvergenciaInstance = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: historial.generaciones.map(g => `G${g}`),
+        labels: h.generaciones.map(g => `G${g}`),
         datasets: [
-          {
-            label: 'Mejor Afinidad (Max)',
-            data: historial.mejor_afinidad,
-            borderColor: '#2ECC71',
-            backgroundColor: 'rgba(46, 204, 113, 0.1)',
-            yAxisID: 'yAfinidad',
-            tension: 0.3,
-            fill: true,
-            pointRadius: 3
-          },
-          {
-            label: 'Mejor Tiempo en Min (Min)',
-            data: historial.mejor_tiempo,
-            borderColor: '#3B82F6',
-            backgroundColor: 'transparent',
-            yAxisID: 'yTiempo',
-            tension: 0.3,
-            borderDash: [5, 5],
-            pointRadius: 3
-          }
+          { label: 'Mejor Afinidad', data: h.mejor_afinidad, borderColor: '#2ECC71', yAxisID: 'yA', tension: 0.3 },
+          { label: 'Mejor Tiempo', data: h.mejor_tiempo, borderColor: '#3B82F6', yAxisID: 'yT', tension: 0.3, borderDash: [5, 5] }
         ]
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { display: true, position: 'top' }
-        },
+        responsive: true, maintainAspectRatio: false,
         scales: {
-          x: {
-            title: { display: true, text: 'Generaciones Evolutivas', font: { weight: 'bold' } },
-            grid: { color: '#F1F5F9' }
-          },
-          yAfinidad: {
-            type: 'linear',
-            display: true,
-            position: 'left',
-            title: { display: true, text: 'Afinidad (0-1)', font: { weight: 'bold' } },
-            min: 0,
-            max: 1.05,
-            grid: { color: '#F1F5F9' }
-          },
-          yTiempo: {
-            type: 'linear',
-            display: true,
-            position: 'right',
-            title: { display: true, text: 'Tiempo (min)', font: { weight: 'bold' } },
-            grid: { drawOnChartArea: false }
-          }
+          yA: { type: 'linear', position: 'left', min: 0, max: 1.05 },
+          yT: { type: 'linear', position: 'right', grid: { drawOnChartArea: false } }
         }
       }
     });
   }
 
-  function renderizarGraficoDiversidad(historial) {
-    const ctx = document.getElementById('chartDiversidad').getContext('2d');
-    if (chartDiversidadInstance) {
-      chartDiversidadInstance.destroy();
-    }
-
+  function renderizarGraficoDiversidad(h) {
+    const ctx = document.getElementById('chartDiversidad')?.getContext('2d');
+    if (!ctx || !h) return;
+    if (chartDiversidadInstance) chartDiversidadInstance.destroy();
     chartDiversidadInstance = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: historial.generaciones.map(g => `G${g}`),
-        datasets: [{
-          label: 'Diversidad Poblacional (Std Dev Afinidad)',
-          data: historial.diversidad,
-          borderColor: '#8B5CF6',
-          backgroundColor: 'rgba(139, 92, 246, 0.1)',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 3
-        }]
+        labels: h.generaciones.map(g => `G${g}`),
+        datasets: [{ label: 'Diversidad', data: h.diversidad, borderColor: '#8B5CF6', tension: 0.3, fill: true, backgroundColor: 'rgba(139,92,246,0.1)' }]
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: true, position: 'top' }
-        },
-        scales: {
-          x: {
-            title: { display: true, text: 'Generaciones Evolutivas', font: { weight: 'bold' } },
-            grid: { color: '#F1F5F9' }
-          },
-          y: {
-            title: { display: true, text: 'Desviación Estándar (σ)', font: { weight: 'bold' } },
-            min: 0,
-            grid: { color: '#F1F5F9' }
-          }
-        }
-      }
+      options: { responsive: true, maintainAspectRatio: false }
     });
   }
 
   // ==========================================
-  // 6. Renderizado de Tabla de Soluciones
+  // 11. TABLA DE SOLUCIONES
   // ==========================================
-  function renderizarTablaSoluciones(soluciones) {
+  function renderizarTablaSoluciones(soluciones, hayViables) {
+    if (!tbodySoluciones) return;
     tbodySoluciones.innerHTML = '';
-
     if (!soluciones || soluciones.length === 0) {
-      tbodySoluciones.innerHTML = `
-        <tr>
-          <td colspan="8" class="text-center py-4 text-muted">
-            No se encontraron soluciones viables con las restricciones actuales.
-          </td>
-        </tr>
-      `;
+      tbodySoluciones.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">No se encontraron soluciones viables con las restricciones actuales.</td></tr>';
       return;
     }
-
-    soluciones.forEach((sol, index) => {
+    soluciones.forEach((sol, i) => {
       const tr = document.createElement('tr');
       const afPct = (sol.afinidad * 100).toFixed(1);
-      const horas = Math.floor(sol.tiempo_total_min / 60);
-      const mins = Math.round(sol.tiempo_total_min % 60);
+      const h = Math.floor(sol.tiempo_total_min / 60);
+      const m = Math.round(sol.tiempo_total_min % 60);
       const usd = (sol.costo_total_bob / TC_OFICIAL).toFixed(2);
-
-      // Badge y mensajes de restricciones
-      let badgeRestriccion = '';
-      if (sol.cumple_restricciones) {
-        badgeRestriccion = '<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i>Válido</span>';
-      } else {
-        const excesoDetalle = sol.mensajes_exceso && sol.mensajes_exceso.length > 0 
-          ? `<div class="small text-danger mt-1" style="font-size: 0.72rem;">${sol.mensajes_exceso.join('<br>')}</div>`
-          : '';
-        badgeRestriccion = `
-          <div>
-            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-exclamation-circle-fill me-1"></i>Excede Límites</span>
-            ${excesoDetalle}
-          </div>
-        `;
+      let btnClass = 'btn-outline-primary';
+      let badge = '<span class="badge bg-success-subtle text-success border"><i class="bi bi-check-circle-fill me-1"></i>Válido</span>';
+      if (!sol.cumple_restricciones) {
+        btnClass = 'btn-outline-danger';
+        const exceso = (sol.mensajes_exceso || []).join('<br>');
+        const sug = (sol.sugerencias_ajuste || []).join(' ');
+        badge = `<div><span class="badge bg-danger"><i class="bi bi-exclamation-octagon-fill me-1"></i>Excede</span>
+                 <div class="small text-danger mt-1">${exceso}</div>
+                 ${sug ? `<div class="small text-danger-emphasis mt-1"><strong>💡</strong> ${sug}</div>` : ''}</div>`;
       }
-
-      // Resumen visual de atractivos
-      const secuenciaStr = sol.atractivos_nombres.slice(0, 3).join(' → ') + 
-        (sol.atractivos_nombres.length > 3 ? ` ... (+${sol.atractivos_nombres.length - 3} más)` : '');
-
+      const secuencia = sol.atractivos_nombres.slice(0, 3).join(' → ') + (sol.atractivos_nombres.length > 3 ? ` ...(+${sol.atractivos_nombres.length - 3})` : '');
+      const desc = sol.descripcion ? `<div class="small text-muted fst-italic mt-1">${sol.descripcion}</div>` : '';
       tr.innerHTML = `
-        <td class="ps-4 fw-bold text-muted">${index + 1}</td>
-        <td>
-          <div class="d-flex align-items-center gap-2">
-            <strong class="text-dark">${afPct}%</strong>
-            <div class="progress flex-grow-1" style="height: 6px; width: 60px; background-color: #E2E8F0;">
-              <div class="progress-bar bg-success" role="progressbar" style="width: ${afPct}%;"></div>
-            </div>
-          </div>
-        </td>
-        <td>
-          <span class="fw-semibold text-dark">${horas}h ${mins}m</span>
-          <small class="text-muted d-block" style="font-size: 0.72rem;">${sol.tiempo_total_min} min</small>
-        </td>
-        <td>
-          <span class="fw-semibold text-dark">Bs. ${sol.costo_total_bob.toFixed(2)}</span>
-          <small class="text-success d-block" style="font-size: 0.72rem;">$${usd} USD</small>
-        </td>
-        <td>
-          <div class="text-truncate fw-medium" style="max-width: 230px;" title="${sol.atractivos_nombres.join(' → ')}">
-            <span class="badge bg-light text-dark border me-1">${sol.num_atractivos} paradas</span>
-            <span class="small text-muted">${secuenciaStr}</span>
-          </div>
-        </td>
-        <td>
-          <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.75rem;">
-            <i class="bi bi-bus-front text-warning me-1"></i> ${sol.transporte_asignado ? sol.transporte_asignado.nombre : 'Estándar'}
-          </span>
-        </td>
-        <td>${badgeRestriccion}</td>
-        <td class="pe-4 text-end">
-          <button type="button" class="btn btn-sm btn-outline-primary btn-ver-detalle" data-sol-index="${index}">
-            <i class="bi bi-eye me-1"></i> Ver Detalle
-          </button>
-        </td>
+        <td class="ps-4 fw-bold">${i + 1}</td>
+        <td><strong>${afPct}%</strong></td>
+        <td>${h}h ${m}m<small class="d-block text-muted">${sol.tiempo_total_min} min</small></td>
+        <td>Bs. ${sol.costo_total_bob.toFixed(2)}<small class="d-block text-success">$${usd}</small></td>
+        <td><span class="badge bg-light text-dark border">${sol.num_atractivos} paradas</span><div class="small text-muted">${secuencia}</div>${desc}</td>
+        <td><span class="badge bg-light text-dark border">${sol.transporte_asignado?.nombre || 'Estándar'}</span></td>
+        <td>${badge}</td>
+        <td class="pe-4 text-end"><button class="btn btn-sm ${btnClass} btn-ver-detalle" data-sol-index="${i}"><i class="bi bi-eye me-1"></i>Ver Detalle</button></td>
       `;
-
       tbodySoluciones.appendChild(tr);
     });
   }
 
-  // Delegación de eventos para el botón "Ver Detalle" (robusto ante re-renderizados)
-  tbodySoluciones.addEventListener('click', function(e) {
-    const btn = e.target.closest('.btn-ver-detalle');
-    if (btn) {
-      const solIndex = parseInt(btn.getAttribute('data-sol-index'));
-      mostrarModalDetalle(solIndex);
-    }
-  });
-
   // ==========================================
-  // 7. Modal de Detalle de Itinerario
+  // 12. MODAL DE DETALLE
   // ==========================================
-  function mostrarModalDetalle(solIndex) {
-    const sol = ultimasSoluciones[solIndex];
+  function mostrarModalDetalle(idx) {
+    const sol = ultimasSoluciones[idx];
     if (!sol) return;
-
-    document.getElementById('modalDetalleLabel').textContent = `Itinerario Optimizado #${solIndex + 1}`;
-    document.getElementById('modalSubtitulo').textContent = `${sol.num_atractivos} paradas optimizadas con ${sol.transporte_asignado ? sol.transporte_asignado.nombre : 'Transporte seleccionado'}`;
-
+    document.getElementById('modalDetalleLabel').textContent = `Itinerario #${idx + 1}`;
+    document.getElementById('modalSubtitulo').textContent = `${sol.num_atractivos} paradas`;
     document.getElementById('modalAfinidad').textContent = `${(sol.afinidad * 100).toFixed(1)}%`;
-    
-    const horas = Math.floor(sol.tiempo_total_min / 60);
-    const mins = Math.round(sol.tiempo_total_min % 60);
-    document.getElementById('modalTiempoTotal').textContent = `${horas}h ${mins}m`;
+    document.getElementById('modalTiempoTotal').textContent = `${Math.floor(sol.tiempo_total_min / 60)}h ${Math.round(sol.tiempo_total_min % 60)}m`;
+    document.getElementById('modalCostoTotal').textContent = `Bs. ${sol.costo_total_bob.toFixed(2)}`;
+    document.getElementById('modalNumAtractivos').textContent = `${sol.num_atractivos}`;
 
-    const usd = (sol.costo_total_bob / TC_OFICIAL).toFixed(2);
-    document.getElementById('modalCostoTotal').textContent = `Bs. ${sol.costo_total_bob.toFixed(2)} ($${usd} USD)`;
-    document.getElementById('modalNumAtractivos').textContent = `${sol.num_atractivos} paradas`;
-
-    const timelineContainer = document.getElementById('modalTimelineContenido');
-    timelineContainer.innerHTML = '';
-
+    const tl = document.getElementById('modalTimelineContenido');
+    tl.innerHTML = '';
+    if (sol.descripcion) {
+      const d = document.createElement('div');
+      d.className = 'alert alert-info py-2 px-3 small';
+      d.innerHTML = `<i class="bi bi-info-circle-fill me-2"></i>${sol.descripcion}`;
+      tl.appendChild(d);
+    }
     for (let i = 0; i < sol.atractivos_nombres.length; i++) {
-      const nombreAtr = sol.atractivos_nombres[i];
-      const cat = sol.categorias[i] || 'General';
-      const subcat = sol.subcategorias ? sol.subcategorias[i] : '';
-      const parada = sol.paradas ? sol.paradas[i] : null;
-      const tramo = (sol.tramos && i < sol.tramos.length) ? sol.tramos[i] : null;
-
-      const horaLlegada = parada ? parada.hora_llegada : '--:--';
-      const horaSalida = parada ? parada.hora_salida : '--:--';
-      const tiempoVisita = parada ? parada.tiempo_visita_min : 60;
-      const costoEntrada = parada ? (parada.costo_entrada_bob || 0).toFixed(2) : '0.00';
-
-      // Parada de atractivo
-      const divParada = document.createElement('div');
-      divParada.className = 'timeline-step';
-      divParada.innerHTML = `
+      const div = document.createElement('div');
+      div.className = 'timeline-step';
+      div.innerHTML = `
         <div class="timeline-badge bg-primary text-white">${i + 1}</div>
-        <div class="card border bg-white p-3 shadow-none">
-          <div class="d-flex justify-content-between align-items-start">
-            <div>
-              <span class="badge bg-primary text-white mb-1 me-1">${subcat || cat}</span>
-              ${subcat && subcat !== cat ? `<span class="badge bg-light text-muted border mb-1">${cat}</span>` : ''}
-              <h6 class="fw-bold mb-1 text-dark">${nombreAtr}</h6>
-              <div class="small text-muted">
-                <i class="bi bi-clock me-1 text-primary"></i>${horaLlegada} - ${horaSalida} (${tiempoVisita} min) &middot; Entrada: Bs. ${costoEntrada}
-              </div>
-            </div>
-            <div class="text-end">
-              <span class="badge bg-success-subtle text-success border border-success-subtle small">Parada #${i + 1}</span>
-            </div>
-          </div>
+        <div class="card border bg-white p-3">
+          <span class="badge bg-primary text-white mb-1">${sol.subcategorias?.[i] || sol.categorias?.[i] || ''}</span>
+          <h6 class="fw-bold mb-1">${sol.atractivos_nombres[i]}</h6>
         </div>
       `;
-      timelineContainer.appendChild(divParada);
-
-      // Tramo de traslado intermedio si existe
-      if (tramo) {
-        const divTramo = document.createElement('div');
-        divTramo.className = 'timeline-step';
-        const factorTraficoBadge = (tramo.factor_trafico && tramo.factor_trafico > 1.0)
-          ? `<span class="badge bg-warning-subtle text-warning-emphasis border ms-1">Tráfico ${tramo.factor_trafico}x</span>` 
-          : '';
-
-        divTramo.innerHTML = `
-          <div class="timeline-tramo-badge bg-warning text-dark">
-            <i class="bi bi-arrow-down"></i>
-          </div>
-          <div class="p-2 px-3 rounded bg-light border-0 my-1 small text-muted d-flex justify-content-between align-items-center">
-            <div>
-              <i class="bi bi-bus-front text-warning me-1"></i>
-              <strong>${tramo.transporte_usado}</strong> &middot; ${tramo.distancia_km} km ${factorTraficoBadge}
-            </div>
-            <div>
-              <span class="badge bg-white text-dark border"><i class="bi bi-clock me-1 text-secondary"></i>${tramo.hora_salida || ''} &rarr; ${tramo.hora_llegada || ''} (~${tramo.tiempo_traslado_min} min)</span>
-            </div>
-          </div>
-        `;
-        timelineContainer.appendChild(divTramo);
-      }
+      tl.appendChild(div);
     }
 
     const modalEl = document.getElementById('modalDetalleItinerario');
-    if (modalEl) {
-      const modalInst = bootstrap.Modal.getOrCreateInstance(modalEl);
-      modalInst.show();
-    }
+    if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
   }
 
 });

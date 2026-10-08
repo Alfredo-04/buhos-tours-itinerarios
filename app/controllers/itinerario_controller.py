@@ -126,6 +126,14 @@ def generar_action():
             prob_cruce = 0.85
             prob_mutacion = 0.15
 
+        auto_rango_paradas = bool(data.get('auto_rango_paradas', True))
+        categorias_activas_ids = data.get('categorias_activas_ids')
+        subcategorias_activas_ids = data.get('subcategorias_activas_ids')
+        if categorias_activas_ids is not None and isinstance(categorias_activas_ids, list):
+            categorias_activas_ids = [int(cid) for cid in categorias_activas_ids]
+        if subcategorias_activas_ids is not None and isinstance(subcategorias_activas_ids, list):
+            subcategorias_activas_ids = [int(scid) for scid in subcategorias_activas_ids]
+
         min_paradas = data.get('min_paradas', 2)
         max_paradas = data.get('max_paradas', 15)
         try:
@@ -154,6 +162,9 @@ def generar_action():
             forzar_transporte=forzar_transporte,
             min_paradas=min_paradas,
             max_paradas=max_paradas,
+            auto_rango_paradas=auto_rango_paradas,
+            categorias_activas_ids=categorias_activas_ids,
+            subcategorias_activas_ids=subcategorias_activas_ids,
         )
 
         return jsonify({

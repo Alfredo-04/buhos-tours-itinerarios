@@ -28,6 +28,23 @@
 <!-- 2. Contenedor de Resultados (Oculto inicialmente) -->
 <div id="contenedorResultados" class="d-none">
 
+  <!-- Banner de Soluciones No Viables (Visible solo cuando no hay viables) -->
+  <div id="bannerSolucionesNoViables" class="alert alert-danger border-danger-subtle shadow-sm mb-4 d-none" role="alert">
+    <div class="d-flex align-items-start gap-3">
+      <div class="rounded-circle bg-danger text-white p-2 d-flex align-items-center justify-content-center mt-1" style="width: 36px; height: 36px;">
+        <i class="bi bi-exclamation-octagon-fill fs-5"></i>
+      </div>
+      <div class="flex-grow-1">
+        <h6 class="alert-heading fw-bold mb-1">
+          ⚠️ Restricciones Muy Estrictas: No se encontraron soluciones 100% viables
+        </h6>
+        <p class="small mb-0">
+          Los límites de tiempo o presupuesto no permiten completar un recorrido sin excederse. A continuación se presentan las <strong>opciones más cercanas a cumplir</strong> junto con sugerencias de ajuste para flexibilizar tus parámetros:
+        </p>
+      </div>
+    </div>
+  </div>
+
   <!-- Banner de Aviso de Tráfico (Visible solo cuando hay zonas con congestión moderada/alta) -->
   <div id="bannerAvisoTrafico" class="alert alert-warning border-warning-subtle shadow-sm mb-4 d-none" role="alert">
     <div class="d-flex align-items-start gap-3">
@@ -192,8 +209,8 @@
   <div class="card card-custom border-0 shadow-sm mb-4">
     <div class="card-header bg-transparent border-0 pt-4 px-4 pb-2 d-flex align-items-center justify-content-between">
       <div>
-        <h5 class="mb-0 fw-bold">Itinerarios Óptimos Generados</h5>
-        <small class="text-muted">Ordenados por cumplimiento de restricciones, afinidad turística y tiempo total</small>
+        <h5 class="mb-0 fw-bold" id="tituloTablaSoluciones">Itinerarios Óptimos Generados</h5>
+        <small class="text-muted" id="subtituloTablaSoluciones">Ordenados por cumplimiento de restricciones, afinidad turística y tiempo total</small>
       </div>
       <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 fw-bold" id="badgeTotalSolucionesTabla">
         0 soluciones
