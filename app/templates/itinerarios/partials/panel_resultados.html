@@ -240,4 +240,54 @@
     </div>
   </div>
 
+  <!-- Sección B: Soluciones que Exceden Límites (Colapsable) -->
+  <div class="card card-custom border-danger-subtle shadow-sm mb-4 d-none" id="seccionSolucionesNoViables">
+    <div class="card-header bg-danger-subtle bg-opacity-25 border-danger-subtle py-3 px-4 d-flex align-items-center justify-content-between cursor-pointer" 
+         data-bs-toggle="collapse" 
+         data-bs-target="#collapseSolucionesNoViables" 
+         aria-expanded="false" 
+         aria-controls="collapseSolucionesNoViables"
+         style="cursor: pointer;">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-exclamation-triangle-fill text-danger fs-5"></i>
+        <div>
+          <h6 class="mb-0 fw-bold text-danger-emphasis">
+            Soluciones que Exceden Límites
+          </h6>
+          <small class="text-muted">Alternativas que superan levemente el tiempo o presupuesto pero conservan alta afinidad</small>
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-danger text-white border border-danger px-3 py-1 fw-bold" id="badgeTotalSolucionesNoViables">
+          0 no viables
+        </span>
+        <i class="bi bi-chevron-down text-danger transition-transform" id="iconCollapseNoViables"></i>
+      </div>
+    </div>
+
+    <div class="collapse" id="collapseSolucionesNoViables">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0" id="tablaSolucionesNoViables">
+            <thead class="bg-light text-muted small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">
+              <tr>
+                <th class="ps-4" style="width: 50px;">#</th>
+                <th>Afinidad</th>
+                <th>Tiempo Total</th>
+                <th>Costo Total</th>
+                <th>Secuencia de Atractivos</th>
+                <th>Transporte</th>
+                <th>Análisis de Exceso y Sugerencias</th>
+                <th class="pe-4 text-end">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="tbodySolucionesNoViables">
+              <!-- Renderizado dinámico vía JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>

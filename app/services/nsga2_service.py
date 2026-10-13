@@ -284,7 +284,7 @@ class ItinerarioVariableProblem(Problem):
         super().__init__(
             n_var=n_atractivos + 1,
             n_obj=2,
-            n_ieq_constr=2,
+            n_ieq_constr=0,
             xl=0.0,
             xu=1.0,
         )
@@ -382,15 +382,34 @@ class ItinerarioVariableProblem(Problem):
 
             penalizacion = 0.0
             if exceso_tiempo > 0:
-                penalizacion += 5.0 * (exceso_tiempo / 60.0)
+                penalizacion += 3.0 * (exceso_tiempo / 60.0)
             if exceso_costo > 0:
-                penalizacion += 5.0 * (exceso_costo / max(1.0, self.presupuesto_max))
+                penalizacion += 3.0 * (exceso_costo / max(1.0, self.presupuesto_max))
 
             f1[idx_ind] = -afinidad + penalizacion
             f2[idx_ind] = tiempo_norm + penalizacion
 
         out["F"] = np.column_stack([f1, f2])
-        out["G"] = np.column_stack([g1, g2])
+
+
+def simplificar_nombre_experiencia(nombre_tecnico: str) -> str:
+    """Mapea nombres formales de categorías o subcategorías a términos turísticos coloquiales."""
+    mapa = {
+        "Sitios Patrimoniales y Calles Históricas": "sitios históricos y calles coloniales",
+        "Iglesias y Templos": "iglesias y templos tradicionales",
+        "Museos": "museos",
+        "Miradores": "miradores panorámicos",
+        "Parques y Bosquecillos": "parques y áreas verdes",
+        "Áreas Protegidas": "paisajes naturales",
+        "Plazas": "plazas emblemáticas",
+        "Mercados Tradicionales": "mercados típicos",
+        "Gastronomía Tradicional": "gastronomía paceña",
+        "Cultural": "espacios culturales",
+        "Naturaleza": "naturaleza y miradores",
+        "Urbano": "puntos urbanos icónicos",
+        "Gastronomía": "sabores locales",
+    }
+    return mapa.get(nombre_tecnico, nombre_tecnico.lower())
 
 
 def generar_descripcion_solucion(
@@ -402,42 +421,65 @@ def generar_descripcion_solucion(
     intereses: dict[str, float]
 ) -> str:
     """
-    Genera una descripción explicativa para la solución turística.
+    Genera una descripción natural, cercana y turística para la solución (2-3 líneas):
+    - NO menciona pesos numéricos (ej. peso 0.95).
+    - NO menciona porcentajes de afinidad ni números de afinidad.
+    - NO usa nombres técnicos fríos.
+    - Describe la experiencia, para quién es ideal y cómo se compara en tiempo/costo.
     """
     n_atractivos = sol["num_atractivos"]
     subcats = sol.get("subcategorias", [])
     cats = sol.get("categorias", [])
 
-    conteo_grupos = {}
+    # Agrupar experiencias presentes en la ruta
+    conteo_experiencias = {}
     for s_nom, c_nom in zip(subcats, cats):
         nombre_item = s_nom if (s_nom and s_nom != "General") else c_nom
+        nombre_coloquial = simplificar_nombre_experiencia(nombre_item)
         peso = float(intereses.get(nombre_item, 0.5))
-        if nombre_item not in conteo_grupos:
-            conteo_grupos[nombre_item] = {"count": 0, "peso": peso}
-        conteo_grupos[nombre_item]["count"] += 1
+        if nombre_coloquial not in conteo_experiencias:
+            conteo_experiencias[nombre_coloquial] = {"count": 0, "peso": peso}
+        conteo_experiencias[nombre_coloquial]["count"] += 1
 
-    desglose_partes = [
-        f"{info['count']} {nom} (peso {info['peso']:.2f})"
-        for nom, info in conteo_grupos.items()
-    ]
-    if len(desglose_partes) > 1:
-        desglose_str = ", ".join(desglose_partes[:-1]) + " y " + desglose_partes[-1]
-    elif len(desglose_partes) == 1:
-        desglose_str = desglose_partes[0]
+    # Ordenar por el interés/peso que el usuario asignó
+    experiencias_ordenadas = sorted(
+        conteo_experiencias.items(),
+        key=lambda item: item[1]["peso"],
+        reverse=True
+    )
+
+    nombres_exp = [exp[0] for exp in experiencias_ordenadas]
+    if len(nombres_exp) >= 2:
+        resumen_lugares = f"{nombres_exp[0]} con {nombres_exp[1]}"
+        if len(nombres_exp) > 2:
+            resumen_lugares += f" y {nombres_exp[2]}"
+    elif len(nombres_exp) == 1:
+        resumen_lugares = nombres_exp[0]
     else:
-        desglose_str = f"{n_atractivos} paradas seleccionadas"
+        resumen_lugares = "los principales atractivos de la ciudad"
 
-    af_pct = round(sol["afinidad"] * 100, 1)
-    if af_pct >= 75:
-        nivel_af = "alta"
-        explicacion_af = "porque prioriza tus categorías principales de mayor interés"
-    elif af_pct >= 50:
-        nivel_af = "media"
-        explicacion_af = "equilibrando los atractivos disponibles con tus preferencias"
+    lo_mas_destacado = nombres_exp[0] if nombres_exp else "la historia y cultura paceña"
+
+    afinidad_val = sol.get("afinidad", 0.0)
+
+    # Variantes según el grado de afinidad
+    if afinidad_val >= 0.70:
+        texto_base = (
+            f"Un recorrido por {n_atractivos} lugares que se ajusta mucho a lo que buscas, "
+            f"combinando principalmente {resumen_lugares}. Ideal si quieres una experiencia centrada en {lo_mas_destacado}."
+        )
+    elif afinidad_val >= 0.45:
+        texto_base = (
+            f"Un recorrido equilibrado por {n_atractivos} paradas que combina {resumen_lugares}. "
+            f"Buena opción si buscas variedad y conocer distintos aspectos de la ciudad sin alejarte de tus gustos."
+        )
     else:
-        nivel_af = "moderada"
-        explicacion_af = "ofreciendo un recorrido accesible y concentrado"
+        texto_base = (
+            f"Un recorrido diverso por {n_atractivos} lugares que abarca {resumen_lugares}. "
+            f"Perfecto para una exploración variada y dinámica por la ciudad."
+        )
 
+    # Comparación relativa de tiempo y costo
     t_sol = sol["tiempo_total_min"]
     c_sol = sol["costo_total_bob"]
     rango_t = max(1.0, max_tiempo - min_tiempo)
@@ -446,29 +488,24 @@ def generar_descripcion_solucion(
     pos_t = (t_sol - min_tiempo) / rango_t
     pos_c = (c_sol - min_costo) / rango_c
 
-    if pos_t <= 0.33:
-        comp_t = "tiempo menor"
-    elif pos_t >= 0.67:
-        comp_t = "tiempo más amplio y completo"
+    frases_comparacion = []
+    if pos_t <= 0.25 and pos_c <= 0.35:
+        frases_comparacion.append("Es una de las opciones más rápidas y económicas.")
+    elif pos_t <= 0.30:
+        frases_comparacion.append("Es una de las opciones más ágiles y de menor duración.")
+    elif pos_t >= 0.75:
+        frases_comparacion.append("Es la opción más amplia y completa del recorrido.")
     else:
-        comp_t = "tiempo medio equilibrado"
+        frases_comparacion.append("Tiene una duración intermedia y bien aprovechada.")
 
-    if pos_c <= 0.33:
-        comp_c = "costo bajo y económico"
-    elif pos_c >= 0.67:
-        comp_c = "costo más elevado"
-    else:
-        comp_c = "costo moderado"
+    if not ("rápidas y económicas" in " ".join(frases_comparacion)):
+        if pos_c <= 0.30:
+            frases_comparacion.append("Mantiene un presupuesto muy bajo y accesible.")
+        elif pos_c >= 0.75:
+            frases_comparacion.append("Presenta un presupuesto algo mayor para cubrir todas sus paradas.")
 
-    horas = int(t_sol // 60)
-    mins = int(t_sol % 60)
-    tiempo_str = f"{horas}h {mins}m" if horas > 0 else f"{mins} min"
-
-    return (
-        f"Esta solución incluye {n_atractivos} atractivos: {desglose_str}. "
-        f"La afinidad es {nivel_af} ({af_pct}%) {explicacion_af}. "
-        f"Comparada con las demás soluciones, tiene {comp_t} ({tiempo_str}) y {comp_c} (Bs. {c_sol:.2f})."
-    )
+    texto_final = f"{texto_base} {' '.join(frases_comparacion)}"
+    return texto_final.strip()
 
 
 def generar_sugerencias_no_viable(
@@ -902,18 +939,15 @@ def ejecutar_nsga2(
             "avisos_trafico": avisos_solucion,
         })
 
-    # SEPARAR ESTRICTAMENTE VIABLES Y NO VIABLES (REGLA DE ORO)
-    soluciones_viables = [s for s in soluciones_procesadas if s["cumple_restricciones"]]
-    soluciones_no_viables = [s for s in soluciones_procesadas if not s["cumple_restricciones"]]
+    # SEPARAR SOLUCIONES VIABLES Y NO VIABLES
+    soluciones_viables_raw = [s for s in soluciones_procesadas if s["cumple_restricciones"]]
+    soluciones_no_viables_raw = [s for s in soluciones_procesadas if not s["cumple_restricciones"]]
 
-    soluciones_seleccionadas = []
-    hay_viables = False
-
-    if len(soluciones_viables) > 0:
-        hay_viables = True
-        # Diversidad de viables agrupando por tamaño K
+    # 1. Procesar Soluciones Viables (diversidad de paradas K)
+    soluciones_viables_final = []
+    if len(soluciones_viables_raw) > 0:
         sol_por_k: dict[int, list[dict[str, Any]]] = {}
-        for sol in soluciones_viables:
+        for sol in soluciones_viables_raw:
             k_val = sol["num_atractivos"]
             if k_val not in sol_por_k:
                 sol_por_k[k_val] = []
@@ -927,37 +961,34 @@ def ejecutar_nsga2(
             mejores_k.append(grupo[0])
             otras_v.extend(grupo[1:])
 
-        soluciones_seleccionadas = list(mejores_k)
+        soluciones_viables_final = list(mejores_k)
         otras_v.sort(key=lambda s: (-s["afinidad"], s["tiempo_total_min"]))
 
-        vistas_m = {(s["num_atractivos"], round(s["afinidad"], 3), round(s["tiempo_total_min"], 0)) for s in soluciones_seleccionadas}
+        vistas_m = {(s["num_atractivos"], round(s["afinidad"], 3), round(s["tiempo_total_min"], 0)) for s in soluciones_viables_final}
         for otra in otras_v:
             met = (otra["num_atractivos"], round(otra["afinidad"], 3), round(otra["tiempo_total_min"], 0))
             if met not in vistas_m:
                 vistas_m.add(met)
-                soluciones_seleccionadas.append(otra)
-            if len(soluciones_seleccionadas) >= 12:
+                soluciones_viables_final.append(otra)
+            if len(soluciones_viables_final) >= 12:
                 break
 
-        # Ordenar por mayor afinidad y menor tiempo
-        soluciones_seleccionadas.sort(key=lambda s: (-s["afinidad"], s["tiempo_total_min"]))
+        soluciones_viables_final.sort(key=lambda s: (-s["afinidad"], s["tiempo_total_min"]))
 
-    elif len(soluciones_no_viables) > 0:
-        # NO HAY VIABLES -> Mostrar entre 3 y 5 soluciones no viables más cercanas
-        hay_viables = False
-
-        # Ordenar por cercanía a cumplir (menor exceso relativo ponderado)
+    # 2. Procesar Soluciones No Viables (hasta 10 con menor exceso relativo ponderado)
+    soluciones_no_viables_final = []
+    if len(soluciones_no_viables_raw) > 0:
         def exceso_ponderado(s: dict[str, Any]) -> float:
             exc_t = max(0.0, s["tiempo_total_min"] - tiempo_max_min) / max(60.0, tiempo_max_min)
             exc_c = max(0.0, s["costo_total_bob"] - presupuesto_max) / max(10.0, presupuesto_max)
             return exc_t + exc_c - (s["afinidad"] * 0.2)
 
-        soluciones_no_viables.sort(key=exceso_ponderado)
+        soluciones_no_viables_raw.sort(key=exceso_ponderado)
 
         # Deduplicar por (K, tiempo redondeado a 10 min, costo redondeado a Bs. 10)
         vistas_nv = set()
         candidatos_nv = []
-        for sol in soluciones_no_viables:
+        for sol in soluciones_no_viables_raw:
             clave_nv = (
                 sol["num_atractivos"],
                 int(round(sol["tiempo_total_min"] / 10.0) * 10),
@@ -966,20 +997,32 @@ def ejecutar_nsga2(
             if clave_nv not in vistas_nv:
                 vistas_nv.add(clave_nv)
                 candidatos_nv.append(sol)
-            if len(candidatos_nv) >= 5:
+            if len(candidatos_nv) >= 10:
                 break
 
-        # Garantizar entre 3 y 5 (o tantas como existan)
-        soluciones_seleccionadas = candidatos_nv[:5]
+        # Si NO hay viables: tomar las 3-5 más cercanas (mínimo 1, máximo 5)
+        # Si SÍ hay viables: tomar hasta 10 no viables para la sección colapsable
+        limite_nv = 10 if len(soluciones_viables_final) == 0 else 10
+        soluciones_no_viables_final = candidatos_nv[:limite_nv]
 
-    # GENERAR DESCRIPCIÓN CONTEXTUAL PARA CADA SOLUCIÓN
-    if soluciones_seleccionadas:
-        tiempos_todos = [s["tiempo_total_min"] for s in soluciones_seleccionadas]
-        costos_todos = [s["costo_total_bob"] for s in soluciones_seleccionadas]
+    hay_viables = len(soluciones_viables_final) > 0
+
+    # Lista principal: si hay viables -> viables; si NO hay viables -> no viables (red de seguridad)
+    soluciones_principales = soluciones_viables_final if hay_viables else soluciones_no_viables_final
+
+    # 3. Generar descripciones turísticas para todas las soluciones a mostrar
+    todas_a_describir = list(soluciones_principales)
+    for snv in soluciones_no_viables_final:
+        if snv not in todas_a_describir:
+            todas_a_describir.append(snv)
+
+    if todas_a_describir:
+        tiempos_todos = [s["tiempo_total_min"] for s in todas_a_describir]
+        costos_todos = [s["costo_total_bob"] for s in todas_a_describir]
         min_t, max_t = min(tiempos_todos), max(tiempos_todos)
         min_c, max_c = min(costos_todos), max(costos_todos)
 
-        for sol in soluciones_seleccionadas:
+        for sol in todas_a_describir:
             sol["descripcion"] = generar_descripcion_solucion(
                 sol=sol,
                 min_tiempo=min_t,
@@ -991,7 +1034,7 @@ def ejecutar_nsga2(
 
     frente_pareto = [
         [sol["tiempo_total_min"], sol["afinidad"]]
-        for sol in soluciones_seleccionadas
+        for sol in soluciones_principales
     ]
 
     historial_generaciones = []
@@ -1025,10 +1068,12 @@ def ejecutar_nsga2(
             avisos_no_verdes_unicos.append(av)
 
     return {
-        "soluciones": soluciones_seleccionadas,
+        "soluciones": soluciones_principales,
+        "soluciones_viables": soluciones_viables_final,
+        "soluciones_no_viables": soluciones_no_viables_final,
         "hay_viables": hay_viables,
-        "total_soluciones_viables": len(soluciones_viables),
-        "total_soluciones_no_viables": len(soluciones_no_viables),
+        "total_soluciones_viables": len(soluciones_viables_final),
+        "total_soluciones_no_viables": len(soluciones_no_viables_final),
         "frente_pareto": frente_pareto,
         "historial_convergencia": {
             "generaciones": historial_generaciones,

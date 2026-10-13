@@ -515,19 +515,21 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!res.success) throw new Error(res.error || 'Error al ejecutar el algoritmo.');
 
         const data = res.data;
-        ultimasSoluciones = data.soluciones || [];
+        const solucionesViables = data.soluciones_viables || (data.hay_viables ? (data.soluciones || []) : []);
+        const solucionesNoViables = data.soluciones_no_viables || (!data.hay_viables ? (data.soluciones || []) : []);
+        ultimasSoluciones = [...solucionesViables, ...solucionesNoViables];
 
         estadoVacio.classList.add('d-none');
         contenedorResultados.classList.remove('d-none');
 
-        // Banner no viables
+        // Banner informativo cuando NO hay viables (Restricciones muy estrictas)
         const bannerNoViables = document.getElementById('bannerSolucionesNoViables');
         const tituloTabla = document.getElementById('tituloTablaSoluciones');
         const subtituloTabla = document.getElementById('subtituloTablaSoluciones');
-        if (!data.hay_viables && ultimasSoluciones.length > 0) {
+        if (!data.hay_viables) {
           bannerNoViables?.classList.remove('d-none');
           if (tituloTabla) tituloTabla.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-octagon-fill me-1"></i> Itinerarios Aproximados (Exceden Límites)</span>';
-          if (subtituloTabla) subtituloTabla.textContent = 'Mejores 3-5 soluciones no viables con análisis y sugerencias.';
+          if (subtituloTabla) subtituloTabla.textContent = 'Mostrando las mejores 3-5 soluciones no viables con análisis y sugerencias.';
         } else {
           bannerNoViables?.classList.add('d-none');
           if (tituloTabla) tituloTabla.textContent = 'Itinerarios Óptimos Generados';
@@ -550,22 +552,41 @@ document.addEventListener('DOMContentLoaded', function () {
           bannerTrafico?.classList.add('d-none');
         }
 
-        // KPIs
-        if (kpiSoluciones) kpiSoluciones.textContent = ultimasSoluciones.length;
+        // KPIs (basados en soluciones principales / viables)
+        const solsParaKPI = data.hay_viables ? solucionesViables : solucionesNoViables;
+        if (kpiSoluciones) kpiSoluciones.textContent = solsParaKPI.length;
         if (kpiComputo) kpiComputo.textContent = `${data.tiempo_ejecucion_seg}s`;
-        if (ultimasSoluciones.length > 0) {
-          const maxAf = Math.max(...ultimasSoluciones.map(s => s.afinidad));
-          const minT = Math.min(...ultimasSoluciones.map(s => s.tiempo_total_min));
+        if (solsParaKPI.length > 0) {
+          const maxAf = Math.max(...solsParaKPI.map(s => s.afinidad));
+          const minT = Math.min(...solsParaKPI.map(s => s.tiempo_total_min));
           if (kpiAfinidad) kpiAfinidad.textContent = `${(maxAf * 100).toFixed(1)}%`;
           if (kpiTiempo) kpiTiempo.textContent = `${Math.floor(minT / 60)}h ${Math.round(minT % 60)}m`;
         }
-        if (badgeTotalSolucionesTabla) badgeTotalSolucionesTabla.textContent = `${ultimasSoluciones.length} soluciones`;
+        if (badgeTotalSolucionesTabla) badgeTotalSolucionesTabla.textContent = `${solsParaKPI.length} soluciones`;
 
         // Gráficos y tabla
-        renderizarGraficoPareto(data.frente_pareto, ultimasSoluciones);
+        renderizarGraficoPareto(data.frente_pareto, solsParaKPI);
         renderizarGraficoConvergencia(data.historial_convergencia);
         renderizarGraficoDiversidad(data.historial_diversidad);
-        renderizarTablaSoluciones(ultimasSoluciones, data.hay_viables);
+
+        // Renderizar Tabla Principal (Sección A)
+        renderizarTablaSoluciones(solsParaKPI, data.hay_viables);
+
+        // Renderizar Sección B: Soluciones que Exceden Límites (Colapsable)
+        const seccionNoViables = document.getElementById('seccionSolucionesNoViables');
+        const badgeNoViables = document.getElementById('badgeTotalSolucionesNoViables');
+        const tbodyNoViables = document.getElementById('tbodySolucionesNoViables');
+
+        if (data.hay_viables && solucionesNoViables.length > 0) {
+          // Si hay viables y también no viables: mostrar Sección B abajo
+          if (seccionNoViables) seccionNoViables.classList.remove('d-none');
+          if (badgeNoViables) badgeNoViables.textContent = `${solucionesNoViables.length} no viables`;
+          renderizarTablaNoViables(solucionesNoViables);
+        } else {
+          // Si no hay viables (las no viables ya están en la tabla principal), o si no hay ninguna no viable
+          if (seccionNoViables) seccionNoViables.classList.add('d-none');
+          if (tbodyNoViables) tbodyNoViables.innerHTML = '';
+        }
 
         contenedorResultados.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -581,10 +602,20 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ==========================================
-  // 9. DELEGACIÓN "VER DETALLE"
+  // 9. DELEGACIÓN "VER DETALLE" (AMBAS TABLAS)
   // ==========================================
+  const tbodySolucionesNoViables = document.getElementById('tbodySolucionesNoViables');
   if (tbodySoluciones) {
     tbodySoluciones.addEventListener('click', function (e) {
+      const btn = e.target.closest('.btn-ver-detalle');
+      if (btn) {
+        const idx = parseInt(btn.getAttribute('data-sol-index'));
+        mostrarModalDetalle(idx);
+      }
+    });
+  }
+  if (tbodySolucionesNoViables) {
+    tbodySolucionesNoViables.addEventListener('click', function (e) {
       const btn = e.target.closest('.btn-ver-detalle');
       if (btn) {
         const idx = parseInt(btn.getAttribute('data-sol-index'));
@@ -652,7 +683,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ==========================================
-  // 11. TABLA DE SOLUCIONES
+  // 11. TABLA PRINCIPAL (SECCIÓN A: VIABLES / ÓPTIMOS)
   // ==========================================
   function renderizarTablaSoluciones(soluciones, hayViables) {
     if (!tbodySoluciones) return;
@@ -668,63 +699,161 @@ document.addEventListener('DOMContentLoaded', function () {
       const m = Math.round(sol.tiempo_total_min % 60);
       const usd = (sol.costo_total_bob / TC_OFICIAL).toFixed(2);
       let btnClass = 'btn-outline-primary';
-      let badge = '<span class="badge bg-success-subtle text-success border"><i class="bi bi-check-circle-fill me-1"></i>Válido</span>';
+      let badge = '<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-circle-fill me-1"></i>Válido</span>';
+
       if (!sol.cumple_restricciones) {
         btnClass = 'btn-outline-danger';
         const exceso = (sol.mensajes_exceso || []).join('<br>');
         const sug = (sol.sugerencias_ajuste || []).join(' ');
-        badge = `<div><span class="badge bg-danger"><i class="bi bi-exclamation-octagon-fill me-1"></i>Excede</span>
+        badge = `<div><span class="badge bg-danger text-white"><i class="bi bi-exclamation-octagon-fill me-1"></i>Excede</span>
                  <div class="small text-danger mt-1">${exceso}</div>
-                 ${sug ? `<div class="small text-danger-emphasis mt-1"><strong>💡</strong> ${sug}</div>` : ''}</div>`;
+                 ${sug ? `<div class="small text-danger-emphasis mt-1 bg-danger-subtle p-1 rounded"><strong>💡</strong> ${sug}</div>` : ''}</div>`;
       }
-      const secuencia = sol.atractivos_nombres.slice(0, 3).join(' → ') + (sol.atractivos_nombres.length > 3 ? ` ...(+${sol.atractivos_nombres.length - 3})` : '');
-      const desc = sol.descripcion ? `<div class="small text-muted fst-italic mt-1">${sol.descripcion}</div>` : '';
+
+      // Secuencia corta y limpia: SOLO nombres separados por flecha (SIN descripción)
+      const secuencia = sol.atractivos_nombres.slice(0, 3).join(' → ') + (sol.atractivos_nombres.length > 3 ? ` ... (+${sol.atractivos_nombres.length - 3} más)` : '');
+
+      // Buscar índice correspondiente en ultimasSoluciones
+      const idxGlobal = ultimasSoluciones.indexOf(sol);
+      const idxParam = idxGlobal >= 0 ? idxGlobal : i;
+
       tr.innerHTML = `
-        <td class="ps-4 fw-bold">${i + 1}</td>
+        <td class="ps-4 fw-bold text-muted">${i + 1}</td>
         <td><strong>${afPct}%</strong></td>
-        <td>${h}h ${m}m<small class="d-block text-muted">${sol.tiempo_total_min} min</small></td>
-        <td>Bs. ${sol.costo_total_bob.toFixed(2)}<small class="d-block text-success">$${usd}</small></td>
-        <td><span class="badge bg-light text-dark border">${sol.num_atractivos} paradas</span><div class="small text-muted">${secuencia}</div>${desc}</td>
+        <td>${h}h ${m}m<small class="d-block text-muted" style="font-size: 0.72rem;">${sol.tiempo_total_min} min</small></td>
+        <td>Bs. ${sol.costo_total_bob.toFixed(2)}<small class="d-block text-success" style="font-size: 0.72rem;">$${usd} USD</small></td>
+        <td><span class="badge bg-light text-dark border me-1">${sol.num_atractivos} paradas</span><span class="small text-muted fw-medium">${secuencia}</span></td>
         <td><span class="badge bg-light text-dark border">${sol.transporte_asignado?.nombre || 'Estándar'}</span></td>
         <td>${badge}</td>
-        <td class="pe-4 text-end"><button class="btn btn-sm ${btnClass} btn-ver-detalle" data-sol-index="${i}"><i class="bi bi-eye me-1"></i>Ver Detalle</button></td>
+        <td class="pe-4 text-end"><button class="btn btn-sm ${btnClass} btn-ver-detalle" data-sol-index="${idxParam}"><i class="bi bi-eye me-1"></i>Ver Detalle</button></td>
       `;
       tbodySoluciones.appendChild(tr);
     });
   }
 
   // ==========================================
-  // 12. MODAL DE DETALLE
+  // 12. TABLA NO VIABLES (SECCIÓN B - COLAPSABLE)
+  // ==========================================
+  function renderizarTablaNoViables(solucionesNoViables) {
+    const tbodyNV = document.getElementById('tbodySolucionesNoViables');
+    if (!tbodyNV) return;
+    tbodyNV.innerHTML = '';
+
+    solucionesNoViables.forEach((sol, i) => {
+      const tr = document.createElement('tr');
+      const afPct = (sol.afinidad * 100).toFixed(1);
+      const h = Math.floor(sol.tiempo_total_min / 60);
+      const m = Math.round(sol.tiempo_total_min % 60);
+      const usd = (sol.costo_total_bob / TC_OFICIAL).toFixed(2);
+
+      const exceso = (sol.mensajes_exceso || []).join('<br>');
+      const sug = (sol.sugerencias_ajuste || []).join(' ');
+      const secuencia = sol.atractivos_nombres.slice(0, 3).join(' → ') + (sol.atractivos_nombres.length > 3 ? ` ... (+${sol.atractivos_nombres.length - 3} más)` : '');
+
+      const idxGlobal = ultimasSoluciones.indexOf(sol);
+      const idxParam = idxGlobal >= 0 ? idxGlobal : i;
+
+      tr.innerHTML = `
+        <td class="ps-4 fw-bold text-muted">${i + 1}</td>
+        <td><strong class="text-danger">${afPct}%</strong></td>
+        <td>${h}h ${m}m<small class="d-block text-muted" style="font-size: 0.72rem;">${sol.tiempo_total_min} min</small></td>
+        <td>Bs. ${sol.costo_total_bob.toFixed(2)}<small class="d-block text-muted" style="font-size: 0.72rem;">$${usd} USD</small></td>
+        <td><span class="badge bg-light text-dark border me-1">${sol.num_atractivos} paradas</span><span class="small text-muted fw-medium">${secuencia}</span></td>
+        <td><span class="badge bg-light text-dark border">${sol.transporte_asignado?.nombre || 'Estándar'}</span></td>
+        <td>
+          <span class="badge bg-danger text-white mb-1"><i class="bi bi-exclamation-octagon-fill me-1"></i>Excede Límites</span>
+          <div class="small text-danger fw-semibold">${exceso}</div>
+          ${sug ? `<div class="small text-danger-emphasis mt-1 bg-danger-subtle p-1 rounded"><strong>💡 Sugerencia:</strong> ${sug}</div>` : ''}
+        </td>
+        <td class="pe-4 text-end"><button class="btn btn-sm btn-outline-danger btn-ver-detalle" data-sol-index="${idxParam}"><i class="bi bi-eye me-1"></i>Ver Detalle</button></td>
+      `;
+      tbodyNV.appendChild(tr);
+    });
+  }
+
+  // ==========================================
+  // 13. MODAL DE DETALLE (CON DESCRIPCIÓN TURÍSTICA)
   // ==========================================
   function mostrarModalDetalle(idx) {
     const sol = ultimasSoluciones[idx];
     if (!sol) return;
-    document.getElementById('modalDetalleLabel').textContent = `Itinerario #${idx + 1}`;
-    document.getElementById('modalSubtitulo').textContent = `${sol.num_atractivos} paradas`;
+    document.getElementById('modalDetalleLabel').textContent = `Itinerario Optimizado #${idx + 1}`;
+    document.getElementById('modalSubtitulo').textContent = `${sol.num_atractivos} paradas con ${sol.transporte_asignado?.nombre || 'Transporte asignado'}`;
     document.getElementById('modalAfinidad').textContent = `${(sol.afinidad * 100).toFixed(1)}%`;
     document.getElementById('modalTiempoTotal').textContent = `${Math.floor(sol.tiempo_total_min / 60)}h ${Math.round(sol.tiempo_total_min % 60)}m`;
-    document.getElementById('modalCostoTotal').textContent = `Bs. ${sol.costo_total_bob.toFixed(2)}`;
-    document.getElementById('modalNumAtractivos').textContent = `${sol.num_atractivos}`;
+
+    const usd = (sol.costo_total_bob / TC_OFICIAL).toFixed(2);
+    document.getElementById('modalCostoTotal').textContent = `Bs. ${sol.costo_total_bob.toFixed(2)} ($${usd} USD)`;
+    document.getElementById('modalNumAtractivos').textContent = `${sol.num_atractivos} paradas`;
 
     const tl = document.getElementById('modalTimelineContenido');
     tl.innerHTML = '';
+
+    // Descripción turística completa (SOLO en el modal)
     if (sol.descripcion) {
       const d = document.createElement('div');
-      d.className = 'alert alert-info py-2 px-3 small';
-      d.innerHTML = `<i class="bi bi-info-circle-fill me-2"></i>${sol.descripcion}`;
+      d.className = 'alert alert-info border-info-subtle shadow-sm mb-3 py-2 px-3 small';
+      d.innerHTML = `<i class="bi bi-compass text-info me-2 fs-6"></i><strong>Experiencia recomendada:</strong> ${sol.descripcion}`;
       tl.appendChild(d);
     }
+
+    // Si excede límites, mostrar advertencia en el modal
+    if (!sol.cumple_restricciones && sol.mensajes_exceso?.length > 0) {
+      const dExc = document.createElement('div');
+      dExc.className = 'alert alert-danger border-danger-subtle shadow-sm mb-3 py-2 px-3 small';
+      const sugHtml = (sol.sugerencias_ajuste && sol.sugerencias_ajuste.length > 0)
+        ? `<div class="mt-1 pt-1 border-top border-danger-subtle"><strong>💡 Sugerencia de ajuste:</strong> ${sol.sugerencias_ajuste.join(' ')}</div>`
+        : '';
+      dExc.innerHTML = `<strong>⚠️ Excede Límites:</strong><br>${sol.mensajes_exceso.join('<br>')}${sugHtml}`;
+      tl.appendChild(dExc);
+    }
+
     for (let i = 0; i < sol.atractivos_nombres.length; i++) {
+      const parada = sol.paradas?.[i];
+      const tramo = sol.tramos?.[i];
+      const hLleg = parada?.hora_llegada || '--:--';
+      const hSal = parada?.hora_salida || '--:--';
+      const tVis = parada?.tiempo_visita_min || 60;
+      const cEnt = parada ? (parada.costo_entrada_bob || 0).toFixed(2) : '0.00';
+      const subcat = sol.subcategorias?.[i] || sol.categorias?.[i] || 'General';
+
       const div = document.createElement('div');
       div.className = 'timeline-step';
       div.innerHTML = `
         <div class="timeline-badge bg-primary text-white">${i + 1}</div>
-        <div class="card border bg-white p-3">
-          <span class="badge bg-primary text-white mb-1">${sol.subcategorias?.[i] || sol.categorias?.[i] || ''}</span>
-          <h6 class="fw-bold mb-1">${sol.atractivos_nombres[i]}</h6>
+        <div class="card border bg-white p-3 shadow-none">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <span class="badge bg-primary text-white mb-1 me-1">${subcat}</span>
+              <h6 class="fw-bold mb-1 text-dark">${sol.atractivos_nombres[i]}</h6>
+              <div class="small text-muted">
+                <i class="bi bi-clock me-1 text-primary"></i>${hLleg} - ${hSal} (${tVis} min) &middot; Entrada: Bs. ${cEnt}
+              </div>
+            </div>
+            <span class="badge bg-success-subtle text-success border border-success-subtle small">Parada #${i + 1}</span>
+          </div>
         </div>
       `;
       tl.appendChild(div);
+
+      if (tramo) {
+        const divTr = document.createElement('div');
+        divTr.className = 'timeline-step';
+        const factorTraficoBadge = (tramo.factor_trafico && tramo.factor_trafico > 1.0)
+          ? `<span class="badge bg-warning-subtle text-warning-emphasis border ms-1">Tráfico ${tramo.factor_trafico}x</span>`
+          : '';
+        divTr.innerHTML = `
+          <div class="timeline-tramo-badge bg-warning text-dark"><i class="bi bi-arrow-down"></i></div>
+          <div class="p-2 px-3 rounded bg-light my-1 small text-muted d-flex justify-content-between align-items-center">
+            <div>
+              <i class="bi bi-bus-front text-warning me-1"></i>
+              <strong>${tramo.transporte_usado}</strong> &middot; ${tramo.distancia_km} km ${factorTraficoBadge}
+            </div>
+            <span class="badge bg-white text-dark border">${tramo.hora_salida || ''} &rarr; ${tramo.hora_llegada || ''} (~${tramo.tiempo_traslado_min} min)</span>
+          </div>
+        `;
+        tl.appendChild(divTr);
+      }
     }
 
     const modalEl = document.getElementById('modalDetalleItinerario');
