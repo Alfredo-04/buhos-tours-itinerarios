@@ -995,11 +995,22 @@ document.addEventListener('DOMContentLoaded', function () {
     const tl = document.getElementById('modalTimelineContenido');
     tl.innerHTML = '';
 
-    // Descripción turística completa (SOLO en el modal)
     if (sol.descripcion) {
+      // Separar el título (primera oración hasta el primer punto) del resto
+      const partes = sol.descripcion.split(/(?<=\.)\s+/);
+      const titulo = partes[0] || '';
+      const resto = partes.slice(1).join(' ');
+
       const d = document.createElement('div');
-      d.className = 'alert alert-info border-info-subtle shadow-sm mb-3 py-2 px-3 small';
-      d.innerHTML = `<i class="bi bi-compass text-info me-2 fs-6"></i><strong>Experiencia recomendada:</strong> ${sol.descripcion}`;
+      d.className = 'alert alert-info border-info-subtle shadow-sm mb-3 py-3 px-3';
+      d.innerHTML = `
+        <div class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">
+          <i class="bi bi-compass text-info me-2"></i>${titulo}
+        </div>
+        <div class="small text-muted">
+          ${resto}
+        </div>
+      `;
       tl.appendChild(d);
     }
 

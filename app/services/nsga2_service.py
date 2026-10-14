@@ -558,20 +558,21 @@ def simplificar_nombre_experiencia(nombre_tecnico: str) -> str:
 
 def _generar_titulo_afinidad(sol: dict[str, Any], intereses: dict[str, float] | None = None) -> str:
     """
-    Genera un título corto que resume en qué se basa la afinidad.
-    Sin palabras tipo IA. Directo y descriptivo.
+    Genera un título corto y descriptivo que resume en qué se basa la afinidad.
+    Sin adjetivos vacíos. Solo describe composición real de categorías/subcategorías.
     """
-    n = max(1, sol.get("num_atractivos", 1))
+    from collections import Counter
+    
+    n = sol.get("num_atractivos", 0)
     subcats = sol.get("subcategorias", [])
     cats = sol.get("categorias", [])
     afinidad = sol.get("afinidad", 0.0)
     
-    # Contar subcategorías presentes
-    from collections import Counter
+    # Contar subcategorías y categorías (excluyendo "General")
     contador_sub = Counter([s for s in subcats if s and s != "General"])
     contador_cat = Counter([c for c in cats if c and c != "General"])
     
-    # Identificar la categoría/subcategoría dominante
+    # Categoría/subcategoría dominante
     if contador_sub:
         top_sub, top_count = contador_sub.most_common(1)[0]
         top_nombre = simplificar_nombre_experiencia(top_sub)
@@ -581,15 +582,19 @@ def _generar_titulo_afinidad(sol: dict[str, Any], intereses: dict[str, float] | 
     else:
         top_nombre = None
     
-    # Reglas de título según composición y afinidad
+    # Detectar si hay variedad (3+ categorías distintas)
+    num_categorias_distintas = len(contador_sub) if contador_sub else len(contador_cat)
+    hay_variedad = num_categorias_distintas >= 3
+    
+    # Reglas por combinación de afinidad + composición
     if afinidad >= 0.80 and top_nombre:
-        if top_count >= n * 0.6:
+        if top_count >= max(2, n * 0.6):
             return f"Recorrido centrado en {top_nombre}."
         else:
             return f"Recorrido con predominio de {top_nombre}."
     
     if afinidad >= 0.60 and top_nombre:
-        if len(contador_sub) >= 3 or len(contador_cat) >= 3:
+        if hay_variedad:
             return "Recorrido de intereses variados."
         return f"Recorrido con mezcla de {top_nombre} y otros intereses."
     
