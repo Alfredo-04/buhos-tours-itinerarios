@@ -295,6 +295,7 @@ class ItinerarioVariableProblem(Problem):
         forzar_todos: bool = False,
         min_paradas: int = 2,
         max_paradas: int = 15,
+        num_dias: int = 1,
     ):
         n_atractivos = len(atractivos)
         self.n_atractivos = n_atractivos
@@ -308,6 +309,7 @@ class ItinerarioVariableProblem(Problem):
         self.intereses = intereses
         self.num_personas = max(1, int(num_personas))
         self.forzar_todos = forzar_todos
+        self.num_dias = max(1, int(num_dias))
         
         # Rango configurable de paradas [k_min, k_max]
         if forzar_todos:
@@ -386,28 +388,60 @@ class ItinerarioVariableProblem(Problem):
         seleccionados = list(map(int, orden_completo[:k]))
         return seleccionados, k
 
-    def calcular_costo_transporte(self, indices_ruta: list[int]) -> float:
+    def calcular_costo_transporte(
+        self,
+        indices_ruta: list[int],
+        dias_por_parada: list[int] | None = None
+    ) -> float:
         """
         Calcula el costo del transporte respetando la regla:
-        - por_dia: cobrado UNA VEZ por día (no acumulado por tramo).
+        - por_dia: cobrado UNA VEZ por cada día en que se utiliza al menos un tramo con ese transporte
+          (clave de deduplicación: (id_transporte, dia)).
         - por_persona: cobrado UNA VEZ por persona (costo * num_personas).
         """
         if len(indices_ruta) < 2:
             return 0.0
 
         costo_total = 0.0
-        vistos = set()
+        vistos_por_dia = set()
+        vistos_por_persona = set()
+
+        k = len(indices_ruta)
+        max_p_dia = max(1, int(np.ceil(k / float(self.num_dias)))) if self.num_dias > 1 else k
+
         for s in range(len(indices_ruta) - 1):
             i = indices_ruta[s]
             j = indices_ruta[s + 1]
             t = self.transportes_tramo_matriz[i][j]
-            if t and t.get("id") not in vistos:
-                vistos.add(t.get("id"))
-                tipo_c = t.get("tipo_costo", "por_dia")
-                c_unit = float(t.get("costo", 0.0) or 0.0)
-                if tipo_c == "por_persona":
+            if not t:
+                continue
+
+            if dias_por_parada is not None and s + 1 < len(dias_por_parada):
+                d_act = dias_por_parada[s]
+                d_sig = dias_por_parada[s + 1]
+                if d_act != d_sig:
+                    # Cambio de jornada diaria: no hay tramo de transporte entre días distintos
+                    continue
+                dia_tramo = d_act
+            else:
+                d_act = min(self.num_dias, (s // max_p_dia) + 1)
+                d_sig = min(self.num_dias, ((s + 1) // max_p_dia) + 1)
+                if d_act != d_sig:
+                    continue
+                dia_tramo = d_act
+
+            t_id = t.get("id")
+            tipo_c = t.get("tipo_costo", "por_dia")
+            c_unit = float(t.get("costo", 0.0) or 0.0)
+
+            if tipo_c == "por_persona":
+                if t_id not in vistos_por_persona:
+                    vistos_por_persona.add(t_id)
                     costo_total += c_unit * self.num_personas
-                else:  # por_dia
+            else:  # por_dia
+                clave = (t_id, dia_tramo)
+                if clave not in vistos_por_dia:
+                    vistos_por_dia.add(clave)
                     costo_total += c_unit
 
         return costo_total
@@ -919,6 +953,7 @@ def ejecutar_nsga2(
         forzar_todos=forzar_atractivos,
         min_paradas=min_paradas_efectivo,
         max_paradas=max_paradas_efectivo,
+        num_dias=num_dias_disponibles,
     )
 
     algorithm = NSGA2(
@@ -1146,12 +1181,13 @@ def ejecutar_nsga2(
             idx_previo = idx_atr
 
         dias_usados_set = {p["dia"] for p in paradas_detalle}
-        dias_totales = len(dias_usados_set) if dias_usados_set else 1
         max_dia_usado = max(dias_usados_set) if dias_usados_set else 1
+        dias_totales = max_dia_usado
         fecha_fin_calculada = fecha_inicio_viaje + timedelta(days=max_dia_usado - 1)
 
         tiempo_total_min = tiempo_visitas + tiempo_traslados
-        costo_transporte = problem.calcular_costo_transporte(ruta)
+        dias_paradas_sol = [p["dia"] for p in paradas_detalle]
+        costo_transporte = problem.calcular_costo_transporte(ruta, dias_por_parada=dias_paradas_sol)
         costo_total_bob = costo_entradas + costo_transporte
 
         # Verificación de excesos

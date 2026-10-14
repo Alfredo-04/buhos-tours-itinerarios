@@ -971,83 +971,110 @@ document.addEventListener('DOMContentLoaded', function () {
       tl.appendChild(dExc);
     }
 
-    let diaActualRender = null;
-    let tramoIdx = 0;
-
-    for (let i = 0; i < (sol.paradas || []).length; i++) {
-      const parada = sol.paradas[i];
-      const diaNum = parada.dia || 1;
-
-      // Si cambiamos de día, renderizar encabezado de día
-      if (diaActualRender !== diaNum) {
-        diaActualRender = diaNum;
-        const nombreDiaSemana = (parada.dia_semana || '').toUpperCase();
-        let fechaFormateada = '';
-        if (parada.fecha) {
-          try {
-            const [y, m, d] = parada.fecha.split('-').map(Number);
-            fechaFormateada = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
-          } catch (e) {
-            fechaFormateada = parada.fecha;
-          }
-        }
-
-        const diaCap = nombreDiaSemana ? (nombreDiaSemana.charAt(0).toUpperCase() + nombreDiaSemana.slice(1).toLowerCase()) : '';
-        const divDia = document.createElement('div');
-        divDia.className = 'd-flex align-items-center gap-2 p-2 px-3 rounded-3 bg-primary text-white fw-bold my-3 small shadow-sm';
-        divDia.innerHTML = `
-          <i class="bi bi-calendar2-week fs-6"></i>
-          <span>DÍA ${diaNum}${diaCap ? ` — ${diaCap}` : ''}${fechaFormateada ? ` ${fechaFormateada}` : ''}</span>
-        `;
-        tl.appendChild(divDia);
+    function obtenerInfoDia(fechaInicioStr, diaNumero) {
+      if (!fechaInicioStr) return { fechaFormateada: '', diaSemana: '' };
+      try {
+        const [y, m, d] = fechaInicioStr.split('-').map(Number);
+        const dt = new Date(y, m - 1, d + (diaNumero - 1));
+        const diasSem = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        const diaSemana = diasSem[dt.getDay()];
+        const dd = String(dt.getDate()).padStart(2, '0');
+        const mm = String(dt.getMonth() + 1).padStart(2, '0');
+        const yy = dt.getFullYear();
+        return {
+          fechaFormateada: `${dd}/${mm}/${yy}`,
+          diaSemana: diaSemana
+        };
+      } catch (e) {
+        return { fechaFormateada: '', diaSemana: '' };
       }
+    }
 
-      const hLleg = parada.hora_llegada || '--:--';
-      const hSal = parada.hora_salida || '--:--';
-      const tVis = parada.tiempo_visita_min || 60;
-      const cEnt = (parada.costo_entrada_bob || 0).toFixed(2);
-      const subcat = parada.subcategoria || parada.categoria || 'General';
+    const totalDiasItinerario = sol.dias_totales || 1;
+    const paradasPorDia = {};
+    for (let d = 1; d <= totalDiasItinerario; d++) {
+      paradasPorDia[d] = [];
+    }
+    (sol.paradas || []).forEach(p => {
+      const d = p.dia || 1;
+      if (!paradasPorDia[d]) paradasPorDia[d] = [];
+      paradasPorDia[d].push(p);
+    });
 
-      const div = document.createElement('div');
-      div.className = 'timeline-step';
-      div.innerHTML = `
-        <div class="timeline-badge bg-primary text-white">${i + 1}</div>
-        <div class="card border bg-white p-3 shadow-none">
-          <div class="d-flex justify-content-between align-items-start">
-            <div>
-              <span class="badge bg-primary text-white mb-1 me-1">${subcat}</span>
-              <h6 class="fw-bold mb-1 text-dark">${parada.nombre}</h6>
-              <div class="small text-muted">
-                <i class="bi bi-clock me-1 text-primary"></i>${hLleg} - ${hSal} (${tVis} min) &middot; Entrada: Bs. ${cEnt}
-              </div>
-            </div>
-            <span class="badge bg-success-subtle text-success border border-success-subtle small">Parada #${i + 1}</span>
-          </div>
-        </div>
+    for (let d = 1; d <= totalDiasItinerario; d++) {
+      const paradasDelDia = paradasPorDia[d] || [];
+      const infoDia = obtenerInfoDia(sol.fecha_inicio, d);
+      const diaCap = infoDia.diaSemana || (paradasDelDia[0]?.dia_semana ? paradasDelDia[0].dia_semana.charAt(0).toUpperCase() + paradasDelDia[0].dia_semana.slice(1).toLowerCase() : '');
+      const fechaFormateada = infoDia.fechaFormateada || (paradasDelDia[0]?.fecha ? paradasDelDia[0].fecha : '');
+
+      // Encabezado del día
+      const divDia = document.createElement('div');
+      divDia.className = 'd-flex align-items-center gap-2 p-2 px-3 rounded-3 bg-primary text-white fw-bold my-3 small shadow-sm';
+      divDia.innerHTML = `
+        <i class="bi bi-calendar2-week fs-6"></i>
+        <span>DÍA ${d}${diaCap ? ` — ${diaCap}` : ''}${fechaFormateada ? ` ${fechaFormateada}` : ''}</span>
       `;
-      tl.appendChild(div);
+      tl.appendChild(divDia);
 
-      // Tramo si existe y corresponde a este día
-      if (sol.tramos && tramoIdx < sol.tramos.length) {
-        const tramo = sol.tramos[tramoIdx];
-        if (tramo && tramo.origen_id === parada.id) {
-          const divTr = document.createElement('div');
-          divTr.className = 'timeline-step';
-          const factorTraficoBadge = (tramo.factor_trafico && tramo.factor_trafico > 1.0)
-            ? `<span class="badge bg-warning-subtle text-warning-emphasis border ms-1">Tráfico ${tramo.factor_trafico}x</span>`
-            : '';
-          divTr.innerHTML = `
-            <div class="timeline-tramo-badge bg-warning text-dark"><i class="bi bi-arrow-down"></i></div>
-            <div class="p-2 px-3 rounded bg-light my-1 small text-muted d-flex justify-content-between align-items-center">
-              <div>
-                <i class="bi bi-bus-front text-warning me-1"></i>
-                <strong>${tramo.transporte_usado}</strong> &middot; ${tramo.distancia_km} km ${factorTraficoBadge}
+      if (paradasDelDia.length === 0) {
+        // Bloque de día vacío con aviso amarillo
+        const divVacio = document.createElement('div');
+        divVacio.className = 'alert alert-warning border-warning-subtle shadow-sm my-2 py-3 px-3 d-flex align-items-start gap-2 small';
+        divVacio.innerHTML = `
+          <i class="bi bi-exclamation-triangle-fill text-warning fs-5 flex-shrink-0 mt-1"></i>
+          <div>
+            <strong>Sin actividades programadas:</strong> Este día no tiene actividades programadas porque los atractivos seleccionados están cerrados en esta fecha. Las visitas se distribuyeron en los días siguientes.
+          </div>
+        `;
+        tl.appendChild(divVacio);
+      } else {
+        for (let j = 0; j < paradasDelDia.length; j++) {
+          const parada = paradasDelDia[j];
+          const hLleg = parada.hora_llegada || '--:--';
+          const hSal = parada.hora_salida || '--:--';
+          const tVis = parada.tiempo_visita_min || 60;
+          const cEnt = (parada.costo_entrada_bob || 0).toFixed(2);
+          const subcat = parada.subcategoria || parada.categoria || 'General';
+
+          const div = document.createElement('div');
+          div.className = 'timeline-step';
+          div.innerHTML = `
+            <div class="timeline-badge bg-primary text-white">${parada.numero || (j + 1)}</div>
+            <div class="card border bg-white p-3 shadow-none">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <span class="badge bg-primary text-white mb-1 me-1">${subcat}</span>
+                  <h6 class="fw-bold mb-1 text-dark">${parada.nombre}</h6>
+                  <div class="small text-muted">
+                    <i class="bi bi-clock me-1 text-primary"></i>${hLleg} - ${hSal} (${tVis} min) &middot; Entrada: Bs. ${cEnt}
+                  </div>
+                </div>
+                <span class="badge bg-success-subtle text-success border border-success-subtle small">Parada #${parada.numero || (j + 1)}</span>
               </div>
-              <span class="badge bg-white text-dark border">${tramo.hora_salida || ''} &rarr; ${tramo.hora_llegada || ''} (~${tramo.tiempo_traslado_min} min)</span>
             </div>
           `;
-          tl.appendChild(divTr);
-          tramoIdx++;
+          tl.appendChild(div);
+
+          // Tramo si existe y corresponde a este día
+          const tramo = (sol.tramos || []).find(tr => tr.origen_id === parada.id && tr.dia === d);
+          if (tramo) {
+            const divTr = document.createElement('div');
+            divTr.className = 'timeline-step';
+            const factorTraficoBadge = (tramo.factor_trafico && tramo.factor_trafico > 1.0)
+              ? `<span class="badge bg-warning-subtle text-warning-emphasis border ms-1">Tráfico ${tramo.factor_trafico}x</span>`
+              : '';
+            divTr.innerHTML = `
+              <div class="timeline-tramo-badge bg-warning text-dark"><i class="bi bi-arrow-down"></i></div>
+              <div class="p-2 px-3 rounded bg-light my-1 small text-muted d-flex justify-content-between align-items-center">
+                <div>
+                  <i class="bi bi-bus-front text-warning me-1"></i>
+                  <strong>${tramo.transporte_usado}</strong> &middot; ${tramo.distancia_km} km ${factorTraficoBadge}
+                </div>
+                <span class="badge bg-white text-dark border">${tramo.hora_salida || ''} &rarr; ${tramo.hora_llegada || ''} (~${tramo.tiempo_traslado_min} min)</span>
+              </div>
+            `;
+            tl.appendChild(divTr);
+          }
         }
       }
     }
