@@ -144,7 +144,7 @@
         
         <!-- Tarjeta de Resumen del Itinerario -->
         <div class="p-3 rounded-3 mb-4" style="background: #F8FAFC; border: 1px solid #E2E8F0;">
-          <div class="row g-3 text-center">
+          <div class="row g-3 text-center mb-2">
             <div class="col-6 col-sm-3">
               <span class="text-muted small d-block">Afinidad Turística</span>
               <strong class="fs-5 text-success" id="modalAfinidad">0%</strong>
@@ -161,6 +161,12 @@
               <span class="text-muted small d-block">Atractivos</span>
               <strong class="fs-5 text-info" id="modalNumAtractivos">0</strong>
             </div>
+          </div>
+          <hr class="my-2 opacity-25">
+          <div class="d-flex flex-wrap justify-content-center gap-3 pt-1 small text-muted">
+            <div><i class="bi bi-calendar-event text-primary me-1"></i><span id="modalFechasViaje">--</span></div>
+            <div><i class="bi bi-calendar3 text-primary me-1"></i><span id="modalDiasTotales">--</span></div>
+            <div><i class="bi bi-clock text-primary me-1"></i><span id="modalVentanaHoraria">--</span></div>
           </div>
         </div>
 
@@ -213,10 +219,88 @@ document.addEventListener('DOMContentLoaded', function () {
   const inputMinParadas = document.getElementById('min_paradas');
   const inputMaxParadas = document.getElementById('max_paradas');
 
+  const chkAutoFechas = document.getElementById('chkAutoFechas');
+  const inputFechaInicio = document.getElementById('fecha_inicio_viaje');
+  const inputNumDias = document.getElementById('num_dias_disponibles');
+  const inputHoraInicio = document.getElementById('hora_inicio_dia');
+  const inputHoraFin = document.getElementById('hora_fin_dia');
+  const contenedorFechas = document.getElementById('contenedorFechasHorarios');
+
   let chartParetoInstance = null;
   let chartConvergenciaInstance = null;
   let chartDiversidadInstance = null;
   let ultimasSoluciones = [];
+
+  // ==========================================
+  // AYUDANTES DE FORMATEO DE FECHAS
+  // ==========================================
+  const MESES_JS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  function formatearRangoFechasJS(fIniStr, fFinStr) {
+    if (!fIniStr) return '';
+    try {
+      const [y1, m1, d1] = fIniStr.split('-').map(Number);
+      const [y2, m2, d2] = (fFinStr || fIniStr).split('-').map(Number);
+      if (fIniStr === fFinStr || !fFinStr) {
+        return `${d1} ${MESES_JS[m1 - 1]}`;
+      }
+      if (m1 === m2) {
+        return `${d1}-${d2} ${MESES_JS[m1 - 1]}`;
+      }
+      return `${d1} ${MESES_JS[m1 - 1]} - ${d2} ${MESES_JS[m2 - 1]}`;
+    } catch (e) {
+      return fIniStr;
+    }
+  }
+
+  function formatearFechaLargaJS(fStr) {
+    if (!fStr) return '--';
+    try {
+      const [y, m, d] = fStr.split('-').map(Number);
+      return `${d} ${MESES_JS[m - 1]} ${y}`;
+    } catch (e) {
+      return fStr;
+    }
+  }
+
+  // ==========================================
+  // INICIALIZACIÓN FECHAS Y HORARIOS
+  // ==========================================
+  const hoyObj = new Date();
+  const mananaObj = new Date();
+  mananaObj.setDate(hoyObj.getDate() + 1);
+
+  const aFormatoYMD = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const hoyYMD = aFormatoYMD(hoyObj);
+  const mananaYMD = aFormatoYMD(mananaObj);
+
+  if (inputFechaInicio) {
+    inputFechaInicio.min = hoyYMD;
+    if (!inputFechaInicio.value) {
+      inputFechaInicio.value = mananaYMD;
+    }
+  }
+
+  function actualizarEstadoAutoFechas() {
+    if (!chkAutoFechas) return;
+    const auto = chkAutoFechas.checked;
+    if (inputFechaInicio) inputFechaInicio.disabled = auto;
+    if (inputNumDias) inputNumDias.disabled = auto;
+    if (inputHoraInicio) inputHoraInicio.disabled = auto;
+    if (inputHoraFin) inputHoraFin.disabled = auto;
+    if (contenedorFechas) contenedorFechas.style.opacity = auto ? '0.55' : '1';
+  }
+
+  if (chkAutoFechas) {
+    chkAutoFechas.checked = true;
+    chkAutoFechas.addEventListener('change', actualizarEstadoAutoFechas);
+    actualizarEstadoAutoFechas();
+  }
 
   // ==========================================
   // 1. PRESUPUESTO → USD
@@ -480,11 +564,48 @@ document.addEventListener('DOMContentLoaded', function () {
       if (isNaN(minParadas) || minParadas < 1) minParadas = 2;
       if (isNaN(maxParadas) || maxParadas < minParadas) maxParadas = Math.max(minParadas, 15);
 
+      const autoFechas = chkAutoFechas ? chkAutoFechas.checked : true;
+      const fechaInicio = inputFechaInicio?.value || null;
+      const numDias = parseInt(inputNumDias?.value) || 1;
+      const horaInicio = inputHoraInicio?.value || '09:00';
+      const horaFin = inputHoraFin?.value || '18:00';
+
+      if (!autoFechas) {
+        if (!fechaInicio) {
+          alert('Por favor selecciona la fecha de inicio del viaje.');
+          return;
+        }
+        if (fechaInicio < hoyYMD) {
+          alert('La fecha de inicio no puede ser una fecha pasada.');
+          return;
+        }
+        if (isNaN(numDias) || numDias < 1 || numDias > 14) {
+          alert('El número de días disponibles debe ser entre 1 y 14.');
+          return;
+        }
+        if (!horaInicio || !horaFin) {
+          alert('Debes definir el rango de horarios diario.');
+          return;
+        }
+        if (horaInicio < '06:00' || horaFin > '19:59') {
+          alert('El rango horario diario debe estar entre las 06:00 y las 19:59.');
+          return;
+        }
+        if (horaFin <= horaInicio) {
+          alert('La hora de fin debe ser posterior a la hora de inicio.');
+          return;
+        }
+      }
+
       const payload = {
         atractivos_ids: atractivosIds,
         transporte_ids: transportesIds,
         presupuesto_max: parseFloat(document.getElementById('presupuesto_max').value),
-        tiempo_disponible_horas: parseFloat(document.getElementById('tiempo_disponible_horas').value),
+        fecha_inicio_viaje: fechaInicio,
+        num_dias_disponibles: numDias,
+        hora_inicio_dia: horaInicio,
+        hora_fin_dia: horaFin,
+        auto_fechas: autoFechas,
         num_personas: numPersonas,
         forzar_atractivos: forzarAtractivos,
         forzar_transporte: forzarTransporte,
@@ -534,6 +655,22 @@ document.addEventListener('DOMContentLoaded', function () {
           bannerNoViables?.classList.add('d-none');
           if (tituloTabla) tituloTabla.textContent = 'Itinerarios Óptimos Generados';
           if (subtituloTabla) subtituloTabla.textContent = 'Ordenados por cumplimiento, afinidad y tiempo total';
+        }
+
+        // Banner de Días Cerrados
+        const bannerDiasCerrados = document.getElementById('bannerDiasCerrados');
+        const detalleDiasCerrados = document.getElementById('detalleAvisoDiasCerrados');
+        if (data.aviso_dias_cerrados && bannerDiasCerrados) {
+          bannerDiasCerrados.classList.remove('d-none');
+          if (detalleDiasCerrados) {
+            if (data.atractivos_excluidos_cierre?.length > 0) {
+              detalleDiasCerrados.textContent = `Atractivos no disponibles en las fechas seleccionadas: ${data.atractivos_excluidos_cierre.join(', ')}`;
+            } else {
+              detalleDiasCerrados.textContent = 'Algunos atractivos no atienden en los días seleccionados para tu viaje.';
+            }
+          }
+        } else {
+          bannerDiasCerrados?.classList.add('d-none');
         }
 
         // Banner tráfico
@@ -710,6 +847,11 @@ document.addEventListener('DOMContentLoaded', function () {
                  ${sug ? `<div class="small text-danger-emphasis mt-1 bg-danger-subtle p-1 rounded"><strong>💡</strong> ${sug}</div>` : ''}</div>`;
       }
 
+      const diasTot = sol.dias_totales || 1;
+      const diasTxt = diasTot > 1 ? `${diasTot} días` : '1 día';
+      const rangoFechas = formatearRangoFechasJS(sol.fecha_inicio, sol.fecha_fin);
+      const fechasStr = rangoFechas ? `${diasTxt} (${rangoFechas})` : diasTxt;
+
       // Secuencia corta y limpia: SOLO nombres separados por flecha (SIN descripción)
       const secuencia = sol.atractivos_nombres.slice(0, 3).join(' → ') + (sol.atractivos_nombres.length > 3 ? ` ... (+${sol.atractivos_nombres.length - 3} más)` : '');
 
@@ -720,7 +862,11 @@ document.addEventListener('DOMContentLoaded', function () {
       tr.innerHTML = `
         <td class="ps-4 fw-bold text-muted">${i + 1}</td>
         <td><strong>${afPct}%</strong></td>
-        <td>${h}h ${m}m<small class="d-block text-muted" style="font-size: 0.72rem;">${sol.tiempo_total_min} min</small></td>
+        <td>
+          <div class="fw-bold text-dark small">${fechasStr}</div>
+          <div class="text-muted small">${h}h ${m}m de recorrido</div>
+          <small class="d-block text-muted" style="font-size: 0.72rem;">${sol.tiempo_total_min} min</small>
+        </td>
         <td>Bs. ${sol.costo_total_bob.toFixed(2)}<small class="d-block text-success" style="font-size: 0.72rem;">$${usd} USD</small></td>
         <td><span class="badge bg-light text-dark border me-1">${sol.num_atractivos} paradas</span><span class="small text-muted fw-medium">${secuencia}</span></td>
         <td><span class="badge bg-light text-dark border">${sol.transporte_asignado?.nombre || 'Estándar'}</span></td>
@@ -748,6 +894,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
       const exceso = (sol.mensajes_exceso || []).join('<br>');
       const sug = (sol.sugerencias_ajuste || []).join(' ');
+      const diasTot = sol.dias_totales || 1;
+      const diasTxt = diasTot > 1 ? `${diasTot} días` : '1 día';
+      const rangoFechas = formatearRangoFechasJS(sol.fecha_inicio, sol.fecha_fin);
+      const fechasStr = rangoFechas ? `${diasTxt} (${rangoFechas})` : diasTxt;
       const secuencia = sol.atractivos_nombres.slice(0, 3).join(' → ') + (sol.atractivos_nombres.length > 3 ? ` ... (+${sol.atractivos_nombres.length - 3} más)` : '');
 
       const idxGlobal = ultimasSoluciones.indexOf(sol);
@@ -756,7 +906,11 @@ document.addEventListener('DOMContentLoaded', function () {
       tr.innerHTML = `
         <td class="ps-4 fw-bold text-muted">${i + 1}</td>
         <td><strong class="text-danger">${afPct}%</strong></td>
-        <td>${h}h ${m}m<small class="d-block text-muted" style="font-size: 0.72rem;">${sol.tiempo_total_min} min</small></td>
+        <td>
+          <div class="fw-bold text-dark small">${fechasStr}</div>
+          <div class="text-muted small">${h}h ${m}m de recorrido</div>
+          <small class="d-block text-muted" style="font-size: 0.72rem;">${sol.tiempo_total_min} min</small>
+        </td>
         <td>Bs. ${sol.costo_total_bob.toFixed(2)}<small class="d-block text-muted" style="font-size: 0.72rem;">$${usd} USD</small></td>
         <td><span class="badge bg-light text-dark border me-1">${sol.num_atractivos} paradas</span><span class="small text-muted fw-medium">${secuencia}</span></td>
         <td><span class="badge bg-light text-dark border">${sol.transporte_asignado?.nombre || 'Estándar'}</span></td>
@@ -786,6 +940,15 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('modalCostoTotal').textContent = `Bs. ${sol.costo_total_bob.toFixed(2)} ($${usd} USD)`;
     document.getElementById('modalNumAtractivos').textContent = `${sol.num_atractivos} paradas`;
 
+    const modalFechas = document.getElementById('modalFechasViaje');
+    const modalDias = document.getElementById('modalDiasTotales');
+    const modalVentana = document.getElementById('modalVentanaHoraria');
+    const diasTotModal = sol.dias_totales || 1;
+    const rangoModal = formatearRangoFechasJS(sol.fecha_inicio, sol.fecha_fin);
+    if (modalFechas) modalFechas.textContent = rangoModal ? `Fechas: ${rangoModal}` : (sol.fecha_inicio || '--');
+    if (modalDias) modalDias.textContent = `${diasTotModal} día(s) de viaje`;
+    if (modalVentana) modalVentana.textContent = `Horario: ${sol.hora_inicio_dia || '09:00'} a ${sol.hora_fin_dia || '18:00'}`;
+
     const tl = document.getElementById('modalTimelineContenido');
     tl.innerHTML = '';
 
@@ -808,14 +971,42 @@ document.addEventListener('DOMContentLoaded', function () {
       tl.appendChild(dExc);
     }
 
-    for (let i = 0; i < sol.atractivos_nombres.length; i++) {
-      const parada = sol.paradas?.[i];
-      const tramo = sol.tramos?.[i];
-      const hLleg = parada?.hora_llegada || '--:--';
-      const hSal = parada?.hora_salida || '--:--';
-      const tVis = parada?.tiempo_visita_min || 60;
-      const cEnt = parada ? (parada.costo_entrada_bob || 0).toFixed(2) : '0.00';
-      const subcat = sol.subcategorias?.[i] || sol.categorias?.[i] || 'General';
+    let diaActualRender = null;
+    let tramoIdx = 0;
+
+    for (let i = 0; i < (sol.paradas || []).length; i++) {
+      const parada = sol.paradas[i];
+      const diaNum = parada.dia || 1;
+
+      // Si cambiamos de día, renderizar encabezado de día
+      if (diaActualRender !== diaNum) {
+        diaActualRender = diaNum;
+        const nombreDiaSemana = (parada.dia_semana || '').toUpperCase();
+        let fechaFormateada = '';
+        if (parada.fecha) {
+          try {
+            const [y, m, d] = parada.fecha.split('-').map(Number);
+            fechaFormateada = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+          } catch (e) {
+            fechaFormateada = parada.fecha;
+          }
+        }
+
+        const diaCap = nombreDiaSemana ? (nombreDiaSemana.charAt(0).toUpperCase() + nombreDiaSemana.slice(1).toLowerCase()) : '';
+        const divDia = document.createElement('div');
+        divDia.className = 'd-flex align-items-center gap-2 p-2 px-3 rounded-3 bg-primary text-white fw-bold my-3 small shadow-sm';
+        divDia.innerHTML = `
+          <i class="bi bi-calendar2-week fs-6"></i>
+          <span>DÍA ${diaNum}${diaCap ? ` — ${diaCap}` : ''}${fechaFormateada ? ` ${fechaFormateada}` : ''}</span>
+        `;
+        tl.appendChild(divDia);
+      }
+
+      const hLleg = parada.hora_llegada || '--:--';
+      const hSal = parada.hora_salida || '--:--';
+      const tVis = parada.tiempo_visita_min || 60;
+      const cEnt = (parada.costo_entrada_bob || 0).toFixed(2);
+      const subcat = parada.subcategoria || parada.categoria || 'General';
 
       const div = document.createElement('div');
       div.className = 'timeline-step';
@@ -825,7 +1016,7 @@ document.addEventListener('DOMContentLoaded', function () {
           <div class="d-flex justify-content-between align-items-start">
             <div>
               <span class="badge bg-primary text-white mb-1 me-1">${subcat}</span>
-              <h6 class="fw-bold mb-1 text-dark">${sol.atractivos_nombres[i]}</h6>
+              <h6 class="fw-bold mb-1 text-dark">${parada.nombre}</h6>
               <div class="small text-muted">
                 <i class="bi bi-clock me-1 text-primary"></i>${hLleg} - ${hSal} (${tVis} min) &middot; Entrada: Bs. ${cEnt}
               </div>
@@ -836,23 +1027,28 @@ document.addEventListener('DOMContentLoaded', function () {
       `;
       tl.appendChild(div);
 
-      if (tramo) {
-        const divTr = document.createElement('div');
-        divTr.className = 'timeline-step';
-        const factorTraficoBadge = (tramo.factor_trafico && tramo.factor_trafico > 1.0)
-          ? `<span class="badge bg-warning-subtle text-warning-emphasis border ms-1">Tráfico ${tramo.factor_trafico}x</span>`
-          : '';
-        divTr.innerHTML = `
-          <div class="timeline-tramo-badge bg-warning text-dark"><i class="bi bi-arrow-down"></i></div>
-          <div class="p-2 px-3 rounded bg-light my-1 small text-muted d-flex justify-content-between align-items-center">
-            <div>
-              <i class="bi bi-bus-front text-warning me-1"></i>
-              <strong>${tramo.transporte_usado}</strong> &middot; ${tramo.distancia_km} km ${factorTraficoBadge}
+      // Tramo si existe y corresponde a este día
+      if (sol.tramos && tramoIdx < sol.tramos.length) {
+        const tramo = sol.tramos[tramoIdx];
+        if (tramo && tramo.origen_id === parada.id) {
+          const divTr = document.createElement('div');
+          divTr.className = 'timeline-step';
+          const factorTraficoBadge = (tramo.factor_trafico && tramo.factor_trafico > 1.0)
+            ? `<span class="badge bg-warning-subtle text-warning-emphasis border ms-1">Tráfico ${tramo.factor_trafico}x</span>`
+            : '';
+          divTr.innerHTML = `
+            <div class="timeline-tramo-badge bg-warning text-dark"><i class="bi bi-arrow-down"></i></div>
+            <div class="p-2 px-3 rounded bg-light my-1 small text-muted d-flex justify-content-between align-items-center">
+              <div>
+                <i class="bi bi-bus-front text-warning me-1"></i>
+                <strong>${tramo.transporte_usado}</strong> &middot; ${tramo.distancia_km} km ${factorTraficoBadge}
+              </div>
+              <span class="badge bg-white text-dark border">${tramo.hora_salida || ''} &rarr; ${tramo.hora_llegada || ''} (~${tramo.tiempo_traslado_min} min)</span>
             </div>
-            <span class="badge bg-white text-dark border">${tramo.hora_salida || ''} &rarr; ${tramo.hora_llegada || ''} (~${tramo.tiempo_traslado_min} min)</span>
-          </div>
-        `;
-        tl.appendChild(divTr);
+          `;
+          tl.appendChild(divTr);
+          tramoIdx++;
+        }
       }
     }
 

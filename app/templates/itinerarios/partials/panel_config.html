@@ -15,22 +15,13 @@
   <div class="card-body p-4">
     <form id="formGenerarItinerario" onsubmit="return false;">
       
-      <!-- 1. Restricciones (Tiempo, Presupuesto, Personas) -->
+      <!-- 1. Restricciones (Presupuesto, Personas, Paradas) -->
       <div class="mb-4">
         <label class="form-label fw-semibold text-uppercase small text-muted mb-2" style="letter-spacing: 0.05em;">
-          <i class="bi bi-clock-history text-primary me-1"></i> Restricciones
+          <i class="bi bi-wallet2 text-primary me-1"></i> Presupuesto y Grupo
         </label>
         
         <div class="row g-3">
-          <div class="col-12 col-sm-6">
-            <label for="tiempo_disponible_horas" class="form-label small fw-medium">Tiempo Disponible</label>
-            <div class="input-group">
-              <input type="number" class="form-control" id="tiempo_disponible_horas" name="tiempo_disponible_horas" value="8.0" min="1" max="48" step="0.5" required>
-              <span class="input-group-text bg-light text-muted small">horas</span>
-            </div>
-            <div class="form-text small text-muted">Ej: 8 horas (un día de tour)</div>
-          </div>
-
           <div class="col-12 col-sm-6">
             <label for="presupuesto_max" class="form-label small fw-medium">Presupuesto Máximo</label>
             <div class="input-group">
@@ -52,7 +43,7 @@
             <div class="form-text small text-muted">Tamaño del grupo de turistas.</div>
           </div>
 
-          <div class="col-12 col-sm-6">
+          <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-1">
               <label class="form-label small fw-medium mb-0">Rango de Paradas (Mín - Máx)</label>
             </div>
@@ -68,6 +59,59 @@
                 <i class="bi bi-magic text-primary me-1"></i> Dejar que el algoritmo decida la cantidad de paradas
               </label>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <hr class="my-3 text-muted opacity-25">
+
+      <!-- Fechas y Ventana Horaria (Multi-día) -->
+      <div class="mb-4">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <label class="form-label fw-semibold text-uppercase small text-muted mb-0" style="letter-spacing: 0.05em;">
+            <i class="bi bi-calendar-range text-primary me-1"></i> Fechas y Horarios del Viaje
+          </label>
+        </div>
+
+        <div class="form-check form-switch mb-3 p-2 bg-light rounded border">
+          <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="chkAutoFechas">
+          <label class="form-check-label small fw-medium text-dark cursor-pointer" for="chkAutoFechas">
+            <i class="bi bi-magic text-primary me-1"></i> Dejar que el algoritmo decida las fechas y horarios óptimos
+          </label>
+          <div class="form-text small text-muted ps-4" style="font-size: 0.75rem;">
+            Usa valores recomendados (inicia mañana, hasta 3 días, horario 09:00 a 18:00).
+          </div>
+        </div>
+
+        <div id="contenedorFechasHorarios" class="row g-3">
+          <div class="col-12 col-sm-6">
+            <label for="fecha_inicio_viaje" class="form-label small fw-medium">Fecha de Inicio del Viaje</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light text-muted small"><i class="bi bi-calendar-event"></i></span>
+              <input type="date" class="form-control" id="fecha_inicio_viaje" name="fecha_inicio_viaje">
+            </div>
+            <div class="form-text small text-muted">Desde cuándo estará disponible el turista.</div>
+          </div>
+
+          <div class="col-12 col-sm-6">
+            <label for="num_dias_disponibles" class="form-label small fw-medium">Días Disponibles</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light text-muted small"><i class="bi bi-calendar3"></i></span>
+              <input type="number" class="form-control" id="num_dias_disponibles" name="num_dias_disponibles" min="1" max="14" value="1">
+              <span class="input-group-text bg-light text-muted small">días</span>
+            </div>
+            <div class="form-text small text-muted">Máximo de días que puede durar el itinerario (1 a 14).</div>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label small fw-medium">Ventana Horaria Diaria</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light text-muted small"><i class="bi bi-clock"></i> De</span>
+              <input type="time" class="form-control" id="hora_inicio_dia" name="hora_inicio_dia" min="06:00" max="19:00" value="09:00">
+              <span class="input-group-text bg-light text-muted small">a</span>
+              <input type="time" class="form-control" id="hora_fin_dia" name="hora_fin_dia" min="06:30" max="19:59" value="18:00">
+            </div>
+            <div class="form-text small text-muted">Rango horario en que el turista puede realizar actividades cada día (06:00 a 19:59).</div>
           </div>
         </div>
       </div>

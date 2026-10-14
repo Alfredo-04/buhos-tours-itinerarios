@@ -32,11 +32,87 @@ except ImportError:
     logger.warning("Shapely no está instalado. El cálculo de zonas de tráfico utilizará verificación simplificada.")
 
 
+dias_semana = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
+MESES_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
+
+
 def dia_semana_espanol(fecha: datetime | None = None) -> str:
     """Retorna el día de la semana en español en minúsculas (lunes, martes, etc.) en hora de Bolivia"""
     f = fecha or obtener_hora_bolivia()
-    dias = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
-    return dias[f.weekday()]
+    return dias_semana[f.weekday()]
+
+
+def parsear_dias_cerrado(dias_str: str | None) -> set[str]:
+    """Parsea cadena de días cerrados (ej. 'Lunes,Martes') a un set normalizado en minúsculas sin acentos."""
+    if not dias_str:
+        return set()
+    import unicodedata
+    def normalizar(s: str) -> str:
+        s = unicodedata.normalize('NFKD', s).encode('ASCII', 'ignore').decode('utf-8')
+        return s.strip().lower()
+    return {normalizar(d) for d in str(dias_str).split(',') if d.strip()}
+
+
+def atractivo_disponible(
+    atractivo: dict[str, Any],
+    fecha: datetime | Any,
+    hora_inicio_visita: datetime,
+    hora_fin_visita: datetime
+) -> bool:
+    """
+    Verifica si un atractivo puede visitarse en la fecha/hora dada.
+    Retorna True si:
+    - El día no está en dias_cerrado.
+    - La visita cabe dentro del horario_apertura/cierre del atractivo.
+    """
+    dia_idx = fecha.weekday()
+    dia_sem = dias_semana[dia_idx]
+    dias_cerrados = parsear_dias_cerrado(atractivo.get('dias_cerrado'))
+    if dia_sem in dias_cerrados:
+        return False
+
+    horario_apertura = atractivo.get('horario_apertura')
+    horario_cierre = atractivo.get('horario_cierre')
+
+    if isinstance(horario_apertura, str):
+        try:
+            horario_apertura = datetime.strptime(horario_apertura.strip(), "%H:%M:%S").time()
+        except ValueError:
+            try:
+                horario_apertura = datetime.strptime(horario_apertura.strip(), "%H:%M").time()
+            except ValueError:
+                horario_apertura = None
+
+    if isinstance(horario_cierre, str):
+        try:
+            horario_cierre = datetime.strptime(horario_cierre.strip(), "%H:%M:%S").time()
+        except ValueError:
+            try:
+                horario_cierre = datetime.strptime(horario_cierre.strip(), "%H:%M").time()
+            except ValueError:
+                horario_cierre = None
+
+    if horario_apertura:
+        if hora_inicio_visita.time() < horario_apertura:
+            return False
+    if horario_cierre:
+        if hora_fin_visita.time() > horario_cierre:
+            return False
+
+    return True
+
+
+def formatear_rango_fechas(f_ini: Any, f_fin: Any) -> str:
+    """Formatea rango de fechas turísticas en español (ej. '15-16 nov' o '15 nov')."""
+    if hasattr(f_ini, "date"):
+        f_ini = f_ini.date()
+    if hasattr(f_fin, "date"):
+        f_fin = f_fin.date()
+    if f_ini == f_fin:
+        return f"{f_ini.day} {MESES_ES[f_ini.month - 1]}"
+    if f_ini.month == f_fin.month:
+        return f"{f_ini.day}-{f_fin.day} {MESES_ES[f_ini.month - 1]}"
+    return f"{f_ini.day} {MESES_ES[f_ini.month - 1]} - {f_fin.day} {MESES_ES[f_fin.month - 1]}"
 
 
 def cargar_zonas_y_patrones_db(fecha_referencia: datetime | None = None) -> list[dict[str, Any]]:
@@ -426,7 +502,17 @@ def generar_descripcion_solucion(
     - NO menciona porcentajes de afinidad ni números de afinidad.
     - NO usa nombres técnicos fríos.
     - Describe la experiencia, para quién es ideal y cómo se compara en tiempo/costo.
+    - Viable: incluye días totales, rango de fechas y ventana horaria.
+    - No viable: incluye exceso específico por día y sugerencia de ajuste.
     """
+    # Si no es viable, retornar formato específico con excesos y sugerencias
+    if not sol.get("cumple_restricciones", True):
+        excesos = sol.get("mensajes_exceso", [])
+        sugerencias = sol.get("sugerencias_ajuste", [])
+        exc_str = " ".join(excesos) if excesos else "Excede las restricciones configuradas."
+        sug_str = f" Sugerencia: {' '.join(sugerencias)}" if sugerencias else ""
+        return f"{exc_str}{sug_str}".strip()
+
     n_atractivos = sol["num_atractivos"]
     subcats = sol.get("subcategorias", [])
     cats = sol.get("categorias", [])
@@ -460,23 +546,40 @@ def generar_descripcion_solucion(
 
     lo_mas_destacado = nombres_exp[0] if nombres_exp else "la historia y cultura paceña"
 
+    dias_tot = sol.get("dias_totales", 1)
+    dias_str = f"{dias_tot} días" if dias_tot > 1 else "1 día"
+    f_ini_str = sol.get("fecha_inicio")
+    f_fin_str = sol.get("fecha_fin")
+    rango_str = ""
+    if f_ini_str and f_fin_str:
+        try:
+            d_ini = datetime.strptime(f_ini_str, "%Y-%m-%d").date()
+            d_fin = datetime.strptime(f_fin_str, "%Y-%m-%d").date()
+            rango_str = f" ({formatear_rango_fechas(d_ini, d_fin)})"
+        except Exception:
+            rango_str = ""
+
+    h_ini = sol.get("hora_inicio_dia", "09:00")
+    h_fin = sol.get("hora_fin_dia", "18:00")
+    prefijo_fechas = f"Un recorrido de {dias_str}{rango_str} con visitas en horario de {h_ini} a {h_fin}."
+
     afinidad_val = sol.get("afinidad", 0.0)
 
     # Variantes según el grado de afinidad
     if afinidad_val >= 0.70:
         texto_base = (
-            f"Un recorrido por {n_atractivos} lugares que se ajusta mucho a lo que buscas, "
-            f"combinando principalmente {resumen_lugares}. Ideal si quieres una experiencia centrada en {lo_mas_destacado}."
+            f"{prefijo_fechas} Muy adaptado a tus gustos combinando principalmente {resumen_lugares}. "
+            f"Ideal si quieres una experiencia centrada en {lo_mas_destacado}."
         )
     elif afinidad_val >= 0.45:
         texto_base = (
-            f"Un recorrido equilibrado por {n_atractivos} paradas que combina {resumen_lugares}. "
-            f"Buena opción si buscas variedad y conocer distintos aspectos de la ciudad sin alejarte de tus gustos."
+            f"{prefijo_fechas} Una opción equilibrada por {n_atractivos} paradas combinando {resumen_lugares}. "
+            f"Buena alternativa si buscas conocer distintos aspectos de la ciudad sin alejarte de tus intereses."
         )
     else:
         texto_base = (
-            f"Un recorrido diverso por {n_atractivos} lugares que abarca {resumen_lugares}. "
-            f"Perfecto para una exploración variada y dinámica por la ciudad."
+            f"{prefijo_fechas} Una opción variada por {n_atractivos} lugares que abarca {resumen_lugares}. "
+            f"Perfecto para una exploración dinámica por la ciudad."
         )
 
     # Comparación relativa de tiempo y costo
@@ -513,21 +616,54 @@ def generar_sugerencias_no_viable(
     tiempo_max_min: float,
     costo_total_bob: float,
     presupuesto_max_bob: float,
-    num_atractivos: int
+    num_atractivos: int,
+    excesos_por_dia: dict[int, float] | None = None,
+    num_dias_disponibles: int = 1,
+    hora_fin_dia: Any = None,
+    paradas_por_dia: dict[int, int] | None = None,
 ) -> list[str]:
-    """Genera recomendaciones prácticas para flexibilizar una solución que excede límites."""
+    """Genera recomendaciones prácticas y específicas para flexibilizar una solución que excede límites."""
     sugerencias = []
-    exceso_t = max(0.0, tiempo_total_min - tiempo_max_min)
+
+    # 1. Sugerencias por exceso de tiempo diario
+    if excesos_por_dia and any(v > 0 for v in excesos_por_dia.values()):
+        peor_dia, max_exc = max(excesos_por_dia.items(), key=lambda item: item[1])
+        if max_exc > 0:
+            # Sugerir ampliar número de días
+            if num_dias_disponibles < 14:
+                sugerencias.append(f"Amplía el número de días disponibles a {num_dias_disponibles + 1}.")
+
+            # Sugerir extender ventana horaria
+            if hora_fin_dia:
+                try:
+                    if isinstance(hora_fin_dia, str):
+                        h_fin_parsed = datetime.strptime(hora_fin_dia.strip(), "%H:%M").time()
+                    else:
+                        h_fin_parsed = hora_fin_dia
+                    minutos_fin_actual = h_fin_parsed.hour * 60 + h_fin_parsed.minute
+                    minutos_sugeridos = min(19 * 60 + 59, minutos_fin_actual + int(round(max_exc)) + 30)
+                    h_sug = minutos_sugeridos // 60
+                    m_sug = minutos_sugeridos % 60
+                    if minutos_sugeridos > minutos_fin_actual:
+                        sugerencias.append(f"Extiende la ventana horaria hasta las {h_sug:02d}:{m_sug:02d}.")
+                except Exception:
+                    sugerencias.append("Extiende la ventana horaria diaria.")
+
+            # Sugerir reducir atractivos del día
+            n_paradas_dia = (paradas_por_dia or {}).get(peor_dia, 0)
+            if n_paradas_dia > 2:
+                sugerencias.append(f"Reduce 1-2 atractivos del día {peor_dia}.")
+
+            sugerencias.append("Cambia la fecha de inicio a un día con menos atractivos cerrados.")
+    else:
+        exceso_t = max(0.0, tiempo_total_min - tiempo_max_min)
+        if exceso_t > 0:
+            if num_dias_disponibles < 14:
+                sugerencias.append(f"Amplía el número de días disponibles a {num_dias_disponibles + 1}.")
+            sugerencias.append("Extiende la ventana horaria diaria o reduce 1-2 atractivos.")
+
+    # 2. Sugerencias por presupuesto
     exceso_c = max(0.0, costo_total_bob - presupuesto_max_bob)
-
-    if exceso_t > 0:
-        horas_disp_actual = tiempo_max_min / 60.0
-        horas_sugeridas = round(horas_disp_actual + (exceso_t / 60.0) + 0.5, 1)
-        if num_atractivos > 2:
-            sugerencias.append(f"Reduce 1-2 atractivos o aumenta el tiempo disponible a {horas_sugeridas}h.")
-        else:
-            sugerencias.append(f"Aumenta el tiempo disponible a {horas_sugeridas}h para cubrir la visita.")
-
     if exceso_c > 0:
         sug_presupuesto = round(presupuesto_max_bob + exceso_c + 15.0, 0)
         sugerencias.append(f"Usa transporte más económico o aumenta el presupuesto a Bs. {sug_presupuesto:.0f}.")
@@ -590,8 +726,12 @@ def ejecutar_nsga2(
     atractivos: list[dict[str, Any]],
     transportes: list[dict[str, Any]],
     presupuesto_max: float,
-    tiempo_disponible_horas: float,
-    intereses: dict[str, float],
+    fecha_inicio_viaje: Any = None,
+    num_dias_disponibles: int = 1,
+    hora_inicio_dia: Any = '09:00',
+    hora_fin_dia: Any = '18:00',
+    auto_fechas: bool = True,
+    intereses: dict[str, float] = None,
     tamano_poblacion: int = 100,
     generaciones: int = 100,
     prob_cruce: float = 0.85,
@@ -602,16 +742,18 @@ def ejecutar_nsga2(
     min_paradas: int = 2,
     max_paradas: int = 15,
     auto_rango_paradas: bool = True,
-    hora_inicio_tour: dtime | None = None
+    hora_inicio_tour: dtime | None = None,
+    tiempo_disponible_horas: float | None = None,
+    **kwargs: Any
 ) -> dict[str, Any]:
     """
-    Motor NSGA-II rediseñado con máxima diversidad de soluciones:
+    Motor NSGA-II rediseñado con fechas reales, ventanas horarias y multi-día:
     1. Genoma de dos partes con K variable [min_paradas, max_paradas].
-    2. Nueva fórmula de afinidad calibrada con K_ideal.
-    3. Soluciones no viables condicionales con análisis y sugerencias prácticas.
-    4. Descripción contextual detallada por cada solución generada.
-    5. Horarios calculados en hora oficial de Bolivia (UTC-4).
-    6. Sin Haversine: matrices de ruteo real y zonas de tráfico.
+    2. Fechas reales y rango horario diario (06:00 - 19:59).
+    3. Validación de días cerrados y horarios de apertura/cierre por atractivo.
+    4. Distribución inteligente multi-día respetando ventanas diarias.
+    5. Excesos específicos por día y sugerencias prácticas de ajuste.
+    6. Sin Haversine: ruteo real y análisis de tráfico dinámico.
     """
     inicio = time.perf_counter()
 
@@ -620,8 +762,68 @@ def ejecutar_nsga2(
     if not transportes or len(transportes) < 1:
         raise ValueError("Debes seleccionar al menos un medio de transporte disponible.")
 
-    # Si auto_rango_paradas está activo, el algoritmo decide el rango de paradas internamente
-    n_total_atractivos = len(atractivos)
+    if intereses is None:
+        intereses = {}
+
+    # Defaults si auto_fechas=True (Sección 4.2)
+    if auto_fechas or not fecha_inicio_viaje:
+        fecha_inicio_viaje = (datetime.now(BOLIVIA_TZ) + timedelta(days=1)).date()
+        num_dias_disponibles = 3
+        hora_inicio_dia = dtime(9, 0)
+        hora_fin_dia = dtime(18, 0)
+    else:
+        if isinstance(fecha_inicio_viaje, str):
+            try:
+                fecha_inicio_viaje = datetime.strptime(fecha_inicio_viaje.strip(), "%Y-%m-%d").date()
+            except ValueError:
+                fecha_inicio_viaje = (datetime.now(BOLIVIA_TZ) + timedelta(days=1)).date()
+        elif isinstance(fecha_inicio_viaje, datetime):
+            fecha_inicio_viaje = fecha_inicio_viaje.date()
+
+        if isinstance(hora_inicio_dia, str):
+            try:
+                hora_inicio_dia = datetime.strptime(hora_inicio_dia.strip(), "%H:%M").time()
+            except ValueError:
+                hora_inicio_dia = dtime(9, 0)
+        elif not isinstance(hora_inicio_dia, dtime):
+            hora_inicio_dia = dtime(9, 0)
+
+        if isinstance(hora_fin_dia, str):
+            try:
+                hora_fin_dia = datetime.strptime(hora_fin_dia.strip(), "%H:%M").time()
+            except ValueError:
+                hora_fin_dia = dtime(18, 0)
+        elif not isinstance(hora_fin_dia, dtime):
+            hora_fin_dia = dtime(18, 0)
+
+        try:
+            num_dias_disponibles = max(1, min(14, int(num_dias_disponibles)))
+        except (TypeError, ValueError):
+            num_dias_disponibles = 1
+
+    ventana_diaria_min = (hora_fin_dia.hour * 60 + hora_fin_dia.minute) - (hora_inicio_dia.hour * 60 + hora_inicio_dia.minute)
+    if ventana_diaria_min <= 0:
+        ventana_diaria_min = 540.0
+    tiempo_total_disponible_min = num_dias_disponibles * ventana_diaria_min
+    tiempo_disponible_calc_horas = round(tiempo_total_disponible_min / 60.0, 2)
+
+    # Días de la semana que abarca el viaje para validar días cerrados
+    dias_del_viaje = {dias_semana[(fecha_inicio_viaje + timedelta(days=i)).weekday()] for i in range(num_dias_disponibles)}
+    atractivos_cerrados_todos_los_dias = []
+    atractivos_candidatos = []
+
+    for a in atractivos:
+        cerrados = parsear_dias_cerrado(a.get("dias_cerrado"))
+        if dias_del_viaje and dias_del_viaje.issubset(cerrados):
+            atractivos_cerrados_todos_los_dias.append(a)
+        else:
+            atractivos_candidatos.append(a)
+
+    hay_atractivos_excluidos = len(atractivos_cerrados_todos_los_dias) > 0
+    atractivos_efectivos = atractivos_candidatos if len(atractivos_candidatos) >= 2 else atractivos
+
+    # Rango de paradas
+    n_total_atractivos = len(atractivos_efectivos)
     if auto_rango_paradas:
         min_paradas_efectivo = 2
         max_paradas_efectivo = max(2, min(15, n_total_atractivos))
@@ -631,7 +833,7 @@ def ejecutar_nsga2(
 
     # Hora de inicio oficial Bolivia (UTC-4)
     hora_bolivia_actual = obtener_hora_bolivia().time()
-    hora_actual = hora_inicio_tour or dtime(9, 0)
+    hora_actual = hora_inicio_tour or hora_inicio_dia
     presupuesto_bajo = (presupuesto_max < 150.0)
 
     # 1. Validar transporte único o forzado
@@ -645,7 +847,7 @@ def ejecutar_nsga2(
     # 2. Cargar zonas de tráfico y patrones vigentes
     zonas_trafico = cargar_zonas_y_patrones_db()
 
-    n = len(atractivos)
+    n = len(atractivos_efectivos)
     matriz_distancias = np.zeros((n, n), dtype=float)
     matriz_duraciones_base = np.zeros((n, n), dtype=float)
     matriz_factores_trafico = np.ones((n, n), dtype=float)
@@ -654,17 +856,16 @@ def ejecutar_nsga2(
 
     # 3. Precomputar matrices por calles (usando OSRM o matriz pre-calculada en BD)
     for i in range(n):
-        id_i = atractivos[i]["id"]
-        lat_i = float(atractivos[i]["lat"])
-        lon_i = float(atractivos[i]["lon"])
+        id_i = atractivos_efectivos[i]["id"]
+        lat_i = float(atractivos_efectivos[i]["lat"])
+        lon_i = float(atractivos_efectivos[i]["lon"])
 
         for j in range(n):
             if i != j:
-                id_j = atractivos[j]["id"]
-                lat_j = float(atractivos[j]["lat"])
-                lon_j = float(atractivos[j]["lon"])
+                id_j = atractivos_efectivos[j]["id"]
+                lat_j = float(atractivos_efectivos[j]["lat"])
+                lon_j = float(atractivos_efectivos[j]["lon"])
 
-                # Obtener distancia real por calles
                 ruta_real = obtener_ruta_real(
                     origen_id=id_i,
                     destino_id=id_j,
@@ -675,7 +876,6 @@ def ejecutar_nsga2(
                 )
                 dist_km = ruta_real["distancia_km"]
 
-                # Asignación de transporte (con umbral caminata < 300m)
                 if transporte_fijo is not None:
                     t_tramo = transporte_fijo
                 else:
@@ -689,7 +889,6 @@ def ejecutar_nsga2(
                 vel_transporte = max(1.0, float(t_tramo.get("velocidad_promedio_kmh", 30.0) or 30.0))
                 dur_base_min = round((dist_km / vel_transporte) * 60.0, 2)
 
-                # Factor de tráfico
                 factor_trafico, avisos = detectar_trafico_tramo(lat_i, lon_i, lat_j, lon_j, hora_actual, zonas_trafico)
                 if avisos:
                     avisos_trafico_global.extend(avisos)
@@ -708,13 +907,13 @@ def ejecutar_nsga2(
     prob_mutation = 0.15
 
     problem = ItinerarioVariableProblem(
-        atractivos=atractivos,
+        atractivos=atractivos_efectivos,
         matriz_distancias=matriz_distancias,
         matriz_duraciones_base=matriz_duraciones_base,
         matriz_factores_trafico=matriz_factores_trafico,
         transportes_tramo_matriz=matriz_transportes_tramo,
         presupuesto_max=presupuesto_max,
-        tiempo_disponible_horas=tiempo_disponible_horas,
+        tiempo_disponible_horas=tiempo_disponible_calc_horas,
         intereses=intereses,
         num_personas=num_personas,
         forzar_todos=forzar_atractivos,
@@ -742,12 +941,11 @@ def ejecutar_nsga2(
     fin = time.perf_counter()
     tiempo_ejecucion_seg = round(fin - inicio, 4)
 
-    # 5. Extracción y decodificación de soluciones con Frente 1 y Frente 2 (F2)
+    # 5. Extracción y decodificación de soluciones con Frente 1, Frente 2 y F3
     candidatos = []
     if res.opt is not None and len(res.opt) > 0:
         candidatos.extend(list(res.opt))
 
-    # Si el frente de Pareto tiene pocas soluciones, enriquecer con Frente 2 (F2) y F3
     if res.pop is not None and len(res.pop) > 0:
         try:
             ranks = res.pop.get("rank")
@@ -763,7 +961,6 @@ def ejecutar_nsga2(
             logger.debug(f"Aviso al extraer soluciones de frentes adicionales: {e}")
             candidatos.extend(list(res.pop))
 
-    tiempo_max_min = float(tiempo_disponible_horas) * 60.0
     soluciones_procesadas = []
     vistos_rutas = set()
 
@@ -771,105 +968,187 @@ def ejecutar_nsga2(
         ind = np.array(sol.X)
         ruta, k = problem.decodificar_individuo(ind)
 
-        # Evitar duplicados por ruta
         clave_ruta = tuple(ruta)
         clave_reversa = tuple(reversed(ruta))
         if clave_ruta in vistos_rutas or clave_reversa in vistos_rutas:
             continue
         vistos_rutas.add(clave_ruta)
 
-        # Afinidad según la NUEVA FÓRMULA CALIBRADA: sum(pesos incluidos) / sum_pesos_ideal
         suma_pesos_incluidos = float(np.sum(problem.afinidad_individual[ruta]))
         afinidad = min(1.0, suma_pesos_incluidos / problem.sum_pesos_ideal)
-        tiempo_visitas = float(np.sum(problem.tiempos_visitas[ruta]))
-        costo_entradas = float(np.sum(problem.costos_entradas[ruta])) * num_personas
 
-        tramos = []
-        distancia_total_km = 0.0
+        # Simulación multi-día con horarios reales por parada
+        max_paradas_por_dia = max(1, int(np.ceil(k / float(num_dias_disponibles)))) if num_dias_disponibles > 1 else k
+        dia_idx = 0
+        fecha_actual = fecha_inicio_viaje + timedelta(days=dia_idx)
+        hora_actual_step = datetime.combine(fecha_actual, hora_inicio_dia)
+        limite_dia = datetime.combine(fecha_actual, hora_fin_dia)
+
+        paradas_en_dia = 0
+        idx_previo = None
+        tiempo_visitas = 0.0
         tiempo_traslados = 0.0
+        costo_entradas = 0.0
+        distancia_total_km = 0.0
         transportes_en_solucion = []
         avisos_solucion = []
-
-        # Cálculo de horarios paso a paso en hora de Bolivia (UTC-4)
-        minutos_reloj = hora_actual.hour * 60 + hora_actual.minute
         paradas_detalle = []
+        tramos = []
+        excesos_por_dia = {}
+        paradas_por_dia_conteo = {d: 0 for d in range(1, num_dias_disponibles + 1)}
 
         for s in range(k):
             idx_atr = ruta[s]
-            atr = atractivos[idx_atr]
+            atr = atractivos_efectivos[idx_atr]
             t_vis = int(atr.get("tiempo_visita", 60) or 60)
+            costo_ent = float(atr.get("costo_entrada", 0.0) or 0.0) * num_personas
 
-            h_lleg_h = (minutos_reloj // 60) % 24
-            h_lleg_m = minutos_reloj % 60
-            hora_llegada_str = f"{h_lleg_h:02d}:{h_lleg_m:02d}"
+            dist_km = 0.0
+            t_traslado_min = 0.0
+            t_asignado = None
+            factor_trafico = 1.0
 
-            minutos_reloj += t_vis
-            h_sal_h = (minutos_reloj // 60) % 24
-            h_sal_m = minutos_reloj % 60
-            hora_salida_str = f"{h_sal_h:02d}:{h_sal_m:02d}"
+            if idx_previo is not None and paradas_en_dia > 0:
+                dist_km = matriz_distancias[idx_previo, idx_atr]
+                t_traslado_min = matriz_duraciones_base[idx_previo, idx_atr] * matriz_factores_trafico[idx_previo, idx_atr]
+                t_asignado = matriz_transportes_tramo[idx_previo][idx_atr]
+                factor_trafico = matriz_factores_trafico[idx_previo, idx_atr]
 
-            paradas_detalle.append({
-                "numero": s + 1,
-                "id": atr["id"],
-                "nombre": atr["nombre"],
-                "categoria": atr.get("categoria", "General"),
-                "subcategoria": atr.get("subcategoria", "General"),
-                "tiempo_visita_min": t_vis,
-                "costo_entrada_bob": float(atr.get("costo_entrada", 0.0) or 0.0),
-                "hora_llegada": hora_llegada_str,
-                "hora_salida": hora_salida_str,
-            })
+            hora_llegada_est = hora_actual_step + timedelta(minutes=t_traslado_min) if paradas_en_dia > 0 else hora_actual_step
 
-            # Tramo hacia el siguiente atractivo si existe
-            if s < k - 1:
-                idx_orig = ruta[s]
-                idx_dest = ruta[s + 1]
-                orig = atractivos[idx_orig]
-                dest = atractivos[idx_dest]
+            # Horario de apertura del atractivo
+            horario_ap = atr.get("horario_apertura")
+            if isinstance(horario_ap, str):
+                try:
+                    horario_ap = datetime.strptime(horario_ap.strip(), "%H:%M:%S").time()
+                except ValueError:
+                    try:
+                        horario_ap = datetime.strptime(horario_ap.strip(), "%H:%M").time()
+                    except ValueError:
+                        horario_ap = None
 
-                dist_km = matriz_distancias[idx_orig, idx_dest]
-                t_traslado_min = matriz_duraciones_base[idx_orig, idx_dest] * matriz_factores_trafico[idx_orig, idx_dest]
-                t_asignado = matriz_transportes_tramo[idx_orig][idx_dest]
-                factor_trafico = matriz_factores_trafico[idx_orig, idx_dest]
+            if horario_ap and hora_llegada_est.time() < horario_ap:
+                hora_inicio_vis_est = datetime.combine(fecha_actual, horario_ap)
+            else:
+                hora_inicio_vis_est = hora_llegada_est
 
+            hora_salida_vis_est = hora_inicio_vis_est + timedelta(minutes=t_vis)
+
+            # Verificar si cabe o si está cerrado hoy y debemos avanzar al siguiente día
+            dia_sem_hoy = dias_semana[fecha_actual.weekday()]
+            cerrado_hoy = dia_sem_hoy in parsear_dias_cerrado(atr.get("dias_cerrado"))
+
+            avanzar_dia = False
+            if dia_idx + 1 < num_dias_disponibles:
+                if cerrado_hoy:
+                    avanzar_dia = True
+                elif paradas_en_dia >= max_paradas_por_dia:
+                    avanzar_dia = True
+                elif paradas_en_dia > 0 and (hora_salida_vis_est > limite_dia or (atr.get("horario_cierre") and hora_salida_vis_est.time() > atr.get("horario_cierre"))):
+                    avanzar_dia = True
+
+            if avanzar_dia:
+                dia_idx += 1
+                fecha_actual = fecha_inicio_viaje + timedelta(days=dia_idx)
+                hora_actual_step = datetime.combine(fecha_actual, hora_inicio_dia)
+                limite_dia = datetime.combine(fecha_actual, hora_fin_dia)
+                paradas_en_dia = 0
+                idx_previo = None
+                t_traslado_min = 0.0
+                dist_km = 0.0
+                t_asignado = None
+                factor_trafico = 1.0
+
+                hora_llegada_est = hora_actual_step
+                if horario_ap and hora_llegada_est.time() < horario_ap:
+                    hora_inicio_vis_est = datetime.combine(fecha_actual, horario_ap)
+                else:
+                    hora_inicio_vis_est = hora_llegada_est
+                hora_salida_vis_est = hora_inicio_vis_est + timedelta(minutes=t_vis)
+
+            tiempo_visitas += t_vis
+            costo_entradas += costo_ent
+
+            if idx_previo is not None and paradas_en_dia > 0:
                 distancia_total_km += dist_km
                 tiempo_traslados += t_traslado_min
                 if t_asignado:
                     transportes_en_solucion.append(t_asignado.get("nombre"))
 
-                hora_sal_tramo = hora_salida_str
-                minutos_reloj += int(round(t_traslado_min))
-                h_lleg_tr_h = (minutos_reloj // 60) % 24
-                h_lleg_tr_m = minutos_reloj % 60
-                hora_lleg_tramo = f"{h_lleg_tr_h:02d}:{h_lleg_tr_m:02d}"
-
+                orig = atractivos_efectivos[idx_previo]
                 _, tramo_avisos = detectar_trafico_tramo(
                     float(orig["lat"]), float(orig["lon"]),
-                    float(dest["lat"]), float(dest["lon"]),
-                    hora_actual, zonas_trafico
+                    float(atr["lat"]), float(atr["lon"]),
+                    hora_actual_step.time(), zonas_trafico
                 )
                 for av in tramo_avisos:
                     avisos_solucion.append({
-                        "tramo": f"Tramo {s+1}: {orig['nombre']} → {dest['nombre']}",
+                        "tramo": f"Tramo: {orig['nombre']} → {atr['nombre']}",
                         "zona": av["zona_nombre"],
                         "factor": av["factor_congestion"],
                         "color": av["color_nivel"]
                     })
 
                 tramos.append({
-                    "tramo_numero": s + 1,
+                    "tramo_numero": len(tramos) + 1,
+                    "dia": dia_idx + 1,
                     "origen_id": orig["id"],
                     "origen_nombre": orig["nombre"],
-                    "destino_id": dest["id"],
-                    "destino_nombre": dest["nombre"],
+                    "destino_id": atr["id"],
+                    "destino_nombre": atr["nombre"],
                     "distancia_km": round(dist_km, 2),
                     "tiempo_traslado_min": round(t_traslado_min, 1),
                     "transporte_usado": t_asignado.get("nombre") if t_asignado else "Vehículo",
                     "transporte_tipo": t_asignado.get("tipo") if t_asignado else "General",
                     "factor_trafico": round(factor_trafico, 2),
-                    "hora_salida": hora_sal_tramo,
-                    "hora_llegada": hora_lleg_tramo,
+                    "hora_salida": hora_actual_step.strftime("%H:%M"),
+                    "hora_llegada": hora_llegada_est.strftime("%H:%M"),
                 })
+
+            paradas_detalle.append({
+                "numero": s + 1,
+                "dia": dia_idx + 1,
+                "fecha": fecha_actual.strftime("%Y-%m-%d"),
+                "dia_semana": dias_semana[fecha_actual.weekday()],
+                "id": atr["id"],
+                "nombre": atr["nombre"],
+                "categoria": atr.get("categoria", "General"),
+                "subcategoria": atr.get("subcategoria", "General"),
+                "tiempo_visita_min": t_vis,
+                "costo_entrada_bob": float(atr.get("costo_entrada", 0.0) or 0.0),
+                "hora_llegada": hora_llegada_est.strftime("%H:%M"),
+                "hora_salida": hora_salida_vis_est.strftime("%H:%M"),
+            })
+
+            dia_num_act = dia_idx + 1
+            paradas_por_dia_conteo[dia_num_act] = paradas_por_dia_conteo.get(dia_num_act, 0) + 1
+
+            if hora_salida_vis_est > limite_dia:
+                exc_m = (hora_salida_vis_est - limite_dia).total_seconds() / 60.0
+                excesos_por_dia[dia_num_act] = max(excesos_por_dia.get(dia_num_act, 0.0), exc_m)
+
+            horario_ci = atr.get("horario_cierre")
+            if isinstance(horario_ci, str):
+                try:
+                    horario_ci = datetime.strptime(horario_ci.strip(), "%H:%M:%S").time()
+                except ValueError:
+                    try:
+                        horario_ci = datetime.strptime(horario_ci.strip(), "%H:%M").time()
+                    except ValueError:
+                        horario_ci = None
+
+            if horario_ci and hora_salida_vis_est.time() > horario_ci:
+                diff_ci = (hora_salida_vis_est.hour * 60 + hora_salida_vis_est.minute) - (horario_ci.hour * 60 + horario_ci.minute)
+                excesos_por_dia[dia_num_act] = max(excesos_por_dia.get(dia_num_act, 0.0), float(max(10, diff_ci)))
+
+            hora_actual_step = hora_salida_vis_est
+            paradas_en_dia += 1
+            idx_previo = idx_atr
+
+        dias_usados_set = {p["dia"] for p in paradas_detalle}
+        dias_totales = len(dias_usados_set) if dias_usados_set else 1
+        max_dia_usado = max(dias_usados_set) if dias_usados_set else 1
+        fecha_fin_calculada = fecha_inicio_viaje + timedelta(days=max_dia_usado - 1)
 
         tiempo_total_min = tiempo_visitas + tiempo_traslados
         costo_transporte = problem.calcular_costo_transporte(ruta)
@@ -878,27 +1157,32 @@ def ejecutar_nsga2(
         # Verificación de excesos
         excesos = []
         feasible = True
-        g1_exceso = max(0.0, tiempo_total_min - tiempo_max_min)
+
+        for d_num in sorted(excesos_por_dia.keys()):
+            exc_m = excesos_por_dia[d_num]
+            if exc_m > 1e-3:
+                feasible = False
+                h_exc = int(exc_m // 60)
+                m_exc = int(round(exc_m % 60))
+                tiempo_dia_tot = ventana_diaria_min + exc_m
+                h_tot = int(tiempo_dia_tot // 60)
+                m_tot = int(round(tiempo_dia_tot % 60))
+                h_lim = int(ventana_diaria_min // 60)
+                m_lim = int(round(ventana_diaria_min % 60))
+                excesos.append(
+                    f"Excede el tiempo del día {d_num} por {h_exc}h {m_exc}m "
+                    f"(total: {h_tot}h {m_tot}m, límite: {h_lim}h {m_lim}m)."
+                )
+
         g2_exceso = max(0.0, costo_total_bob - presupuesto_max)
-
-        if g1_exceso > 1e-3:
-            feasible = False
-            h_exc = int(g1_exceso // 60)
-            m_exc = int(g1_exceso % 60)
-            h_tot = int(tiempo_total_min // 60)
-            m_tot = int(tiempo_total_min % 60)
-            h_lim = int(tiempo_max_min // 60)
-            m_lim = int(tiempo_max_min % 60)
-            excesos.append(f"Excede tiempo por {h_exc}h {m_exc}m (total: {h_tot}h {m_tot}m, límite: {h_lim}h {m_lim}m).")
-
         if g2_exceso > 1e-3:
             feasible = False
             excesos.append(f"Excede presupuesto por Bs. {g2_exceso:.2f} (total: Bs. {costo_total_bob:.2f}, límite: Bs. {presupuesto_max:.2f}).")
 
-        ids_ordenados = [atractivos[idx]["id"] for idx in ruta]
-        nombres_ordenados = [atractivos[idx]["nombre"] for idx in ruta]
-        categorias_ordenadas = [atractivos[idx].get("categoria", "General") for idx in ruta]
-        subcategorias_ordenadas = [atractivos[idx].get("subcategoria", "General") for idx in ruta]
+        ids_ordenados = [atractivos_efectivos[idx]["id"] for idx in ruta]
+        nombres_ordenados = [atractivos_efectivos[idx]["nombre"] for idx in ruta]
+        categorias_ordenadas = [atractivos_efectivos[idx].get("categoria", "General") for idx in ruta]
+        subcategorias_ordenadas = [atractivos_efectivos[idx].get("subcategoria", "General") for idx in ruta]
 
         nombres_unicos_transporte = list(dict.fromkeys(transportes_en_solucion))
         transporte_resumen = ", ".join(nombres_unicos_transporte) if nombres_unicos_transporte else "Caminata / Estándar"
@@ -907,13 +1191,22 @@ def ejecutar_nsga2(
         if not feasible:
             sugerencias_no_viable = generar_sugerencias_no_viable(
                 tiempo_total_min=tiempo_total_min,
-                tiempo_max_min=tiempo_max_min,
+                tiempo_max_min=tiempo_total_disponible_min,
                 costo_total_bob=costo_total_bob,
                 presupuesto_max_bob=presupuesto_max,
-                num_atractivos=len(ruta)
+                num_atractivos=len(ruta),
+                excesos_por_dia=excesos_por_dia,
+                num_dias_disponibles=num_dias_disponibles,
+                hora_fin_dia=hora_fin_dia,
+                paradas_por_dia=paradas_por_dia_conteo,
             )
 
         soluciones_procesadas.append({
+            "fecha_inicio": fecha_inicio_viaje.strftime("%Y-%m-%d"),
+            "fecha_fin": fecha_fin_calculada.strftime("%Y-%m-%d"),
+            "dias_totales": dias_totales,
+            "hora_inicio_dia": hora_inicio_dia.strftime("%H:%M") if hasattr(hora_inicio_dia, 'strftime') else str(hora_inicio_dia),
+            "hora_fin_dia": hora_fin_dia.strftime("%H:%M") if hasattr(hora_fin_dia, 'strftime') else str(hora_fin_dia),
             "atractivos_ids": ids_ordenados,
             "atractivos_nombres": nombres_ordenados,
             "categorias": categorias_ordenadas,
@@ -979,13 +1272,12 @@ def ejecutar_nsga2(
     soluciones_no_viables_final = []
     if len(soluciones_no_viables_raw) > 0:
         def exceso_ponderado(s: dict[str, Any]) -> float:
-            exc_t = max(0.0, s["tiempo_total_min"] - tiempo_max_min) / max(60.0, tiempo_max_min)
+            exc_t = max(0.0, s["tiempo_total_min"] - tiempo_total_disponible_min) / max(60.0, tiempo_total_disponible_min)
             exc_c = max(0.0, s["costo_total_bob"] - presupuesto_max) / max(10.0, presupuesto_max)
             return exc_t + exc_c - (s["afinidad"] * 0.2)
 
         soluciones_no_viables_raw.sort(key=exceso_ponderado)
 
-        # Deduplicar por (K, tiempo redondeado a 10 min, costo redondeado a Bs. 10)
         vistas_nv = set()
         candidatos_nv = []
         for sol in soluciones_no_viables_raw:
@@ -1000,14 +1292,10 @@ def ejecutar_nsga2(
             if len(candidatos_nv) >= 10:
                 break
 
-        # Si NO hay viables: tomar las 3-5 más cercanas (mínimo 1, máximo 5)
-        # Si SÍ hay viables: tomar hasta 10 no viables para la sección colapsable
         limite_nv = 10 if len(soluciones_viables_final) == 0 else 10
         soluciones_no_viables_final = candidatos_nv[:limite_nv]
 
     hay_viables = len(soluciones_viables_final) > 0
-
-    # Lista principal: si hay viables -> viables; si NO hay viables -> no viables (red de seguridad)
     soluciones_principales = soluciones_viables_final if hay_viables else soluciones_no_viables_final
 
     # 3. Generar descripciones turísticas para todas las soluciones a mostrar
@@ -1043,7 +1331,7 @@ def ejecutar_nsga2(
     diversidad_por_gen = []
 
     if res.history is not None:
-        t_max_ref = max(60.0, tiempo_max_min)
+        t_max_ref = max(60.0, tiempo_total_disponible_min)
         for idx_g, gen in enumerate(res.history):
             historial_generaciones.append(idx_g + 1)
             pop = gen.pop
@@ -1085,10 +1373,17 @@ def ejecutar_nsga2(
             "diversidad": diversidad_por_gen,
         },
         "avisos_trafico": avisos_no_verdes_unicos,
+        "aviso_dias_cerrados": "⚠️ Algunos atractivos fueron excluidos por estar cerrados en las fechas seleccionadas." if hay_atractivos_excluidos else None,
+        "atractivos_excluidos_cierre": [a["nombre"] for a in atractivos_cerrados_todos_los_dias] if hay_atractivos_excluidos else [],
         "parametros_usados": {
-            "num_atractivos_seleccionados": len(atractivos),
+            "num_atractivos_seleccionados": len(atractivos_efectivos),
             "presupuesto_max_bob": float(presupuesto_max),
-            "tiempo_disponible_horas": float(tiempo_disponible_horas),
+            "fecha_inicio_viaje": fecha_inicio_viaje.strftime("%Y-%m-%d"),
+            "num_dias_disponibles": num_dias_disponibles,
+            "hora_inicio_dia": hora_inicio_dia.strftime("%H:%M") if hasattr(hora_inicio_dia, 'strftime') else str(hora_inicio_dia),
+            "hora_fin_dia": hora_fin_dia.strftime("%H:%M") if hasattr(hora_fin_dia, 'strftime') else str(hora_fin_dia),
+            "auto_fechas": auto_fechas,
+            "tiempo_disponible_horas": tiempo_disponible_calc_horas,
             "tamano_poblacion": tamano_pob,
             "generaciones": num_gen,
             "prob_cruce": prob_crossover,
@@ -1098,7 +1393,7 @@ def ejecutar_nsga2(
             "auto_rango_paradas": auto_rango_paradas,
             "k_ideal": problem.k_ideal,
             "sum_pesos_ideal": round(problem.sum_pesos_ideal, 3),
-            "hora_inicio_tour": hora_actual.strftime("%H:%M"),
+            "hora_inicio_tour": hora_actual.strftime("%H:%M") if hasattr(hora_actual, 'strftime') else str(hora_actual),
             "transporte_seleccionado": transporte_fijo.get("nombre") if transporte_fijo else "Asignación Inteligente Dinámica",
             "velocidad_transporte_kmh": transporte_fijo.get("velocidad_promedio_kmh") if transporte_fijo else "Variable",
             "intereses": intereses,

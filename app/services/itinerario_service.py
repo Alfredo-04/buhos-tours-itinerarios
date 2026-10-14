@@ -55,6 +55,9 @@ def preparar_datos_nsga2(
             "costo_entrada": float(a.costo_entrada or 0.0),
             "direccion": a.direccion or "",
             "imagen_url": a.imagen_url or "",
+            "dias_cerrado": a.dias_cerrado or "",
+            "horario_apertura": a.horario_apertura,
+            "horario_cierre": a.horario_cierre,
         })
 
     # 2. Transportes
@@ -89,8 +92,12 @@ def generar_itinerarios(
     atractivos_ids: list[int],
     transporte_ids: list[int],
     presupuesto_max: float,
-    tiempo_disponible_horas: float,
     intereses: dict[str, float],
+    fecha_inicio_viaje: str | None = None,
+    num_dias_disponibles: int = 1,
+    hora_inicio_dia: str = '09:00',
+    hora_fin_dia: str = '18:00',
+    auto_fechas: bool = True,
     tamano_poblacion: int = 100,
     generaciones: int = 100,
     prob_cruce: float = 0.85,
@@ -103,12 +110,13 @@ def generar_itinerarios(
     auto_rango_paradas: bool = True,
     categorias_activas_ids: list[int] | None = None,
     subcategorias_activas_ids: list[int] | None = None,
+    tiempo_disponible_horas: float | None = None,
     **kwargs: Any
 ) -> dict[str, Any]:
     """
     Orquesta el flujo de generación de itinerarios turísticos multiobjetivo con NSGA-II:
     1. Filtra estrictamente por categorías y subcategorías activas.
-    2. Ejecuta el motor genético NSGA-II con calibración K_ideal y formato enriquecido.
+    2. Ejecuta el motor genético NSGA-II con ruteo real OSRM, ventanas horarias, multi-día y tráfico.
     """
     # 1. Preparar datos desde la base de datos
     atractivos_data, transportes_data = preparar_datos_nsga2(
@@ -129,7 +137,11 @@ def generar_itinerarios(
         atractivos=atractivos_data,
         transportes=transportes_data,
         presupuesto_max=float(presupuesto_max),
-        tiempo_disponible_horas=float(tiempo_disponible_horas),
+        fecha_inicio_viaje=fecha_inicio_viaje,
+        num_dias_disponibles=int(num_dias_disponibles),
+        hora_inicio_dia=hora_inicio_dia,
+        hora_fin_dia=hora_fin_dia,
+        auto_fechas=bool(auto_fechas),
         intereses=intereses,
         tamano_poblacion=int(tamano_poblacion),
         generaciones=int(generaciones),
@@ -141,6 +153,7 @@ def generar_itinerarios(
         min_paradas=int(min_paradas),
         max_paradas=int(max_paradas),
         auto_rango_paradas=bool(auto_rango_paradas),
+        tiempo_disponible_horas=tiempo_disponible_horas,
     )
 
     return resultado

@@ -59,7 +59,11 @@ def generar_action():
         atractivos_ids = data.get('atractivos_ids', [])
         transporte_ids = data.get('transporte_ids', [])
         presupuesto_max = data.get('presupuesto_max')
-        tiempo_disponible_horas = data.get('tiempo_disponible_horas')
+        fecha_inicio_viaje = data.get('fecha_inicio_viaje')
+        num_dias_disponibles = data.get('num_dias_disponibles', 1)
+        hora_inicio_dia = data.get('hora_inicio_dia', '09:00')
+        hora_fin_dia = data.get('hora_fin_dia', '18:00')
+        auto_fechas = bool(data.get('auto_fechas', True))
         intereses = data.get('intereses', {})
         num_personas = data.get('num_personas', 1)
         forzar_atractivos = bool(data.get('forzar_atractivos', False))
@@ -94,17 +98,61 @@ def generar_action():
             }), 400
 
         try:
-            tiempo_disponible_horas = float(tiempo_disponible_horas)
-            if tiempo_disponible_horas <= 0 or tiempo_disponible_horas > 48:
+            num_dias_disponibles = int(num_dias_disponibles)
+            if num_dias_disponibles < 1 or num_dias_disponibles > 14:
                 return jsonify({
                     "success": False,
-                    "error": "El tiempo disponible debe ser un valor válido entre 0.5 y 48 horas."
+                    "error": "El número de días disponibles debe ser un valor entre 1 y 14."
                 }), 400
         except (TypeError, ValueError):
             return jsonify({
                 "success": False,
-                "error": "El tiempo disponible debe ser un número válido."
+                "error": "El número de días disponibles debe ser un número entero válido."
             }), 400
+
+        from datetime import datetime, time as dtime, timezone, timedelta
+        bolivia_tz = timezone(timedelta(hours=-4))
+
+        if not auto_fechas:
+            if not fecha_inicio_viaje:
+                return jsonify({
+                    "success": False,
+                    "error": "Debes seleccionar la fecha de inicio del viaje si no usas fechas automáticas."
+                }), 400
+            try:
+                fecha_parsed = datetime.strptime(str(fecha_inicio_viaje).strip(), "%Y-%m-%d").date()
+                hoy_bolivia = datetime.now(bolivia_tz).date()
+                if fecha_parsed < hoy_bolivia:
+                    return jsonify({
+                        "success": False,
+                        "error": "La fecha de inicio del viaje no puede ser una fecha pasada."
+                    }), 400
+            except ValueError:
+                return jsonify({
+                    "success": False,
+                    "error": "Formato de fecha de inicio inválido (se esperaba AAAA-MM-DD)."
+                }), 400
+
+            try:
+                h_ini = datetime.strptime(str(hora_inicio_dia).strip(), "%H:%M").time()
+                h_fin = datetime.strptime(str(hora_fin_dia).strip(), "%H:%M").time()
+            except ValueError:
+                return jsonify({
+                    "success": False,
+                    "error": "Formato de hora inválido (se esperaba HH:MM)."
+                }), 400
+
+            if h_ini < dtime(6, 0) or h_fin > dtime(19, 59):
+                return jsonify({
+                    "success": False,
+                    "error": "El horario diario solo se permite entre las 06:00 y las 19:59."
+                }), 400
+
+            if h_fin <= h_ini:
+                return jsonify({
+                    "success": False,
+                    "error": "La hora de fin del día debe ser posterior a la hora de inicio."
+                }), 400
 
         try:
             tamano_poblacion = int(tamano_poblacion)
@@ -151,7 +199,11 @@ def generar_action():
             atractivos_ids=[int(aid) for aid in atractivos_ids] if atractivos_ids else [],
             transporte_ids=[int(tid) for tid in transporte_ids] if transporte_ids else [],
             presupuesto_max=presupuesto_max,
-            tiempo_disponible_horas=tiempo_disponible_horas,
+            fecha_inicio_viaje=fecha_inicio_viaje,
+            num_dias_disponibles=num_dias_disponibles,
+            hora_inicio_dia=hora_inicio_dia,
+            hora_fin_dia=hora_fin_dia,
+            auto_fechas=auto_fechas,
             intereses=intereses,
             tamano_poblacion=tamano_poblacion,
             generaciones=generaciones,

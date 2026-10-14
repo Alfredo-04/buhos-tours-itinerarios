@@ -65,6 +65,21 @@
     </div>
   </div>
 
+  <!-- Banner de Días Cerrados (Visible solo cuando se excluyen atractivos por cierre) -->
+  <div id="bannerDiasCerrados" class="alert alert-info border-info-subtle shadow-sm mb-4 d-none" role="alert">
+    <div class="d-flex align-items-start gap-3">
+      <div class="rounded-circle bg-info text-white p-2 d-flex align-items-center justify-content-center mt-1" style="width: 36px; height: 36px;">
+        <i class="bi bi-calendar-x-fill fs-5"></i>
+      </div>
+      <div class="flex-grow-1">
+        <h6 class="alert-heading fw-bold mb-1" id="tituloAvisoDiasCerrados">
+          ⚠️ Algunos atractivos fueron excluidos por estar cerrados en las fechas seleccionadas
+        </h6>
+        <p class="small mb-0" id="detalleAvisoDiasCerrados"></p>
+      </div>
+    </div>
+  </div>
+
   <!-- KPI Cards -->
   <div class="row g-3 mb-4">
     
@@ -224,7 +239,7 @@
             <tr>
               <th class="ps-4" style="width: 50px;">#</th>
               <th>Afinidad</th>
-              <th>Tiempo Total</th>
+              <th>Fechas y Recorrido</th>
               <th>Costo Total</th>
               <th>Secuencia de Atractivos</th>
               <th>Transporte</th>
@@ -273,7 +288,7 @@
               <tr>
                 <th class="ps-4" style="width: 50px;">#</th>
                 <th>Afinidad</th>
-                <th>Tiempo Total</th>
+                <th>Fechas y Recorrido</th>
                 <th>Costo Total</th>
                 <th>Secuencia de Atractivos</th>
                 <th>Transporte</th>
