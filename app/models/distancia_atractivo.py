@@ -9,6 +9,7 @@ class DistanciaAtractivo(db.Model):
     id_atractivo_destino = db.Column(db.Integer, db.ForeignKey('atractivo.id_atractivo'), nullable=False)
     distancia_km = db.Column(db.Numeric(8, 3), nullable=False)
     duracion_min = db.Column(db.Numeric(6, 2), nullable=False)
+    polyline_coords = db.Column(db.Text, nullable=True)  # JSON con array [[lat, lon], ...]
     fuente = db.Column(db.String(20), nullable=False, default='osrm')  # 'osrm' o 'manual'
     fecha_calculo = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 

@@ -156,6 +156,22 @@ def cargar_zonas_y_patrones_db(fecha_referencia: datetime | None = None) -> list
         return []
 
 
+def _traducir_nivel_trafico(color_nivel: str | None, factor: float | str | None) -> str:
+    """Traduce el nivel técnico de tráfico a lenguaje humano."""
+    try:
+        f = float(factor or 1.0)
+    except (ValueError, TypeError):
+        f = 1.0
+    color = (color_nivel or '').lower()
+    if color == 'verde' or f < 1.15:
+        return 'Tráfico fluido'
+    if color == 'amarillo' or f < 1.40:
+        return 'Tráfico moderado'
+    if color == 'naranja' or f < 1.70:
+        return 'Tráfico intenso'
+    return 'Tráfico muy congestionado'
+
+
 def detectar_trafico_tramo(
     lat1: float, lon1: float,
     lat2: float, lon2: float,
@@ -202,11 +218,14 @@ def detectar_trafico_tramo(
 
                     if p.color_nivel != 'verde':
                         avisos.append({
+                            'id_zona': z.get('id_zona'),
                             'zona_nombre': z['nombre'],
+                            'geometria_wkt': z.get('geometria_wkt', ''),
                             'factor_congestion': f_cong,
                             'color_nivel': p.color_nivel,
                             'tipo': p.tipo,
-                            'hora_franja': f"{h_ini.strftime('%H:%M')} - {h_fin.strftime('%H:%M')}"
+                            'hora_franja': f"{h_ini.strftime('%H:%M')} - {h_fin.strftime('%H:%M')}",
+                            'nivel_texto': _traducir_nivel_trafico(p.color_nivel, f_cong)
                         })
 
     return factor_maximo, avisos
@@ -910,7 +929,7 @@ def _redistribuir_dias_vacios(
                 hora_test = f"{h_val:02d}:00"
                 clima_destino = weather_service.obtener_clima_parada(clima_por_zona, zona, fecha_str_vacia, hora_test) if clima_por_zona else None
                 
-                if atr.get('sensible_al_clima') and clima_destino and clima_destino.get('es_adversa'):
+                if atr.get('sensible_al_clima') and clima_destino and (clima_destino.get('estado') == 'adverso' or clima_destino.get('es_adversa')):
                     continue  # no mover a clima adverso
                 
                 # Mover parada al día vacío
@@ -920,12 +939,18 @@ def _redistribuir_dias_vacios(
                 
                 if clima_destino:
                     parada['clima'] = {
+                        'estado': clima_destino.get('estado', 'bueno'),
+                        'razon': clima_destino.get('razon') or clima_destino.get('razon_clima'),
                         'temperatura': clima_destino.get('temperatura'),
                         'descripcion': clima_destino.get('descripcion'),
                         'icono': clima_destino.get('icono'),
-                        'es_adversa': clima_destino.get('es_adversa', False),
+                        'es_adversa': (clima_destino.get('estado') == 'adverso' or clima_destino.get('es_adversa', False)),
+                        'es_adverso': (clima_destino.get('estado') == 'adverso'),
                         'razon_adversa': clima_destino.get('razon_adversa'),
                         'precipitacion_mm': clima_destino.get('precipitacion_mm'),
+                        'probabilidad_precipitacion': clima_destino.get('probabilidad_precipitacion'),
+                        'viento_kmh': clima_destino.get('viento_kmh'),
+                        'weather_code': clima_destino.get('weather_code'),
                     }
                 
                 por_dia[dia_origen].remove(parada)
@@ -1110,7 +1135,7 @@ def ejecutar_nsga2(
                         clima_h = weather_service.obtener_clima_parada(
                             clima_por_zona, zona, fecha_str, f"{h:02d}:00"
                         )
-                        if clima_h and not clima_h.get('es_adversa', False):
+                        if clima_h and clima_h.get('estado') != 'adverso' and not clima_h.get('es_adversa', False):
                             tiene_dia_viable = True
                             break
                     if tiene_dia_viable:
@@ -1160,6 +1185,7 @@ def ejecutar_nsga2(
     matriz_duraciones_base = np.zeros((n, n), dtype=float)
     matriz_factores_trafico = np.ones((n, n), dtype=float)
     matriz_transportes_tramo: list[list[dict[str, Any] | None]] = [[None for _ in range(n)] for _ in range(n)]
+    matriz_polylines: list[list[list[list[float]]]] = [[[] for _ in range(n)] for _ in range(n)]
     avisos_trafico_global = []
 
     # 3. Precomputar matrices por calles (usando OSRM o matriz pre-calculada en BD)
@@ -1205,6 +1231,7 @@ def ejecutar_nsga2(
                 matriz_duraciones_base[i, j] = dur_base_min
                 matriz_factores_trafico[i, j] = factor_trafico
                 matriz_transportes_tramo[i][j] = t_tramo
+                matriz_polylines[i][j] = ruta_real.get("polyline_coords", [])
 
     # 4. Calibración de población y generaciones para máxima diversidad
     pob_calibrada = max(100, n * 5)
@@ -1409,14 +1436,22 @@ def ejecutar_nsga2(
                 for av in tramo_avisos:
                     avisos_solucion.append({
                         "tramo": f"Tramo: {orig['nombre']} → {atr['nombre']}",
+                        "id_zona": av.get("id_zona"),
                         "zona": av["zona_nombre"],
+                        "zona_nombre": av.get("zona_nombre"),
                         "factor": av["factor_congestion"],
-                        "color": av["color_nivel"]
+                        "factor_congestion": av.get("factor_congestion"),
+                        "color": av["color_nivel"],
+                        "color_nivel": av.get("color_nivel"),
+                        "nivel_texto": av.get("nivel_texto"),
+                        "hora_franja": av.get("hora_franja"),
+                        "geometria_wkt": av.get("geometria_wkt", "")
                     })
 
                 tramos.append({
                     "tramo_numero": len(tramos) + 1,
                     "dia": dia_idx + 1,
+                    "fecha": fecha_actual.strftime("%Y-%m-%d"),
                     "origen_id": orig["id"],
                     "origen_nombre": orig["nombre"],
                     "destino_id": atr["id"],
@@ -1428,6 +1463,8 @@ def ejecutar_nsga2(
                     "factor_trafico": round(factor_trafico, 2),
                     "hora_salida": hora_actual_step.strftime("%H:%M"),
                     "hora_llegada": hora_llegada_est.strftime("%H:%M"),
+                    "polyline_coords": matriz_polylines[idx_previo][idx_atr],
+                    "avisos_trafico": tramo_avisos,
                 })
 
             # Clima de la parada en su hora de llegada
@@ -1447,6 +1484,8 @@ def ejecutar_nsga2(
                 "dia_semana": dias_semana[fecha_actual.weekday()],
                 "id": atr["id"],
                 "nombre": atr["nombre"],
+                "lat": float(atr.get("lat")),
+                "lon": float(atr.get("lon")),
                 "categoria": atr.get("categoria", "General"),
                 "subcategoria": atr.get("subcategoria", "General"),
                 "tiempo_visita_min": t_vis,
@@ -1454,12 +1493,18 @@ def ejecutar_nsga2(
                 "hora_llegada": hora_llegada_est.strftime("%H:%M"),
                 "hora_salida": hora_salida_vis_est.strftime("%H:%M"),
                 "clima": {
+                    "estado": clima_parada.get("estado", "bueno") if clima_parada else "bueno",
+                    "razon": clima_parada.get("razon") or clima_parada.get("razon_clima") if clima_parada else None,
                     "temperatura": clima_parada.get("temperatura") if clima_parada else None,
                     "descripcion": clima_parada.get("descripcion") if clima_parada else None,
                     "icono": clima_parada.get("icono") if clima_parada else None,
-                    "es_adversa": clima_parada.get("es_adversa", False) if clima_parada else False,
+                    "es_adversa": (clima_parada.get("estado") == "adverso" or clima_parada.get("es_adversa", False)) if clima_parada else False,
+                    "es_adverso": (clima_parada.get("estado") == "adverso") if clima_parada else False,
                     "razon_adversa": clima_parada.get("razon_adversa") if clima_parada else None,
                     "precipitacion_mm": clima_parada.get("precipitacion_mm") if clima_parada else None,
+                    "probabilidad_precipitacion": clima_parada.get("probabilidad_precipitacion") if clima_parada else None,
+                    "viento_kmh": clima_parada.get("viento_kmh") if clima_parada else None,
+                    "weather_code": clima_parada.get("weather_code") if clima_parada else None,
                 } if clima_parada else None,
             })
 
@@ -1558,24 +1603,66 @@ def ejecutar_nsga2(
                 clima_ref = weather_service.obtener_clima_parada(clima_por_zona, 'centro', fecha_str_d, "12:00")
                 if clima_ref:
                     clima_por_dia[d] = {
+                        'estado': clima_ref.get('estado', 'bueno'),
+                        'razon': clima_ref.get('razon') or clima_ref.get('razon_clima'),
                         'temperatura': clima_ref.get('temperatura'),
                         'descripcion': clima_ref.get('descripcion'),
                         'icono': clima_ref.get('icono'),
-                        'es_adversa': clima_ref.get('es_adversa', False),
+                        'es_adversa': (clima_ref.get('estado') == 'adverso' or clima_ref.get('es_adversa', False)),
+                        'es_adverso': (clima_ref.get('estado') == 'adverso'),
                         'razon_adversa': clima_ref.get('razon_adversa'),
                         'precipitacion_mm': clima_ref.get('precipitacion_mm'),
+                        'probabilidad_precipitacion': clima_ref.get('probabilidad_precipitacion'),
+                        'viento_kmh': clima_ref.get('viento_kmh'),
+                        'weather_code': clima_ref.get('weather_code'),
                     }
 
-        # Avisos de clima por parada
+        # Avisos de clima por parada (moderados y adversos)
         avisos_clima_parada = []
         for p in paradas_detalle:
-            if p.get('clima') and p['clima'].get('es_adversa'):
+            if p.get('clima') and p['clima'].get('estado') in ['moderado', 'adverso']:
                 avisos_clima_parada.append({
                     'dia': p['dia'],
                     'parada_numero': p['numero'],
                     'atractivo': p['nombre'],
-                    'razon': p['clima'].get('razon_adversa'),
+                    'estado': p['clima'].get('estado'),
+                    'razon': p['clima'].get('razon') or p['clima'].get('razon_adversa'),
                 })
+
+        # Recolectar zonas de tráfico únicas cruzadas por esta solución
+        zonas_trafico_solucion = {}  # { id_zona: { nombre, wkt, dias_cruzados: [...] } }
+
+        for tramo in tramos:
+            for aviso in tramo.get('avisos_trafico', []):
+                id_zona = aviso.get('id_zona')
+                if id_zona is None:
+                    continue
+                if id_zona not in zonas_trafico_solucion:
+                    zonas_trafico_solucion[id_zona] = {
+                        'id_zona': id_zona,
+                        'nombre': aviso.get('zona_nombre'),
+                        'geometria_wkt': aviso.get('geometria_wkt', ''),
+                        'dias_cruzados': [],
+                    }
+                dia = tramo.get('dia', 1)
+                zona_info = zonas_trafico_solucion[id_zona]
+                if not any(d['dia'] == dia for d in zona_info['dias_cruzados']):
+                    zona_info['dias_cruzados'].append({
+                        'dia': dia,
+                        'fecha': tramo.get('fecha'),
+                        'factor_congestion': aviso.get('factor_congestion'),
+                        'color_nivel': aviso.get('color_nivel'),
+                        'hora_franja': aviso.get('hora_franja'),
+                        'nivel_texto': aviso.get('nivel_texto') or _traducir_nivel_trafico(aviso.get('color_nivel'), aviso.get('factor_congestion', 1.0)),
+                    })
+
+        # Añadir la geometría WKT de cada zona (desde las zonas ya cargadas)
+        for zona_id, info in zonas_trafico_solucion.items():
+            if not info.get('geometria_wkt'):
+                for z in zonas_trafico:
+                    if z.get('id_zona') == zona_id:
+                        info['geometria_wkt'] = z.get('geometria_wkt', '')
+                        break
 
         nueva_solucion = {
             "fecha_inicio": fecha_inicio_viaje.strftime("%Y-%m-%d"),
@@ -1608,6 +1695,7 @@ def ejecutar_nsga2(
             },
             "tramos": tramos,
             "avisos_trafico": avisos_solucion,
+            "zonas_trafico_cruzadas": list(zonas_trafico_solucion.values()),
         }
 
         # Redistribuir días vacíos sin tocar f1/f2
@@ -1766,6 +1854,8 @@ def ejecutar_nsga2(
         clave = (av["zona_nombre"], av["color_nivel"])
         if clave not in claves_vistas:
             claves_vistas.add(clave)
+            if not av.get("nivel_texto"):
+                av["nivel_texto"] = _traducir_nivel_trafico(av.get("color_nivel"), av.get("factor_congestion", 1.0))
             avisos_no_verdes_unicos.append(av)
 
     return {

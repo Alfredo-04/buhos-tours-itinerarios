@@ -81,28 +81,58 @@ def clasificar_wmo(wmo_code: int | None) -> dict[str, str]:
     return {'categoria': 'variable', 'descripcion': 'Condición variable', 'icono': 'bi-cloud-fill'}
 
 
-def _es_hora_adversa(hora_data: dict[str, Any]) -> tuple[bool, str | None]:
+
+UMBRALES_MODERADO = {
+    'precipitacion_mm_h': 0.1,     # > 0.1 mm/h → moderado
+    'rafagas_kmh': 40.0,           # > 40 km/h → moderado
+    'visibilidad_m': 2000,         # < 2000 m → moderado
+}
+
+# WMO de llovizna y lluvia ligera → moderado
+WMO_MODERADOS = {45, 48, 51, 53, 55, 61, 63, 80, 81}
+
+
+def _clasificar_hora(hora_data: dict[str, Any]) -> tuple[str, str | None]:
     """
-    Solo retorna True si los datos de ESA hora específica superan los umbrales.
-    NO promedia. NO mira el día completo.
+    Clasifica una hora específica en 3 estados:
+    Retorna: (estado, razon)
+      - estado: 'bueno' | 'moderado' | 'adverso'
+      - razon: texto humano o None
     """
     precip = hora_data.get('precipitacion_mm') or 0.0
-    if precip > UMBRALES_EXCLUSION['precipitacion_mm_h']:
-        return True, f"Lluvia intensa ({precip:.1f} mm/h)"
-    
     wmo = hora_data.get('weather_code')
-    if wmo is not None and int(wmo) in WMO_EXCLUYENTES:
-        return True, f"Condición severa ({clasificar_wmo(wmo)['descripcion']})"
-    
     rafagas = hora_data.get('rafagas_kmh') or 0.0
-    if rafagas > UMBRALES_EXCLUSION['rafagas_kmh']:
-        return True, f"Ráfagas fuertes ({rafagas:.0f} km/h)"
-    
     vis = hora_data.get('visibilidad_m')
-    if vis is not None and vis < UMBRALES_EXCLUSION['visibilidad_m']:
-        return True, f"Visibilidad reducida ({vis:.0f} m)"
     
-    return False, None
+    # --- ADVERSO (excluye el atractivo) ---
+    if precip > 3.0:
+        return ('adverso', f"Lluvia intensa ({precip:.1f} mm/h)")
+    if wmo is not None and int(wmo) in {65, 82, 95, 96, 97, 99}:
+        return ('adverso', f"Condición severa ({clasificar_wmo(wmo)['descripcion']})")
+    if rafagas > 60.0:
+        return ('adverso', f"Ráfagas fuertes ({rafagas:.0f} km/h)")
+    if vis is not None and vis < 500:
+        return ('adverso', f"Visibilidad reducida ({vis:.0f} m)")
+    
+    # --- MODERADO (avisa, no excluye) ---
+    if precip >= 0.1:
+        return ('moderado', f"Lluvia ligera ({precip:.1f} mm/h)")
+    if wmo is not None and int(wmo) in WMO_MODERADOS:
+        desc = clasificar_wmo(wmo)['descripcion']
+        return ('moderado', f"Condición moderada: {desc}")
+    if rafagas > 40.0:
+        return ('moderado', f"Viento moderado ({rafagas:.0f} km/h)")
+    if vis is not None and vis < 2000:
+        return ('moderado', f"Visibilidad reducida ({vis:.0f} m)")
+    
+    # --- BUENO ---
+    return ('bueno', None)
+
+
+def _es_hora_adversa(hora_data: dict[str, Any]) -> tuple[bool, str | None]:
+    """Compatibilidad: True si el estado de esa hora es adverso."""
+    estado, razon = _clasificar_hora(hora_data)
+    return (estado == 'adverso', razon if estado == 'adverso' else None)
 
 
 def _procesar_punto(data_punto: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -148,9 +178,13 @@ def _procesar_punto(data_punto: dict[str, Any]) -> dict[str, dict[str, Any]]:
         hora_data['descripcion'] = wmo_meta['descripcion']
         hora_data['icono'] = wmo_meta['icono']
         
-        adversa, razon = _es_hora_adversa(hora_data)
-        hora_data['es_adversa'] = adversa
-        hora_data['razon_adversa'] = razon
+        estado, razon = _clasificar_hora(hora_data)
+        hora_data['estado'] = estado            # 'bueno' | 'moderado' | 'adverso'
+        hora_data['razon'] = razon
+        hora_data['razon_clima'] = razon        # texto humano o None
+        hora_data['es_adverso'] = (estado == 'adverso')  # compatibilidad
+        hora_data['es_adversa'] = (estado == 'adverso')  # compatibilidad
+        hora_data['razon_adversa'] = razon if estado == 'adverso' else None
         
         if fecha_str not in resultado:
             resultado[fecha_str] = {}
@@ -260,19 +294,40 @@ def obtener_clima_parada(
     horas = dias[fecha_str]
     
     hora_key = hora_llegada_str[:5] if hora_llegada_str else '12:00'
+    hora_res = None
     if hora_key in horas:
-        return horas[hora_key]
-    
-    try:
-        h_buscada = int(hora_key.split(':')[0])
-        mejor_diff = 24
-        mejor_hora = None
-        for hk, hv in horas.items():
-            h_actual = int(hk.split(':')[0])
-            diff = abs(h_actual - h_buscada)
-            if diff < mejor_diff:
-                mejor_diff = diff
-                mejor_hora = hv
-        return mejor_hora
-    except Exception:
+        hora_res = horas[hora_key]
+    else:
+        try:
+            h_buscada = int(hora_key.split(':')[0])
+            mejor_diff = 24
+            mejor_hora = None
+            for hk, hv in horas.items():
+                h_actual = int(hk.split(':')[0])
+                diff = abs(h_actual - h_buscada)
+                if diff < mejor_diff:
+                    mejor_diff = diff
+                    mejor_hora = hv
+            hora_res = mejor_hora
+        except Exception:
+            hora_res = None
+
+    if not hora_res:
         return None
+
+    return {
+        'estado': hora_res.get('estado', 'bueno'),
+        'razon': hora_res.get('razon') or hora_res.get('razon_clima'),
+        'razon_clima': hora_res.get('razon_clima') or hora_res.get('razon'),
+        'es_adversa': hora_res.get('es_adversa', hora_res.get('estado') == 'adverso'),
+        'es_adverso': hora_res.get('es_adverso', hora_res.get('estado') == 'adverso'),
+        'razon_adversa': hora_res.get('razon_adversa'),
+        'temperatura': hora_res.get('temperatura'),
+        'descripcion': hora_res.get('descripcion'),
+        'icono': hora_res.get('icono'),
+        'precipitacion_mm': hora_res.get('precipitacion_mm'),
+        'probabilidad_precipitacion': hora_res.get('probabilidad_precipitacion', 0),
+        'viento_kmh': hora_res.get('viento_kmh', 0.0),
+        'weather_code': hora_res.get('weather_code'),
+        'visibilidad_m': hora_res.get('visibilidad_m'),
+    }

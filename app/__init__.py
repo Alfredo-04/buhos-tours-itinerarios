@@ -179,10 +179,10 @@ def create_app(config_class=Config):
     # Comando CLI para precalcular la matriz de distancias por calles
     @app.cli.command("precalcular-distancias")
     def precalcular_distancias_command():
-        """Precalcula y guarda la matriz de distancias y tiempos OSRM en DISTANCIA_ATRACTIVO."""
+        """Precalcula y guarda la matriz de distancias y polylines OSRM en DISTANCIA_ATRACTIVO."""
         from app.services.distance_service import precalcular_matriz_completa
-        click.echo("Iniciando precalculo de matriz de distancias con OSRM...")
-        stats = precalcular_matriz_completa(delay_seg=0.3)
-        click.echo(f"Completado: {stats['calculados']} calculadas, {stats['omitidos']} ya existentes, {stats['errores']} errores.")
+        click.echo("Iniciando precalculo y actualización de matriz de distancias y polylines con OSRM...")
+        stats = precalcular_matriz_completa(delay_seg=0.5)
+        click.echo(f"Completado: {stats.get('calculados', 0)} calculadas, {stats.get('actualizados', 0)} polylines actualizadas, {stats.get('omitidos', 0)} ya completas, {stats.get('errores', 0)} errores.")
 
     return app

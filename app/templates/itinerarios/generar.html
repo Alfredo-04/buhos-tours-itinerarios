@@ -3,7 +3,27 @@
 {% block title %}Generación de Itinerarios | Buhos Tours{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
+  .marcador-numerado {
+    background: transparent !important;
+    border: none !important;
+  }
+  .marcador-trafico {
+    background: transparent !important;
+    border: none !important;
+  }
+  #tabsClimaDias .nav-link {
+    border-radius: 20px;
+    border: 1px solid #dee2e6;
+    color: #6c757d;
+    font-size: 0.8rem;
+  }
+  #tabsClimaDias .nav-link.active {
+    background-color: #3388ff;
+    border-color: #3388ff;
+    color: white;
+  }
   .cursor-pointer {
     cursor: pointer;
   }
@@ -124,7 +144,7 @@
 
 <!-- Modal Detalle del Itinerario Completo -->
 <div class="modal fade" id="modalDetalleItinerario" tabindex="-1" aria-labelledby="modalDetalleLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+  <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
     <div class="modal-content border-0 shadow">
       
       <div class="modal-header bg-light border-0 py-3 px-4">
@@ -170,6 +190,26 @@
           </div>
         </div>
 
+        <!-- Panel de Pronóstico de Clima por Día -->
+        <div id="panelClimaDias" class="mt-3 mb-3 d-none">
+          <ul class="nav nav-pills nav-pills-sm d-flex flex-wrap gap-1 mb-2" id="tabsClimaDias" role="tablist">
+            <!-- Tabs dinámicos por día -->
+          </ul>
+          <div class="tab-content" id="tabsClimaContenido">
+            <!-- Paneles dinámicos por día -->
+          </div>
+        </div>
+
+        <!-- Contenedor del Mapa Leaflet -->
+        <div class="mt-3 mb-4">
+          <div id="contenedorMapaItinerario" 
+               style="height: 500px; width: 100%; border-radius: 8px; border: 1px solid #E2E8F0;">
+          </div>
+          <div id="leyendaMapa" class="mt-2 small text-muted d-flex flex-wrap gap-3">
+              <!-- Leyenda generada por JS -->
+          </div>
+        </div>
+
         <!-- Desglose Secuencial (Timeline) -->
         <h6 class="fw-bold text-uppercase small text-muted mb-3" style="letter-spacing: 0.05em;">
           <i class="bi bi-signpost-split-fill text-primary me-1"></i> Secuencia del Recorrido Paso a Paso
@@ -190,11 +230,27 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
+<script src="https://unpkg.com/leaflet-polylineoffset@1.1.1/leaflet.polylineoffset.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const TC_OFICIAL = {{ tc_oficial or 6.96 }};
+
+  function traducirNivelTraficoJS(color, factor) {
+    const f = parseFloat(factor || 1.0);
+    const c = (color || '').toLowerCase();
+    if (c === 'verde' || f < 1.15) return 'Tráfico fluido';
+    if (c === 'amarillo' || f < 1.40) return 'Tráfico moderado';
+    if (c === 'naranja' || f < 1.70) return 'Tráfico intenso';
+    return 'Tráfico muy congestionado';
+  }
+
+  if (typeof L !== 'undefined' && typeof L.polylineOffset === 'undefined' && typeof L.PolylineOffset === 'undefined') {
+    console.warn('[Mapa] Plugin leaflet-polylineoffset no cargado. Las líneas no tendrán offset.');
+  }
 
   // ==========================================
   // REFERENCIAS DOM
@@ -230,6 +286,25 @@ document.addEventListener('DOMContentLoaded', function () {
   let chartConvergenciaInstance = null;
   let chartDiversidadInstance = null;
   let ultimasSoluciones = [];
+
+  // Configuración de listeners del modal de itinerario (una sola vez al cargar el DOM)
+  const modalElDetalle = document.getElementById('modalDetalleItinerario');
+  if (modalElDetalle) {
+    modalElDetalle.addEventListener('hidden.bs.modal', function () {
+      if (mapaActual) {
+        mapaActual.remove();
+        mapaActual = null;
+      }
+      capasPorDia = {};
+      const cont = document.getElementById('contenedorMapaItinerario');
+      if (cont) cont.innerHTML = '';
+    });
+    modalElDetalle.addEventListener('shown.bs.modal', function () {
+      if (mapaActual) {
+        mapaActual.invalidateSize();
+      }
+    });
+  }
 
   // ==========================================
   // AYUDANTES DE FORMATEO DE FECHAS
@@ -723,8 +798,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if (data.avisos_trafico?.length > 0 && bannerTrafico) {
           data.avisos_trafico.forEach(av => {
             const li = document.createElement('li');
-            const colorBadge = av.color_nivel === 'rojo' ? 'bg-danger text-white' : 'bg-warning text-dark';
-            li.innerHTML = `Zona <strong>"${av.zona_nombre}"</strong> factor <strong>${av.factor_congestion}x</strong> <span class="badge ${colorBadge}">${av.color_nivel}</span>`;
+            const nivelTexto = av.nivel_texto || traducirNivelTraficoJS(av.color_nivel, av.factor_congestion || av.factor);
+            const iconoNivel = av.color_nivel === 'rojo' ? '🔴' : (av.color_nivel === 'naranja' ? '🟠' : '🟡');
+            li.className = 'py-1';
+            li.innerHTML = `${iconoNivel} <strong>${av.zona_nombre || av.zona}</strong>: ${nivelTexto}`;
             listaAvisos.appendChild(li);
           });
           bannerTrafico.classList.remove('d-none');
@@ -969,11 +1046,441 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ==========================================
+  // 12.5. CONSTRUCCIÓN DE MAPA LEAFLET ITINERARIO
+  // ==========================================
+  const PALETAS_DIA = {
+    1: { base: '#0056b3', claro: '#00d2ff', oscuro: '#002855' },  // Azul: Azul oscuro profundo, Azul eléctrico brillante, Azul marino
+    2: { base: '#1e7e34', claro: '#00ff66', oscuro: '#0d3819' },  // Verde: Verde bosque, Verde neón brillante, Verde muy oscuro
+    3: { base: '#d35400', claro: '#ffa500', oscuro: '#78281f' },  // Naranja: Naranja ladrillo, Amarillo anaranjado brillante, Marrón óxido
+    4: { base: '#512e5f', claro: '#af7ac5', oscuro: '#2a1a38' },  // Morado: Morado uva, Lila claro brillante, Morado medianoche
+    5: { base: '#c0392b', claro: '#ff6b6b', oscuro: '#641e16' },  // Rojo: Rojo carmesí, Rojo coral claro, Borgoña oscuro
+    6: { base: '#c71585', claro: '#ff69b4', oscuro: '#8b008b' },  // Rosa: Rosa magenta, Rosa chicle brillante, Violeta oscuro
+    7: { base: '#008b8b', claro: '#00ffff', oscuro: '#004848' },  // Teal: Turquesa oscuro, Cian brillante, Verde agua profundo
+  };
+
+  function obtenerColorDia(dia, nivel = 'base') {
+    const paleta = PALETAS_DIA[((dia - 1) % 7) + 1] || PALETAS_DIA[1];
+    return paleta[nivel] || paleta.base;
+  }
+
+  function parseWKT(wkt) {
+    if (!wkt || !wkt.toUpperCase().startsWith('POLYGON')) return null;
+    try {
+      const match = wkt.match(/\(\((.*)\)\)/);
+      if (!match) return null;
+      const coords = match[1].split(',').map(pair => {
+        const [lon, lat] = pair.trim().split(/\s+/).map(Number);
+        return [lat, lon]; // Leaflet usa [lat, lon]
+      });
+      return coords;
+    } catch (e) {
+      console.warn('WKT inválido:', wkt);
+      return null;
+    }
+  }
+
+  let mapaActual = null;
+  let capasPorDia = {}; // { 1: L.layerGroup(), ... }
+
+  function construirMapaItinerario(sol) {
+    // 1. Destruir mapa previo
+    if (mapaActual) {
+      mapaActual.remove();
+      mapaActual = null;
+    }
+    capasPorDia = {};
+
+    const contenedor = document.getElementById('contenedorMapaItinerario');
+    if (!contenedor) return;
+    contenedor.innerHTML = '';
+
+    // 2. Crear mapa
+    mapaActual = L.map(contenedor, { zoomControl: true, attributionControl: true });
+
+    // 3. Tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap',
+      maxZoom: 19
+    }).addTo(mapaActual);
+
+    function obtenerCapa(dia) {
+      if (!capasPorDia[dia]) {
+        capasPorDia[dia] = L.layerGroup().addTo(mapaActual);
+      }
+      return capasPorDia[dia];
+    }
+
+    // Canonical key: ids ordenados ascendentemente para agrupar ida y vuelta
+    function clavePar(origen, destino) {
+      const [a, b] = [Number(origen), Number(destino)].sort((x, y) => x - y);
+      return `${a}-${b}`;
+    }
+
+    // 1. Conteo GLOBAL (para offset entre cualquier tramo de la solución)
+    const conteoGlobal = {};
+    (sol.tramos || []).forEach(t => {
+      const k = clavePar(t.origen_id, t.destino_id);
+      conteoGlobal[k] = (conteoGlobal[k] || 0) + 1;
+    });
+
+    // 2. Conteo POR DÍA (para matices cromáticos dentro del mismo día)
+    const conteoPorDia = {};
+    (sol.tramos || []).forEach(t => {
+      const d = t.dia || 1;
+      conteoPorDia[d] = conteoPorDia[d] || {};
+      const k = clavePar(t.origen_id, t.destino_id);
+      conteoPorDia[d][k] = (conteoPorDia[d][k] || 0) + 1;
+    });
+
+    // 3. Contadores en tiempo real
+    const aparicionGlobal = {};
+    const aparicionPorDia = {};
+
+    // 4. Dibujar polylines (debajo de marcadores)
+    const OFFSET_PX = 4;
+    const bounds = L.latLngBounds([]);
+
+    (sol.tramos || []).forEach(tramo => {
+      const coords = tramo.polyline_coords || [];
+      if (!coords || coords.length === 0) return;
+
+      const dia = tramo.dia || 1;
+      const clave = clavePar(tramo.origen_id, tramo.destino_id);
+
+      // --- Offset global ---
+      const totalGlobal = conteoGlobal[clave] || 1;
+      const idxGlobal = (aparicionGlobal[clave] = (aparicionGlobal[clave] || 0) + 1);
+
+      let offset = 0;
+      if (totalGlobal > 1) {
+        if (idxGlobal === 1) offset = OFFSET_PX;
+        else if (idxGlobal === 2) offset = -OFFSET_PX;
+        else offset = OFFSET_PX * (idxGlobal - 1);
+      }
+
+      // --- Matiz por tramo dentro del día (rotación cromática) ---
+      if (!aparicionPorDia[dia]) aparicionPorDia[dia] = { contador: 0 };
+      aparicionPorDia[dia].contador += 1;
+      const idxTramoDia = aparicionPorDia[dia].contador;
+
+      // Rotar entre los 3 tonos de la paleta del día
+      const tonos = ['base', 'claro', 'oscuro'];
+      const nivelColor = tonos[(idxTramoDia - 1) % tonos.length];
+
+      const color = obtenerColorDia(dia, nivelColor);
+
+      // --- Dibujar polyline con offset ---
+      const polyline = L.polyline(coords, {
+        color: color,
+        weight: 4,
+        opacity: 0.85,
+        offset: offset,
+      }).addTo(obtenerCapa(dia));
+
+      // --- Flechas de dirección ---
+      if (typeof L.polylineDecorator === 'function' && L.Symbol && L.Symbol.arrowHead) {
+        try {
+          L.polylineDecorator(polyline, {
+            patterns: [{
+              offset: '5%',
+              repeat: 80, // cada 80 px
+              symbol: L.Symbol.arrowHead({
+                pixelSize: 8,
+                polygon: false,
+                pathOptions: {
+                  stroke: true,
+                  weight: 2,
+                  color: color,
+                  opacity: 0.9,
+                  fillOpacity: 0
+                }
+              })
+            }]
+          }).addTo(obtenerCapa(dia));
+        } catch (e) {
+          console.warn("Error agregando flechas de dirección a la ruta:", e);
+        }
+      }
+
+      coords.forEach(c => bounds.extend(c));
+    });
+
+    // 5. Capa de tráfico (polígonos con relleno suave y marcadores de aviso)
+    const capaTrafico = L.layerGroup().addTo(mapaActual);
+    const zonas = sol.zonas_trafico_cruzadas || [];
+
+    zonas.forEach(zona => {
+      const coords = parseWKT(zona.geometria_wkt);
+      if (!coords || coords.length < 3) return;
+
+      // Polígono con relleno suave
+      const poligono = L.polygon(coords, {
+        color: '#dc3545',           // borde rojizo tenue
+        weight: 1.5,
+        opacity: 0.5,
+        fillColor: '#dc3545',
+        fillOpacity: 0.12,          // relleno muy transparente
+      }).addTo(capaTrafico);
+
+      // Calcular centroide para el marcador
+      const centroide = poligono.getBounds().getCenter();
+
+      // Marcador con ícono de tráfico
+      const iconTrafico = L.divIcon({
+        className: 'marcador-trafico',
+        html: `<div style="
+          background-color: #dc3545;
+          color: white;
+          width: 26px;
+          height: 26px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 14px;
+          border: 2px solid white;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+          cursor: pointer;
+        ">⚠</div>`,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13]
+      });
+
+      const marker = L.marker(centroide, { icon: iconTrafico }).addTo(capaTrafico);
+
+      let diasHtml = (zona.dias_cruzados || []).map(d => {
+        const nivelTxt = d.nivel_texto || traducirNivelTraficoJS(d.color_nivel, d.factor_congestion);
+        return `
+          <div style="margin-top: 4px; padding: 4px; border-left: 3px solid #dc3545;">
+            <strong>Día ${d.dia} (${d.fecha || ''}):</strong><br>
+            <span class="fw-semibold">${nivelTxt}</span><br>
+            <small style="color: #6c757d;">${d.hora_franja || ''}</small>
+          </div>
+        `;
+      }).join('');
+
+      marker.bindPopup(`
+        <div style="min-width: 220px;">
+          <strong style="color: #dc3545;">⚠ Zona de tráfico</strong><br>
+          <span style="font-size: 0.9rem;">${zona.nombre}</span>
+          <hr style="margin: 6px 0;">
+          <div style="font-size: 0.8rem;">
+            <strong>Días en que tu itinerario cruza esta zona:</strong>
+            ${diasHtml}
+          </div>
+        </div>
+      `);
+    });
+
+    // 6. Marcadores agrupados en la capa de su día
+    (sol.paradas || []).forEach(parada => {
+      if (parada.lat == null || parada.lon == null) return;
+
+      const dia = parada.dia || 1;
+      const color = obtenerColorDia(dia, 'base');
+
+      const icono = L.divIcon({
+        className: 'marcador-numerado',
+        html: `<div style="
+          background-color: ${color};
+          color: white;
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: bold;
+          font-size: 13px;
+          border: 2px solid white;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        ">${parada.numero}</div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+      });
+
+      const marker = L.marker([parada.lat, parada.lon], { icon: icono })
+        .addTo(obtenerCapa(dia));
+
+      marker.bindPopup(`
+        <div style="min-width: 180px;">
+          <strong>${parada.nombre}</strong><br>
+          <small class="text-muted">${parada.subcategoria || parada.categoria || ''}</small><br>
+          <span style="font-size: 0.8rem;"><i class="bi bi-clock me-1"></i>${parada.hora_llegada} - ${parada.hora_salida}</span>
+        </div>
+      `);
+
+      bounds.extend([parada.lat, parada.lon]);
+    });
+
+    // 7. Auto-fit bounds
+    if (bounds.isValid()) {
+      mapaActual.fitBounds(bounds, { padding: [30, 30] });
+    } else {
+      mapaActual.setView([-16.4957, -68.1335], 13);
+    }
+
+    // 8. Leyenda — Checkboxes interactivos por día activo + Zonas de tráfico
+    const leyenda = document.getElementById('leyendaMapa');
+    if (leyenda) {
+      leyenda.innerHTML = '';
+      const diasConAct = [...new Set((sol.paradas || []).map(p => p.dia || 1))].sort((a, b) => a - b);
+
+      diasConAct.forEach(d => {
+        const color = obtenerColorDia(d, 'base');
+        const item = document.createElement('label');
+        item.className = 'd-inline-flex align-items-center gap-2 cursor-pointer user-select-none';
+        item.style.cursor = 'pointer';
+        item.innerHTML = `
+          <input type="checkbox" checked data-dia="${d}" style="cursor: pointer;">
+          <span style="display:inline-block; width:14px; height:14px; background:${color}; border-radius:3px;"></span>
+          <span class="small fw-semibold">Día ${d}</span>
+        `;
+        leyenda.appendChild(item);
+      });
+
+      // Listeners de toggle de capas por día
+      leyenda.querySelectorAll('input[type=checkbox][data-dia]').forEach(chk => {
+        chk.addEventListener('change', (e) => {
+          const d = parseInt(e.target.dataset.dia);
+          const capa = capasPorDia[d];
+          if (!capa) return;
+          if (e.target.checked) {
+            capa.addTo(mapaActual);
+          } else {
+            mapaActual.removeLayer(capa);
+          }
+        });
+      });
+
+      // Checkbox global de zonas de tráfico en la leyenda
+      if (zonas.length > 0) {
+        const itemTrafico = document.createElement('label');
+        itemTrafico.className = 'd-inline-flex align-items-center gap-2 cursor-pointer user-select-none ms-3';
+        itemTrafico.style.cursor = 'pointer';
+        itemTrafico.style.borderLeft = '1px solid #dee2e6';
+        itemTrafico.style.paddingLeft = '12px';
+        itemTrafico.innerHTML = `
+          <input type="checkbox" checked id="chkTraficoGlobal" style="cursor: pointer;">
+          <span style="display:inline-block; width:14px; height:14px; background:#dc3545; border-radius:3px; opacity:0.4;"></span>
+          <span class="small fw-semibold">Zonas de tráfico</span>
+        `;
+        leyenda.appendChild(itemTrafico);
+
+        const chk = itemTrafico.querySelector('#chkTraficoGlobal');
+        chk.addEventListener('change', (e) => {
+          if (e.target.checked) {
+            capaTrafico.addTo(mapaActual);
+          } else {
+            mapaActual.removeLayer(capaTrafico);
+          }
+        });
+      }
+    }
+
+    setTimeout(() => {
+      if (mapaActual) mapaActual.invalidateSize();
+    }, 250);
+  }
+
+  // ==========================================
   // 13. MODAL DE DETALLE (CON DESCRIPCIÓN TURÍSTICA)
   // ==========================================
   function mostrarModalDetalle(idx) {
     const sol = ultimasSoluciones[idx];
     if (!sol) return;
+
+    // Renderizar panel de pronóstico de clima por día
+    const panelClima = document.getElementById('panelClimaDias');
+    const tabsClima = document.getElementById('tabsClimaDias');
+    const tabsContenido = document.getElementById('tabsClimaContenido');
+
+    if (panelClima && tabsClima && tabsContenido && sol.clima_por_dia) {
+      tabsClima.innerHTML = '';
+      tabsContenido.innerHTML = '';
+
+      const dias = Object.keys(sol.clima_por_dia).map(Number).sort((a, b) => a - b);
+
+      if (dias.length > 0) {
+        panelClima.classList.remove('d-none');
+
+        dias.forEach((d, idxTab) => {
+          const climaDia = sol.clima_por_dia[d];
+          const activo = idxTab === 0 ? 'active' : '';
+
+          // Fecha del día (reconstruida desde fecha_inicio + d - 1)
+          const fechaDia = (() => {
+            if (!sol.fecha_inicio) return '';
+            try {
+              const [y, m, dd] = sol.fecha_inicio.split('-').map(Number);
+              const dt = new Date(y, m - 1, dd + d - 1);
+              const diasSem = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+              return `${diasSem[dt.getDay()]} ${dt.getDate()}/${dt.getMonth() + 1}`;
+            } catch { return ''; }
+          })();
+
+          // Tab
+          const li = document.createElement('li');
+          li.className = 'nav-item';
+          li.innerHTML = `
+            <button class="nav-link py-1 px-2 small ${activo}" 
+                    data-bs-toggle="pill" 
+                    data-bs-target="#panelClimaDia_${d}" 
+                    type="button">
+              Día ${d} · ${fechaDia}
+            </button>
+          `;
+          tabsClima.appendChild(li);
+
+          // Panel de contenido
+          const panel = document.createElement('div');
+          panel.className = `tab-pane fade ${activo ? 'show active' : ''}`;
+          panel.id = `panelClimaDia_${d}`;
+
+          const temp = climaDia.temperatura != null ? `${Math.round(climaDia.temperatura)}°C` : '--';
+          const desc = climaDia.descripcion || 'Sin datos';
+          const icono = climaDia.icono || 'bi-cloud-fill';
+          const prob = climaDia.probabilidad_precipitacion != null ? `${climaDia.probabilidad_precipitacion}%` : '--';
+          const viento = climaDia.viento_kmh != null ? `${Math.round(climaDia.viento_kmh)} km/h` : '--';
+
+          const colorClase = (climaDia.estado === 'adverso' || climaDia.es_adversa)
+            ? 'border-danger'
+            : (climaDia.estado === 'moderado' ? 'border-warning' : 'border-success');
+
+          panel.innerHTML = `
+            <div class="p-2 px-3 border rounded-3 ${colorClase}" style="background: #F8FAFC;">
+              <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="bi ${icono} fs-3"></i>
+                  <div>
+                    <div class="fw-bold">${temp}</div>
+                    <div class="small text-muted">${desc}</div>
+                  </div>
+                </div>
+                <div class="ms-auto d-flex gap-3 small">
+                  <div>
+                    <div class="text-muted">Prob. lluvia</div>
+                    <div class="fw-semibold">${prob}</div>
+                  </div>
+                  <div>
+                    <div class="text-muted">Viento</div>
+                    <div class="fw-semibold">${viento}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+          tabsContenido.appendChild(panel);
+        });
+      } else {
+        panelClima.classList.add('d-none');
+      }
+    } else if (panelClima) {
+      panelClima.classList.add('d-none');
+    }
+
+    // Construir el mapa interactivo
+    construirMapaItinerario(sol);
     document.getElementById('modalDetalleLabel').textContent = `Itinerario Optimizado #${idx + 1}`;
     document.getElementById('modalSubtitulo').textContent = `${sol.num_atractivos} paradas con ${sol.transporte_asignado?.nombre || 'Transporte asignado'}`;
     document.getElementById('modalAfinidad').textContent = `${(sol.afinidad * 100).toFixed(1)}%`;
@@ -1064,19 +1571,22 @@ document.addEventListener('DOMContentLoaded', function () {
       const climaDia = sol.clima_por_dia ? sol.clima_por_dia[d] : null;
       let badgeClimaHTML = '';
       if (climaDia) {
-        let colorBadge = 'bg-success-subtle text-success border-success-subtle';
-        if (climaDia.es_adversa) colorBadge = 'bg-danger-subtle text-danger border-danger-subtle';
-        else if (climaDia.precipitacion_mm > 0.1) colorBadge = 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
+        let colorClase = 'bg-success-subtle text-success border-success-subtle';
+        if (climaDia.estado === 'moderado' || (!climaDia.estado && climaDia.precipitacion_mm > 0.1)) {
+          colorClase = 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
+        } else if (climaDia.estado === 'adverso' || (!climaDia.estado && climaDia.es_adversa)) {
+          colorClase = 'bg-danger-subtle text-danger border-danger-subtle';
+        }
 
         const tempStr = climaDia.temperatura != null ? `${Math.round(climaDia.temperatura)}°C` : '';
-        const precipStr = climaDia.precipitacion_mm > 0.1 ? `${climaDia.precipitacion_mm.toFixed(1)} mm/h` : '';
+        const icono = climaDia.icono || 'bi-cloud-fill';
+        const desc = climaDia.descripcion || '';
 
         badgeClimaHTML = `
-          <span class="badge ${colorBadge} border d-inline-flex align-items-center gap-1 ms-auto py-1 px-2 fw-normal" style="font-size: 0.75rem;">
-            <i class="bi ${climaDia.icono || 'bi-cloud-fill'}"></i>
-            <span>${climaDia.descripcion || 'Sin datos'}</span>
+          <span class="badge ${colorClase} border d-inline-flex align-items-center gap-1 ms-auto py-1 px-2 fw-normal" style="font-size: 0.75rem;">
+            <i class="bi ${icono}"></i>
+            <span>${desc}</span>
             ${tempStr ? `<span class="opacity-75">· ${tempStr}</span>` : ''}
-            ${precipStr ? `<span class="opacity-75">· ${precipStr}</span>` : ''}
           </span>
         `;
       }
@@ -1095,7 +1605,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       if (paradasDelDia.length === 0) {
         const diaSemanaActual = (infoDia.diaSemana || '').toLowerCase();
-        const hayClimaAdverso = Boolean(climaDia && climaDia.es_adversa);
+        const hayClimaAdverso = Boolean(climaDia && (climaDia.estado === 'adverso' || climaDia.es_adversa));
         const hayAtractivosCerrados = Boolean(
           (sol.paradas || []).some(p => {
             const cerrados = (p.dias_cerrado || '').toLowerCase();
@@ -1135,19 +1645,39 @@ document.addEventListener('DOMContentLoaded', function () {
           let climaParadaHTML = '';
           let avisoClimaHTML = '';
           if (climaParada && climaParada.temperatura != null) {
-            const esAdv = climaParada.es_adversa;
-            const colorClima = esAdv ? 'bg-danger-subtle text-danger border-danger-subtle' : 'bg-light text-muted border';
+            let colorClima = 'bg-light text-muted border';
+            if (climaParada.estado === 'adverso' || climaParada.es_adversa) {
+              colorClima = 'bg-danger-subtle text-danger border-danger-subtle';
+            } else if (climaParada.estado === 'moderado') {
+              colorClima = 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
+            }
             climaParadaHTML = `
               <span class="badge ${colorClima} border ms-1" style="font-size: 0.7rem;">
                 <i class="bi ${climaParada.icono || 'bi-cloud-fill'} me-1"></i>${climaParada.descripcion || ''} · ${Math.round(climaParada.temperatura)}°C
               </span>
             `;
           }
-          if (climaParada && climaParada.es_adversa) {
+          if (climaParada && climaParada.estado) {
+            if (climaParada.estado === 'adverso') {
+              avisoClimaHTML = `
+                <div class="mt-2 p-1 px-2 rounded bg-danger-subtle text-danger border border-danger-subtle d-inline-flex align-items-center gap-1" style="font-size: 0.75rem;">
+                  <i class="bi bi-exclamation-octagon-fill"></i>
+                  <span><strong>Advertencia:</strong> ${climaParada.razon || climaParada.razon_adversa || 'Condición climática adversa'}</span>
+                </div>
+              `;
+            } else if (climaParada.estado === 'moderado') {
+              avisoClimaHTML = `
+                <div class="mt-2 p-1 px-2 rounded bg-warning-subtle text-warning-emphasis border border-warning-subtle d-inline-flex align-items-center gap-1" style="font-size: 0.75rem;">
+                  <i class="bi bi-exclamation-triangle-fill"></i>
+                  <span><strong>Aviso:</strong> ${climaParada.razon || 'Condición climática moderada'}</span>
+                </div>
+              `;
+            }
+          } else if (climaParada && climaParada.es_adversa) {
             avisoClimaHTML = `
               <div class="mt-2 p-1 px-2 rounded bg-danger-subtle text-danger border border-danger-subtle d-inline-flex align-items-center gap-1" style="font-size: 0.75rem;">
-                <i class="bi bi-exclamation-triangle-fill"></i>
-                <span><strong>Advertencia:</strong> ${climaParada.razon_adversa}</span>
+                <i class="bi bi-exclamation-octagon-fill"></i>
+                <span><strong>Advertencia:</strong> ${climaParada.razon_adversa || 'Condición climática adversa'}</span>
               </div>
             `;
           }
@@ -1180,9 +1710,15 @@ document.addEventListener('DOMContentLoaded', function () {
           if (tramo) {
             const divTr = document.createElement('div');
             divTr.className = 'timeline-step';
-            const factorTraficoBadge = (tramo.factor_trafico && tramo.factor_trafico > 1.0)
-              ? `<span class="badge bg-warning-subtle text-warning-emphasis border ms-1">Tráfico ${tramo.factor_trafico}x</span>`
-              : '';
+            let factorTraficoBadge = '';
+            if (tramo.avisos_trafico && tramo.avisos_trafico.length > 0) {
+              const avTr = tramo.avisos_trafico[0];
+              const niv = avTr.nivel_texto || traducirNivelTraficoJS(avTr.color_nivel, avTr.factor_congestion);
+              factorTraficoBadge = `<span class="badge bg-warning-subtle text-warning-emphasis border ms-1">⚠️ ${niv}</span>`;
+            } else if (tramo.factor_trafico && tramo.factor_trafico > 1.0) {
+              const niv = traducirNivelTraficoJS(null, tramo.factor_trafico);
+              factorTraficoBadge = `<span class="badge bg-warning-subtle text-warning-emphasis border ms-1">⚠️ ${niv}</span>`;
+            }
             divTr.innerHTML = `
               <div class="timeline-tramo-badge bg-warning text-dark"><i class="bi bi-arrow-down"></i></div>
               <div class="p-2 px-3 rounded bg-light my-1 small text-muted d-flex justify-content-between align-items-center">
@@ -1200,7 +1736,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     const modalEl = document.getElementById('modalDetalleItinerario');
-    if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    if (modalEl) {
+      bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
   }
 
 });
