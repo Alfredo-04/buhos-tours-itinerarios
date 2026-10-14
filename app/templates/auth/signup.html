@@ -13,7 +13,7 @@
     <div class="auth-card-body">
       <h2 class="h5 fw-bold text-center mb-4" style="color: var(--color-text);">Crear Nueva Cuenta</h2>
 
-      <form action="{{ url_for('auth.signup') }}" method="POST" id="signupForm" novalidate>
+      <form action="{{ url_for('auth.signup') }}" method="POST" id="signupForm" novalidate autocomplete="off">
         <div class="row g-3">
           
           <!-- Nombres -->
@@ -71,34 +71,8 @@
             </div>
           </div>
 
-          <!-- Email -->
-          <div class="col-md-7">
-            <div class="form-field-wrapper mb-2">
-              <label for="email" class="form-label">Correo Electrónico <span class="text-danger">*</span></label>
-              <div class="input-group">
-                <span class="input-group-text bg-white" style="border: 1.5px solid var(--color-border); border-right: 0; color: var(--color-text-muted);">
-                  <i class="bi bi-envelope"></i>
-                </span>
-                <input 
-                  type="email" 
-                  class="form-control" 
-                  id="email" 
-                  name="email" 
-                  value="{{ form_data.get('email', '') }}" 
-                  required 
-                  autocomplete="email"
-                >
-              </div>
-              <span class="form-helper-text"><i class="bi bi-info-circle me-1"></i>Ejemplo: usuario@ejemplo.com</span>
-              <div class="form-error-msg" id="emailError">
-                <i class="bi bi-exclamation-circle-fill"></i>
-                <span class="error-text">Ingresa un correo electrónico válido.</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Teléfono (Opcional) -->
-          <div class="col-md-5">
+          <!-- Teléfono (fila completa, separado del email) -->
+          <div class="col-12">
             <div class="form-field-wrapper mb-2">
               <label for="telefono" class="form-label">Teléfono <span class="text-muted small">(opcional)</span></label>
               <div class="input-group">
@@ -117,6 +91,35 @@
               <span class="form-helper-text"><i class="bi bi-info-circle me-1"></i>Ejemplo: +591 71234567</span>
             </div>
           </div>
+
+          <!-- Email (fila completa) -->
+          <div class="col-12">
+            <div class="form-field-wrapper mb-2">
+              <label for="email" class="form-label">Correo Electrónico <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text bg-white" style="border: 1.5px solid var(--color-border); border-right: 0; color: var(--color-text-muted);">
+                  <i class="bi bi-envelope"></i>
+                </span>
+                <input 
+                  type="email" 
+                  class="form-control" 
+                  id="email" 
+                  name="email" 
+                  value="{{ form_data.get('email', '') }}" 
+                  required 
+                  autocomplete="email"
+                  data-lpignore="true"
+                >
+              </div>
+              <span class="form-helper-text"><i class="bi bi-info-circle me-1"></i>Ejemplo: usuario@ejemplo.com</span>
+              <div class="form-error-msg" id="emailError">
+                <i class="bi bi-exclamation-circle-fill"></i>
+                <span class="error-text">Ingresa un correo electrónico válido.</span>
+              </div>
+            </div>
+          </div>
+
+          
 
           <!-- Contraseña -->
           <div class="col-md-6">
@@ -188,6 +191,12 @@
                 </div>
               </div>
             </div>
+          </div>
+
+          <!-- Honeypot invisible: atrapa el autofill de Chrome -->
+          <div style="position: absolute; left: -9999px; top: -9999px; height: 0; overflow: hidden;" aria-hidden="true">
+            <input type="text" name="fake_user_hp" tabindex="-1" autocomplete="username">
+            <input type="password" name="fake_pwd_hp" tabindex="-1" autocomplete="current-password">
           </div>
 
           <!-- Botón de Envío Verde Esmeralda (#2ECC71) -->

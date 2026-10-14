@@ -168,32 +168,34 @@
                 </td>
                 <td>
                   {% if not s.is_deleted %}
-                    <span class="badge badge-subtle-success">Activa</span>
+                    <span class="module-badge badge-emerald py-1 px-2" style="font-size: 0.75rem;">
+                      <i class="bi bi-check-circle-fill me-1"></i>Activa
+                    </span>
                   {% else %}
-                    <span class="badge badge-subtle-warning" title="Desactivada el {{ s.deleted_at.strftime('%d/%m/%Y %H:%M') if s.deleted_at else '' }}">
-                      Desactivada
+                     <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.75rem;">
+                      <i class="bi bi-trash-fill me-1"></i>Desactivada
                     </span>
                   {% endif %}
                 </td>
                 <td class="text-end pe-4">
-                  {% if not s.is_deleted %}
-                    <div class="btn-group btn-group-sm">
-                      <a href="{{ url_for('admin.subcategoria_editar', id_subcategoria=s.id_subcategoria) }}" class="btn btn-outline-primary" title="Editar">
-                        <i class="bi bi-pencil-fill"></i>
+                  <div class="d-inline-flex gap-1">
+                    {% if not s.is_deleted %}
+                      <a href="{{ url_for('admin.subcategoria_editar', id_subcategoria=s.id_subcategoria) }}" class="btn btn-outline-primary btn-sm" title="Editar">
+                          <i class="bi bi-pencil"></i>
                       </a>
                       <form method="POST" action="{{ url_for('admin.subcategoria_eliminar', id_subcategoria=s.id_subcategoria) }}" class="d-inline" onsubmit="return confirm('¿Estás seguro de que deseas desactivar la subcategoría {{ s.nombre }}?');">
-                        <button type="submit" class="btn btn-outline-danger" title="Desactivar">
-                          <i class="bi bi-archive-fill"></i>
+                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Desactivar">
+                          <i class="bi bi-trash"></i>
                         </button>
                       </form>
-                    </div>
-                  {% else %}
-                    <form method="POST" action="{{ url_for('admin.subcategoria_restaurar', id_subcategoria=s.id_subcategoria) }}" class="d-inline">
-                      <button type="submit" class="btn btn-sm btn-outline-success" title="Restaurar subcategoría">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i> Restaurar
-                      </button>
-                    </form>
-                  {% endif %}
+                    {% else %}
+                      <form method="POST" action="{{ url_for('admin.subcategoria_restaurar', id_subcategoria=s.id_subcategoria) }}" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-success" title="Restaurar subcategoría">
+                            <i class="bi bi-arrow-counterclockwise"></i> Restaurar
+                          </button>
+                      </form>
+                    {% endif %}
+                  </div>
                 </td>
               </tr>
             {% endfor %}
@@ -202,7 +204,6 @@
               <td colspan="6" class="text-center py-5 text-muted">
                 <i class="bi bi-diagram-3 fs-2 d-block mb-2 text-secondary"></i>
                 <div class="fw-semibold">No se encontraron subcategorías</div>
-                <small class="text-muted">Prueba cambiando los filtros de búsqueda o registra una nueva subcategoría.</small>
               </td>
             </tr>
           {% endif %}

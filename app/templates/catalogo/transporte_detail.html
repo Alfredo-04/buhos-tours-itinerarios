@@ -37,12 +37,12 @@
     <!-- Botones de Acción según Rol -->
     <div class="d-flex align-items-center gap-2">
       <a href="{{ url_for('catalogo.transportes_list') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
-        <i class="bi bi-arrow-left me-1"></i> Volver al Catálogo
+        <i class="bi bi-arrow-left me-1"></i> Ir al Catálogo
       </a>
 
       {% if current_user.rol.nombre == 'admin' %}
         <a href="{{ url_for('admin.transporte_editar', id_transporte=transporte.id_transporte) }}" class="btn-emerald">
-          <i class="bi bi-pencil-square me-1"></i> Editar Completo
+          <i class="bi bi-pencil-square me-1"></i> Editar
         </a>
       {% elif current_user.rol.nombre == 'agente' %}
         <a href="{{ url_for('agente.transporte_editar_parcial', id_transporte=transporte.id_transporte) }}" class="btn-emerald">

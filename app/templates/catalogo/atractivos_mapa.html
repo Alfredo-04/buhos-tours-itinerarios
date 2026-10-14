@@ -86,18 +86,15 @@
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    // 1. Inicializar mapa centrado en La Paz
+    document.addEventListener('DOMContentLoaded', function () {
     var map = L.map('map').setView([-16.4957, -68.1335], 13);
 
-    // 2. Capa de teselas de OpenStreetMap
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
-    // 3. Cargar datos de atractivos
-    var atractivosData = JSON.parse('{{ atractivos_json | safe }}');
+    var atractivosData = {{ atractivos_json | safe }};
     var bounds = [];
 
     if (atractivosData && atractivosData.length > 0) {
@@ -113,7 +110,7 @@
               <div class="small mb-2 fw-semibold text-dark">
                 ${item.costo_entrada > 0 ? 'Bs. ' + item.costo_entrada.toFixed(2) : '<span class="text-success">Acceso Libre</span>'}
               </div>
-              <a href="/catalogo/atractivos/${item.id_atractivo}" class="btn btn-sm btn-primary w-100 py-1" style="font-size: 0.75rem; border-radius: 4px; text-decoration: none;">
+              <a href="/catalogo/atractivos/${item.id_atractivo}" class="btn btn-sm btn-primary w-100 py-1" style="font-size: 0.75rem; border-radius: 4px; text-decoration: none; color: #ffffff;">
                 Ver Detalle
               </a>
             </div>

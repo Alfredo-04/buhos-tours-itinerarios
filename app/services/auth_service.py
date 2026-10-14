@@ -41,6 +41,21 @@ def validate_password_strength(password: str, min_length: int | str = 8) -> tupl
         return False, "La contraseña debe contener al menos un carácter especial (!@#$%^&*...)."
     return True, ""
 
+def _validar_telefono(telefono: str) -> tuple[bool, str]:
+    """
+    Valida el teléfono antes de insertarlo en BD.
+    - Máximo 20 caracteres (límite del modelo Turista.telefono)
+    - Solo dígitos, espacios, guiones, paréntesis y el signo +
+    """
+    if not telefono:
+        return True, ""
+    telefono = telefono.strip()
+    if len(telefono) > 20:
+        return False, "El teléfono no puede tener más de 20 caracteres."
+    if not re.match(r'^[\d\s\-\+\(\)]+$', telefono):
+        return False, "El teléfono solo puede contener números, espacios, guiones o el signo +."
+    return True, ""
+
 def generate_random_password(length: int = 14) -> str:
     """
     Genera una contraseña temporal aleatoria criptográficamente segura
@@ -115,6 +130,10 @@ def register_user(data: dict) -> tuple[bool, str, Usuario | None]:
 
     if not email or not re.match(EMAIL_REGEX, email):
         return False, "Por favor ingresa un correo electrónico válido.", None
+    
+    tel_valido, tel_msg = _validar_telefono(telefono)
+    if not tel_valido:
+        return False, tel_msg, None
 
     usuario_existente = Usuario.query.filter_by(email=email).first()
     if usuario_existente:

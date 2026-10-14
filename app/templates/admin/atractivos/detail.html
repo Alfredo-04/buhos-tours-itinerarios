@@ -28,7 +28,7 @@
     <!-- Botones de Acción -->
     <div class="d-flex align-items-center gap-2">
       <a href="{{ url_for('admin.atractivos') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
-        <i class="bi bi-arrow-left me-1"></i> Volver a la Lista
+        <i class="bi bi-arrow-left me-1"></i> Ir al Listado
       </a>
       {% if atractivo.latitud and atractivo.longitud %}
         <a href="{{ url_for('catalogo.atractivo_mapa', id_atractivo=atractivo.id_atractivo) }}" class="btn btn-outline-info" style="border-radius: var(--radius-sm);" title="Ver ubicación en mapa interactivo">
@@ -37,9 +37,6 @@
       {% endif %}
       <a href="{{ url_for('admin.atractivo_editar', id_atractivo=atractivo.id_atractivo) }}" class="btn-emerald">
         <i class="bi bi-pencil-square me-1"></i> Editar
-      </a>
-      <a href="{{ url_for('catalogo.atractivo_detail', id_atractivo=atractivo.id_atractivo) }}" class="btn btn-outline-primary" style="border-radius: var(--radius-sm);">
-        <i class="bi bi-eye me-1"></i> Vista Pública
       </a>
     </div>
   </div>

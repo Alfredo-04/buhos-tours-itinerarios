@@ -34,12 +34,12 @@
     <!-- Botones de Acción según Rol -->
     <div class="d-flex align-items-center gap-2">
       <a href="{{ url_for('catalogo.atractivos_list') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
-        <i class="bi bi-arrow-left me-1"></i> Volver al Catálogo
+        <i class="bi bi-arrow-left me-1"></i> Ir al Catálogo
       </a>
 
       {% if current_user.is_authenticated and current_user.rol and current_user.rol.nombre == 'admin' %}
         <a href="{{ url_for('admin.atractivo_editar', id_atractivo=atractivo.id_atractivo) }}" class="btn-emerald">
-          <i class="bi bi-pencil-square me-1"></i> Editar Completo
+          <i class="bi bi-pencil-square me-1"></i> Editar
         </a>
       {% elif current_user.is_authenticated and current_user.rol and current_user.rol.nombre == 'agente' %}
         <a href="{{ url_for('agente.atractivo_editar_parcial', id_atractivo=atractivo.id_atractivo) }}" class="btn-emerald">

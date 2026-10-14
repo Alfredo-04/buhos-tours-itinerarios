@@ -57,12 +57,20 @@
 
     <!-- Botones de Acción -->
     <div class="d-flex align-items-center gap-2">
+      <a href="{{ url_for('catalogo.atractivos_list') }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
+        <i class="bi bi-grid-fill me-1"></i> Ir al Catálogo
+      </a>
       <a href="{{ url_for('catalogo.atractivo_detail', id_atractivo=atractivo.id_atractivo) }}" class="btn btn-outline-secondary" style="border-radius: var(--radius-sm);">
-        <i class="bi bi-arrow-left me-1"></i> Volver al Detalle
+        <i class="bi bi-list me-1"></i> Ir a Detalle
       </a>
       <a href="{{ url_for('catalogo.atractivos_mapa') }}" class="btn-emerald">
         <i class="bi bi-map-fill me-1"></i> Ver Todos en Mapa
       </a>
+      {% if current_user.rol.nombre == 'admin' %}
+        <a href="{{ url_for('admin.atractivos') }}" class="btn-emerald">
+          <i class="bi bi-gear-fill me-1"></i> Panel Admin
+        </a>
+      {% endif %}
     </div>
   </div>
 
@@ -87,19 +95,16 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    var atractivoData = JSON.parse('{{ atractivo_json | safe }}');
+    var atractivoData = {{ atractivo_json | safe }};
 
     if (atractivoData && atractivoData.latitud && atractivoData.longitud) {
-      // 1. Inicializar mapa centrado en el punto con zoom 16
       var map = L.map('map').setView([atractivoData.latitud, atractivoData.longitud], 16);
 
-      // 2. Capa de teselas de OpenStreetMap
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       }).addTo(map);
 
-      // 3. Marcador y Popup
       var marker = L.marker([atractivoData.latitud, atractivoData.longitud]).addTo(map);
       var popupContent = `
         <div style="font-family: inherit; min-width: 180px; padding: 4px;">
