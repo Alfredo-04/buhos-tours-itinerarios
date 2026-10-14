@@ -134,6 +134,12 @@ def generar_itinerarios(
     if len(transportes_data) < 1:
         raise ValueError("No se encontraron medios de transporte disponibles para planificar el viaje.")
 
+    # Contexto K LIBRE cuando:
+    #   - auto_rango_paradas == True
+    #   Y
+    #   - no hay atractivos seleccionados explícitamente
+    k_libre = bool(auto_rango_paradas) and (len(atractivos_ids or []) == 0)
+
     # 2. Ejecutar el motor puro NSGA-II
     resultado = ejecutar_nsga2(
         atractivos=atractivos_data,
@@ -157,6 +163,7 @@ def generar_itinerarios(
         auto_rango_paradas=bool(auto_rango_paradas),
         tiempo_disponible_horas=tiempo_disponible_horas,
         usar_clima=bool(usar_clima),
+        k_libre=k_libre,
     )
 
     return resultado

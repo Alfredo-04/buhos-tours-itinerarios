@@ -296,6 +296,10 @@ class ItinerarioVariableProblem(Problem):
         min_paradas: int = 2,
         max_paradas: int = 15,
         num_dias: int = 1,
+        auto_rango_paradas: bool = True,
+        atractivos_seleccionados_explicitamente: bool = False,
+        k_libre: bool = False,
+        num_dias_disponibles: int | None = None,
     ):
         n_atractivos = len(atractivos)
         self.n_atractivos = n_atractivos
@@ -309,13 +313,27 @@ class ItinerarioVariableProblem(Problem):
         self.intereses = intereses
         self.num_personas = max(1, int(num_personas))
         self.forzar_todos = forzar_todos
-        self.num_dias = max(1, int(num_dias))
+        self.num_dias = max(1, int(num_dias_disponibles if num_dias_disponibles is not None else num_dias))
         
+        # Guardar flag de contexto K libre vs K fijo
+        self.k_libre = bool(k_libre)
+
         # Rango configurable de paradas [k_min, k_max]
+        max_paradas_efectivo = int(max_paradas)
         if forzar_todos:
             self.k_min = n_atractivos
             self.k_max = n_atractivos
+        elif self.k_libre:
+            # K libre: aplicar límite inferior dinámico
+            # N_min = min(max(5, num_dias * 2), n_atractivos, max_paradas_efectivo)
+            k_min_dinamico = max(5, self.num_dias * 2)
+            self.k_min = min(k_min_dinamico, n_atractivos, max_paradas_efectivo)
+            self.k_max = min(max_paradas_efectivo, n_atractivos)
+            # Asegurar que k_min <= k_max
+            if self.k_min > self.k_max:
+                self.k_min = self.k_max
         else:
+            # K fijo por rango: comportamiento actual
             self.k_min = max(1, min(int(min_paradas), n_atractivos))
             self.k_max = max(self.k_min, min(int(max_paradas), n_atractivos))
 
@@ -459,9 +477,25 @@ class ItinerarioVariableProblem(Problem):
             ind = x[idx_ind]
             ruta, k = self.decodificar_individuo(ind)
 
-            # 1. Nueva fórmula calibrada: sum(pesos incluidos) / sum_pesos_ideal
+            # Cálculo de afinidad según contexto
             suma_pesos_incluidos = float(np.sum(self.afinidad_individual[ruta]))
-            afinidad = min(1.0, suma_pesos_incluidos / self.sum_pesos_ideal)
+            k_actual = len(ruta)
+
+            if self.k_libre:
+                # K libre: promedio ponderado con raíz cuadrada
+                # afinidad = sum(pesos) / K^0.5
+                if k_actual > 0:
+                    afinidad = suma_pesos_incluidos / (k_actual ** 0.5)
+                else:
+                    afinidad = 0.0
+                # Normalizar a [0, 1] con el máximo teórico alcanzable
+                # (K atractivos perfectos de peso 1.0 → suma=K, afinidad = K/K^0.5 = K^0.5)
+                # Normalizamos contra K_max^0.5 para que quede en [0, 1]
+                afinidad_normalizada = min(1.0, afinidad / (self.k_max ** 0.5)) if self.k_max > 0 else 0.0
+                afinidad = afinidad_normalizada
+            else:
+                # K fijo: comportamiento actual
+                afinidad = min(1.0, suma_pesos_incluidos / self.sum_pesos_ideal)
 
             # 2. Tiempos de visita y traslados
             tiempo_visitas = float(np.sum(self.tiempos_visitas[ruta]))
@@ -522,6 +556,51 @@ def simplificar_nombre_experiencia(nombre_tecnico: str) -> str:
     return mapa.get(nombre_tecnico, nombre_tecnico.lower())
 
 
+def _generar_titulo_afinidad(sol: dict[str, Any], intereses: dict[str, float] | None = None) -> str:
+    """
+    Genera un título corto que resume en qué se basa la afinidad.
+    Sin palabras tipo IA. Directo y descriptivo.
+    """
+    n = max(1, sol.get("num_atractivos", 1))
+    subcats = sol.get("subcategorias", [])
+    cats = sol.get("categorias", [])
+    afinidad = sol.get("afinidad", 0.0)
+    
+    # Contar subcategorías presentes
+    from collections import Counter
+    contador_sub = Counter([s for s in subcats if s and s != "General"])
+    contador_cat = Counter([c for c in cats if c and c != "General"])
+    
+    # Identificar la categoría/subcategoría dominante
+    if contador_sub:
+        top_sub, top_count = contador_sub.most_common(1)[0]
+        top_nombre = simplificar_nombre_experiencia(top_sub)
+    elif contador_cat:
+        top_cat, top_count = contador_cat.most_common(1)[0]
+        top_nombre = simplificar_nombre_experiencia(top_cat)
+    else:
+        top_nombre = None
+    
+    # Reglas de título según composición y afinidad
+    if afinidad >= 0.80 and top_nombre:
+        if top_count >= n * 0.6:
+            return f"Recorrido centrado en {top_nombre}."
+        else:
+            return f"Recorrido con predominio de {top_nombre}."
+    
+    if afinidad >= 0.60 and top_nombre:
+        if len(contador_sub) >= 3 or len(contador_cat) >= 3:
+            return "Recorrido de intereses variados."
+        return f"Recorrido con mezcla de {top_nombre} y otros intereses."
+    
+    if afinidad >= 0.40:
+        if n <= 5:
+            return "Recorrido corto con varios intereses."
+        return "Recorrido amplio con intereses mixtos."
+    
+    return "Recorrido alternativo con baja coincidencia de intereses."
+
+
 def generar_descripcion_solucion(
     sol: dict[str, Any],
     min_tiempo: float,
@@ -546,6 +625,8 @@ def generar_descripcion_solucion(
         exc_str = " ".join(excesos) if excesos else "Excede las restricciones configuradas."
         sug_str = f" Sugerencia: {' '.join(sugerencias)}" if sugerencias else ""
         return f"{exc_str}{sug_str}".strip()
+
+    titulo = _generar_titulo_afinidad(sol, intereses)
 
     n_atractivos = sol["num_atractivos"]
     subcats = sol.get("subcategorias", [])
@@ -641,7 +722,7 @@ def generar_descripcion_solucion(
         elif pos_c >= 0.75:
             frases_comparacion.append("Presenta un presupuesto algo mayor para cubrir todas sus paradas.")
 
-    texto_final = f"{texto_base} {' '.join(frases_comparacion)}"
+    texto_final = f"{titulo} {texto_base} {' '.join(frases_comparacion)}"
     return texto_final.strip()
 
 
@@ -895,6 +976,8 @@ def ejecutar_nsga2(
     hora_inicio_tour: dtime | None = None,
     tiempo_disponible_horas: float | None = None,
     usar_clima: bool = True,
+    k_libre: bool | None = None,
+    atractivos_seleccionados_explicitamente: bool = False,
     **kwargs: Any
 ) -> dict[str, Any]:
     """
@@ -915,6 +998,11 @@ def ejecutar_nsga2(
 
     if intereses is None:
         intereses = {}
+
+    if k_libre is None:
+        k_libre = bool(auto_rango_paradas) and (not atractivos_seleccionados_explicitamente)
+    else:
+        k_libre = bool(k_libre)
 
     # Defaults si auto_fechas=True (Sección 4.2)
     if auto_fechas or not fecha_inicio_viaje:
@@ -1135,6 +1223,10 @@ def ejecutar_nsga2(
         min_paradas=min_paradas_efectivo,
         max_paradas=max_paradas_efectivo,
         num_dias=num_dias_disponibles,
+        auto_rango_paradas=auto_rango_paradas,
+        atractivos_seleccionados_explicitamente=atractivos_seleccionados_explicitamente,
+        k_libre=k_libre,
+        num_dias_disponibles=num_dias_disponibles,
     )
 
     algorithm = NSGA2(
@@ -1191,7 +1283,19 @@ def ejecutar_nsga2(
         vistos_rutas.add(clave_ruta)
 
         suma_pesos_incluidos = float(np.sum(problem.afinidad_individual[ruta]))
-        afinidad = min(1.0, suma_pesos_incluidos / problem.sum_pesos_ideal)
+        k_actual = len(ruta)
+
+        if problem.k_libre:
+            # K libre: promedio ponderado con raíz cuadrada
+            if k_actual > 0:
+                afinidad = suma_pesos_incluidos / (k_actual ** 0.5)
+            else:
+                afinidad = 0.0
+            afinidad_normalizada = min(1.0, afinidad / (problem.k_max ** 0.5)) if problem.k_max > 0 else 0.0
+            afinidad = afinidad_normalizada
+        else:
+            # K fijo: comportamiento actual
+            afinidad = min(1.0, suma_pesos_incluidos / problem.sum_pesos_ideal)
 
         # Simulación multi-día con horarios reales por parada
         max_paradas_por_dia = max(1, int(np.ceil(k / float(num_dias_disponibles)))) if num_dias_disponibles > 1 else k
@@ -1518,35 +1622,57 @@ def ejecutar_nsga2(
     soluciones_viables_raw = [s for s in soluciones_procesadas if s["cumple_restricciones"]]
     soluciones_no_viables_raw = [s for s in soluciones_procesadas if not s["cumple_restricciones"]]
 
-    # 1. Procesar Soluciones Viables (diversidad de paradas K)
+    # 1. Procesar Soluciones Viables (diversidad por K y composición distinta)
     soluciones_viables_final = []
     if len(soluciones_viables_raw) > 0:
+        MAX_POR_K = 3
+        MAX_TOTAL = 20
+        UMBRAL_DIFERENCIA = 0.35  # al menos 35% de atractivos distintos
+
+        def _jaccard_distintos(set_a: set, set_b: set) -> float:
+            """Retorna la fracción de atractivos distintos entre dos conjuntos."""
+            if not set_a or not set_b:
+                return 1.0
+            union = set_a | set_b
+            interseccion = set_a & set_b
+            return 1.0 - (len(interseccion) / len(union))
+
+        # Agrupar por K
         sol_por_k: dict[int, list[dict[str, Any]]] = {}
         for sol in soluciones_viables_raw:
-            k_val = sol["num_atractivos"]
-            if k_val not in sol_por_k:
-                sol_por_k[k_val] = []
-            sol_por_k[k_val].append(sol)
+            sol_por_k.setdefault(sol["num_atractivos"], []).append(sol)
 
-        mejores_k = []
-        otras_v = []
-        for k_val in sorted(sol_por_k.keys()):
-            grupo = sol_por_k[k_val]
-            grupo.sort(key=lambda s: (-s["afinidad"], s["tiempo_total_min"]))
-            mejores_k.append(grupo[0])
-            otras_v.extend(grupo[1:])
+        # Ordenar cada grupo por calidad (afinidad desc, tiempo asc)
+        for k_val in sol_por_k:
+            sol_por_k[k_val].sort(key=lambda s: (-s["afinidad"], s["tiempo_total_min"]))
 
-        soluciones_viables_final = list(mejores_k)
-        otras_v.sort(key=lambda s: (-s["afinidad"], s["tiempo_total_min"]))
-
-        vistas_m = {(s["num_atractivos"], round(s["afinidad"], 3), round(s["tiempo_total_min"], 0)) for s in soluciones_viables_final}
-        for otra in otras_v:
-            met = (otra["num_atractivos"], round(otra["afinidad"], 3), round(otra["tiempo_total_min"], 0))
-            if met not in vistas_m:
-                vistas_m.add(met)
-                soluciones_viables_final.append(otra)
-            if len(soluciones_viables_final) >= 12:
+        # Seleccionar hasta MAX_POR_K por K con composición distinta
+        for k_val in sorted(sol_por_k.keys(), reverse=True):  # K grande primero
+            if len(soluciones_viables_final) >= MAX_TOTAL:
                 break
+
+            grupo = sol_por_k[k_val]
+            seleccionadas_grupo = []
+
+            for sol in grupo:
+                if len(seleccionadas_grupo) >= MAX_POR_K:
+                    break
+                if len(soluciones_viables_final) >= MAX_TOTAL:
+                    break
+
+                ids_sol = set(sol["atractivos_ids"])
+
+                # Verificar que sea distinta a las ya seleccionadas de este K
+                es_suficientemente_distinta = True
+                for prev in seleccionadas_grupo:
+                    ids_prev = set(prev["atractivos_ids"])
+                    if _jaccard_distintos(ids_sol, ids_prev) < UMBRAL_DIFERENCIA:
+                        es_suficientemente_distinta = False
+                        break
+
+                if es_suficientemente_distinta:
+                    seleccionadas_grupo.append(sol)
+                    soluciones_viables_final.append(sol)
 
         soluciones_viables_final.sort(key=lambda s: (-s["afinidad"], s["tiempo_total_min"]))
 
@@ -1680,6 +1806,8 @@ def ejecutar_nsga2(
             "auto_rango_paradas": auto_rango_paradas,
             "k_ideal": problem.k_ideal,
             "sum_pesos_ideal": round(problem.sum_pesos_ideal, 3),
+            "k_libre": problem.k_libre,
+            "atractivos_seleccionados_explicitamente": atractivos_seleccionados_explicitamente,
             "hora_inicio_tour": hora_actual.strftime("%H:%M") if hasattr(hora_actual, 'strftime') else str(hora_actual),
             "transporte_seleccionado": transporte_fijo.get("nombre") if transporte_fijo else "Asignación Inteligente Dinámica",
             "velocidad_transporte_kmh": transporte_fijo.get("velocidad_promedio_kmh") if transporte_fijo else "Variable",
