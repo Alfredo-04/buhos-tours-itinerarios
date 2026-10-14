@@ -80,6 +80,25 @@
     </div>
   </div>
 
+  <!-- Banner: Clima desactivado por el usuario -->
+  <div id="bannerClimaDesactivado" class="alert alert-info py-2 px-3 small d-none" role="alert">
+    <i class="bi bi-info-circle me-1"></i>
+    El clima no fue considerado en esta generación. Los atractivos al aire libre podrían verse afectados por condiciones meteorológicas.
+  </div>
+
+  <!-- Banner: API de clima no disponible -->
+  <div id="bannerClimaNoDisponible" class="alert alert-info py-2 px-3 small d-none" role="alert">
+    <i class="bi bi-cloud-slash me-1"></i>
+    No se pudo obtener el pronóstico del clima. El itinerario fue generado sin considerar condiciones meteorológicas.
+  </div>
+
+  <!-- Banner: Atractivos excluidos por clima -->
+  <div id="bannerAvisosClima" class="alert alert-warning py-2 px-3 small d-none" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    <strong>Atractivos excluidos por clima:</strong>
+    <span id="detalleAvisosClima"></span>
+  </div>
+
   <!-- KPI Cards -->
   <div class="row g-3 mb-4">
     

@@ -756,6 +756,122 @@ class MutacionCompuesta(Mutation):
         return np.clip(X_mut, 0.0, 1.0)
 
 
+def _redistribuir_dias_vacios(
+    solucion: dict[str, Any],
+    atractivos_disponibles: list[dict[str, Any]],
+    clima_por_zona: dict[str, Any] | None,
+    num_dias: int,
+    hora_inicio_dia: Any,
+    hora_fin_dia: Any,
+) -> None:
+    """
+    Mueve atractivos de días con >1 parada a días vacíos, si el atractivo es viable allí.
+    NO toca afinidad, tiempo total, ni costo total.
+    Solo cambia el campo `dia` y actualiza fecha/día_semana/clima de la parada.
+    """
+    from app.services import weather_service
+    paradas = solucion.get('paradas', [])
+    if not paradas:
+        return
+    
+    por_dia: dict[int, list[dict[str, Any]]] = {}
+    for p in paradas:
+        d = p.get('dia', 1)
+        por_dia.setdefault(d, []).append(p)
+    
+    dias_vacios = [d for d in range(1, num_dias + 1) if not por_dia.get(d)]
+    if not dias_vacios:
+        return
+    
+    f_ini_raw = solucion.get('fecha_inicio')
+    if isinstance(f_ini_raw, str):
+        try:
+            f_ini_date = datetime.strptime(f_ini_raw.strip(), "%Y-%m-%d").date()
+        except ValueError:
+            f_ini_date = datetime.now(BOLIVIA_TZ).date()
+    elif hasattr(f_ini_raw, 'date'):
+        f_ini_date = f_ini_raw.date()
+    else:
+        f_ini_date = f_ini_raw or datetime.now(BOLIVIA_TZ).date()
+    
+    for dia_vacio in dias_vacios:
+        fecha_vacia = f_ini_date + timedelta(days=dia_vacio - 1)
+        fecha_str_vacia = fecha_vacia.strftime('%Y-%m-%d')
+        dia_semana_vacio = dias_semana[fecha_vacia.weekday()]
+        
+        movido = False
+        for dia_origen in range(1, num_dias + 1):
+            if dia_origen == dia_vacio:
+                continue
+            paradas_origen = por_dia.get(dia_origen, [])
+            if len(paradas_origen) <= 1:
+                continue  # no dejar vacío otro día
+            
+            for parada in list(paradas_origen):
+                atr_id = parada.get('id')
+                atr = next((a for a in atractivos_disponibles if a['id'] == atr_id), None)
+                if not atr:
+                    continue
+                
+                # Validar que no esté cerrado en el día destino
+                dias_cerrados = parsear_dias_cerrado(atr.get('dias_cerrado'))
+                if dia_semana_vacio.lower() in dias_cerrados:
+                    continue
+                
+                # Validar clima en la hora estimada
+                zona = atr.get('zona_clima') or weather_service.asignar_zona_clima(float(atr['lat']), float(atr['lon']))
+                h_val = hora_inicio_dia.hour if hasattr(hora_inicio_dia, 'hour') else 9
+                hora_test = f"{h_val:02d}:00"
+                clima_destino = weather_service.obtener_clima_parada(clima_por_zona, zona, fecha_str_vacia, hora_test) if clima_por_zona else None
+                
+                if atr.get('sensible_al_clima') and clima_destino and clima_destino.get('es_adversa'):
+                    continue  # no mover a clima adverso
+                
+                # Mover parada al día vacío
+                parada['dia'] = dia_vacio
+                parada['fecha'] = fecha_str_vacia
+                parada['dia_semana'] = dia_semana_vacio
+                
+                if clima_destino:
+                    parada['clima'] = {
+                        'temperatura': clima_destino.get('temperatura'),
+                        'descripcion': clima_destino.get('descripcion'),
+                        'icono': clima_destino.get('icono'),
+                        'es_adversa': clima_destino.get('es_adversa', False),
+                        'razon_adversa': clima_destino.get('razon_adversa'),
+                        'precipitacion_mm': clima_destino.get('precipitacion_mm'),
+                    }
+                
+                por_dia[dia_origen].remove(parada)
+                por_dia.setdefault(dia_vacio, []).append(parada)
+                movido = True
+                break
+            
+            if movido:
+                break
+
+    # Actualizar resumen de clima por día y avisos de parada si hubo movimientos
+    if solucion.get('clima_por_dia') is not None:
+        for d in range(1, num_dias + 1):
+            paradas_d = [p for p in paradas if p.get('dia') == d]
+            if paradas_d and paradas_d[0].get('clima'):
+                solucion['clima_por_dia'][d] = paradas_d[0]['clima']
+            elif d in solucion['clima_por_dia'] and not paradas_d:
+                solucion['clima_por_dia'].pop(d, None)
+
+    if 'avisos_clima_parada' in solucion:
+        solucion['avisos_clima_parada'] = [
+            {
+                'dia': p['dia'],
+                'parada_numero': p.get('numero', idx + 1),
+                'atractivo': p.get('nombre', ''),
+                'razon': p['clima'].get('razon_adversa'),
+            }
+            for idx, p in enumerate(paradas)
+            if p.get('clima') and p['clima'].get('es_adversa')
+        ]
+
+
 def ejecutar_nsga2(
     atractivos: list[dict[str, Any]],
     transportes: list[dict[str, Any]],
@@ -778,6 +894,7 @@ def ejecutar_nsga2(
     auto_rango_paradas: bool = True,
     hora_inicio_tour: dtime | None = None,
     tiempo_disponible_horas: float | None = None,
+    usar_clima: bool = True,
     **kwargs: Any
 ) -> dict[str, Any]:
     """
@@ -855,6 +972,70 @@ def ejecutar_nsga2(
 
     hay_atractivos_excluidos = len(atractivos_cerrados_todos_los_dias) > 0
     atractivos_efectivos = atractivos_candidatos if len(atractivos_candidatos) >= 2 else atractivos
+
+    # ============================================
+    # PRE-FILTRADO POR CLIMA (sin tocar el motor)
+    # ============================================
+    from app.services import weather_service
+
+    clima_por_zona = None
+    atractivos_excluidos_clima = []
+    zonas_usadas = set()
+
+    if usar_clima:
+        # Asignar zona climática a cada atractivo
+        for a in atractivos_efectivos:
+            zona = weather_service.asignar_zona_clima(float(a['lat']), float(a['lon']))
+            a['zona_clima'] = zona
+            zonas_usadas.add(zona)
+
+        # Consultar clima solo de las zonas usadas
+        clima_por_zona = weather_service.consultar_clima(
+            list(zonas_usadas),
+            fecha_inicio_viaje,
+            num_dias_disponibles
+        )
+
+        if clima_por_zona:
+            # Pre-filtrar atractivos sensibles sin ningún día viable
+            atractivos_filtrados = []
+            for a in atractivos_efectivos:
+                if not a.get('sensible_al_clima'):
+                    atractivos_filtrados.append(a)
+                    continue
+
+                zona = a.get('zona_clima')
+                tiene_dia_viable = False
+                for d in range(num_dias_disponibles):
+                    fecha_d = fecha_inicio_viaje + timedelta(days=d)
+                    fecha_str = fecha_d.strftime('%Y-%m-%d')
+
+                    hora_ini = hora_inicio_dia.hour if hasattr(hora_inicio_dia, 'hour') else 9
+                    hora_fin = hora_fin_dia.hour if hasattr(hora_fin_dia, 'hour') else 18
+
+                    for h in range(hora_ini, hora_fin):
+                        clima_h = weather_service.obtener_clima_parada(
+                            clima_por_zona, zona, fecha_str, f"{h:02d}:00"
+                        )
+                        if clima_h and not clima_h.get('es_adversa', False):
+                            tiene_dia_viable = True
+                            break
+                    if tiene_dia_viable:
+                        break
+
+                if tiene_dia_viable:
+                    atractivos_filtrados.append(a)
+                else:
+                    atractivos_excluidos_clima.append({
+                        'nombre': a['nombre'],
+                        'razon': 'Clima adverso todos los días del rango',
+                    })
+
+            if len(atractivos_filtrados) >= 2:
+                atractivos_efectivos = atractivos_filtrados
+
+    if len(atractivos_efectivos) < 2:
+        raise ValueError("No hay suficientes atractivos viables para generar un itinerario.")
 
     # Rango de paradas
     n_total_atractivos = len(atractivos_efectivos)
@@ -1140,6 +1321,16 @@ def ejecutar_nsga2(
                     "hora_llegada": hora_llegada_est.strftime("%H:%M"),
                 })
 
+            # Clima de la parada en su hora de llegada
+            clima_parada = None
+            if clima_por_zona and atr.get("zona_clima"):
+                clima_parada = weather_service.obtener_clima_parada(
+                    clima_por_zona,
+                    atr["zona_clima"],
+                    fecha_actual.strftime("%Y-%m-%d"),
+                    hora_llegada_est.strftime("%H:%M")
+                )
+
             paradas_detalle.append({
                 "numero": s + 1,
                 "dia": dia_idx + 1,
@@ -1153,6 +1344,14 @@ def ejecutar_nsga2(
                 "costo_entrada_bob": float(atr.get("costo_entrada", 0.0) or 0.0),
                 "hora_llegada": hora_llegada_est.strftime("%H:%M"),
                 "hora_salida": hora_salida_vis_est.strftime("%H:%M"),
+                "clima": {
+                    "temperatura": clima_parada.get("temperatura") if clima_parada else None,
+                    "descripcion": clima_parada.get("descripcion") if clima_parada else None,
+                    "icono": clima_parada.get("icono") if clima_parada else None,
+                    "es_adversa": clima_parada.get("es_adversa", False) if clima_parada else False,
+                    "razon_adversa": clima_parada.get("razon_adversa") if clima_parada else None,
+                    "precipitacion_mm": clima_parada.get("precipitacion_mm") if clima_parada else None,
+                } if clima_parada else None,
             })
 
             dia_num_act = dia_idx + 1
@@ -1237,7 +1436,39 @@ def ejecutar_nsga2(
                 paradas_por_dia=paradas_por_dia_conteo,
             )
 
-        soluciones_procesadas.append({
+        # Clima por día (resumen de cada jornada)
+        clima_por_dia = {}
+        for d in range(1, num_dias_disponibles + 1):
+            fecha_d = fecha_inicio_viaje + timedelta(days=d - 1)
+            fecha_str_d = fecha_d.strftime('%Y-%m-%d')
+            
+            paradas_dia = [p for p in paradas_detalle if p['dia'] == d]
+            if paradas_dia and paradas_dia[0].get('clima'):
+                clima_por_dia[d] = paradas_dia[0]['clima']
+            elif clima_por_zona:
+                clima_ref = weather_service.obtener_clima_parada(clima_por_zona, 'centro', fecha_str_d, "12:00")
+                if clima_ref:
+                    clima_por_dia[d] = {
+                        'temperatura': clima_ref.get('temperatura'),
+                        'descripcion': clima_ref.get('descripcion'),
+                        'icono': clima_ref.get('icono'),
+                        'es_adversa': clima_ref.get('es_adversa', False),
+                        'razon_adversa': clima_ref.get('razon_adversa'),
+                        'precipitacion_mm': clima_ref.get('precipitacion_mm'),
+                    }
+
+        # Avisos de clima por parada
+        avisos_clima_parada = []
+        for p in paradas_detalle:
+            if p.get('clima') and p['clima'].get('es_adversa'):
+                avisos_clima_parada.append({
+                    'dia': p['dia'],
+                    'parada_numero': p['numero'],
+                    'atractivo': p['nombre'],
+                    'razon': p['clima'].get('razon_adversa'),
+                })
+
+        nueva_solucion = {
             "fecha_inicio": fecha_inicio_viaje.strftime("%Y-%m-%d"),
             "fecha_fin": fecha_fin_calculada.strftime("%Y-%m-%d"),
             "dias_totales": dias_totales,
@@ -1248,6 +1479,8 @@ def ejecutar_nsga2(
             "categorias": categorias_ordenadas,
             "subcategorias": subcategorias_ordenadas,
             "paradas": paradas_detalle,
+            "clima_por_dia": clima_por_dia,
+            "avisos_clima_parada": avisos_clima_parada,
             "tiempo_total_min": round(tiempo_total_min, 1),
             "tiempo_visitas_min": round(tiempo_visitas, 1),
             "tiempo_traslado_min": round(tiempo_traslados, 1),
@@ -1266,7 +1499,20 @@ def ejecutar_nsga2(
             },
             "tramos": tramos,
             "avisos_trafico": avisos_solucion,
-        })
+        }
+
+        # Redistribuir días vacíos sin tocar f1/f2
+        if num_dias_disponibles > 1:
+            _redistribuir_dias_vacios(
+                solucion=nueva_solucion,
+                atractivos_disponibles=atractivos_efectivos,
+                clima_por_zona=clima_por_zona,
+                num_dias=num_dias_disponibles,
+                hora_inicio_dia=hora_inicio_dia,
+                hora_fin_dia=hora_fin_dia,
+            )
+
+        soluciones_procesadas.append(nueva_solucion)
 
     # SEPARAR SOLUCIONES VIABLES Y NO VIABLES
     soluciones_viables_raw = [s for s in soluciones_procesadas if s["cumple_restricciones"]]
@@ -1409,6 +1655,11 @@ def ejecutar_nsga2(
             "diversidad": diversidad_por_gen,
         },
         "avisos_trafico": avisos_no_verdes_unicos,
+        "avisos_clima_global": {
+            "usar_clima": usar_clima,
+            "api_disponible": clima_por_zona is not None,
+            "atractivos_excluidos_clima": atractivos_excluidos_clima,
+        },
         "aviso_dias_cerrados": "⚠️ Algunos atractivos fueron excluidos por estar cerrados en las fechas seleccionadas." if hay_atractivos_excluidos else None,
         "atractivos_excluidos_cierre": [a["nombre"] for a in atractivos_cerrados_todos_los_dias] if hay_atractivos_excluidos else [],
         "parametros_usados": {

@@ -58,6 +58,7 @@ def preparar_datos_nsga2(
             "dias_cerrado": a.dias_cerrado or "",
             "horario_apertura": a.horario_apertura,
             "horario_cierre": a.horario_cierre,
+            "sensible_al_clima": bool(getattr(a, 'sensible_al_clima', False)),
         })
 
     # 2. Transportes
@@ -111,12 +112,13 @@ def generar_itinerarios(
     categorias_activas_ids: list[int] | None = None,
     subcategorias_activas_ids: list[int] | None = None,
     tiempo_disponible_horas: float | None = None,
+    usar_clima: bool = True,
     **kwargs: Any
 ) -> dict[str, Any]:
     """
     Orquesta el flujo de generación de itinerarios turísticos multiobjetivo con NSGA-II:
     1. Filtra estrictamente por categorías y subcategorías activas.
-    2. Ejecuta el motor genético NSGA-II con ruteo real OSRM, ventanas horarias, multi-día y tráfico.
+    2. Ejecuta el motor genético NSGA-II con ruteo real OSRM, ventanas horarias, multi-día, tráfico y clima.
     """
     # 1. Preparar datos desde la base de datos
     atractivos_data, transportes_data = preparar_datos_nsga2(
@@ -154,6 +156,7 @@ def generar_itinerarios(
         max_paradas=int(max_paradas),
         auto_rango_paradas=bool(auto_rango_paradas),
         tiempo_disponible_horas=tiempo_disponible_horas,
+        usar_clima=bool(usar_clima),
     )
 
     return resultado

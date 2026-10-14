@@ -68,6 +68,7 @@ def generar_action():
         num_personas = data.get('num_personas', 1)
         forzar_atractivos = bool(data.get('forzar_atractivos', False))
         forzar_transporte = bool(data.get('forzar_transporte', False))
+        usar_clima = bool(data.get('usar_clima', True))
         
         # Parámetros avanzados con valores por defecto
         tamano_poblacion = data.get('tamano_poblacion', 50)
@@ -217,6 +218,7 @@ def generar_action():
             auto_rango_paradas=auto_rango_paradas,
             categorias_activas_ids=categorias_activas_ids,
             subcategorias_activas_ids=subcategorias_activas_ids,
+            usar_clima=usar_clima,
         )
 
         return jsonify({

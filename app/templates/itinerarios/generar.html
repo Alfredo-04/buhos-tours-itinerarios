@@ -303,6 +303,19 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ==========================================
+  // TOGGLE CLIMA DESACTIVADO
+  // ==========================================
+  const chkUsarClima = document.getElementById('chkUsarClima');
+  const avisoClimaDesactivado = document.getElementById('avisoClimaDesactivado');
+  if (chkUsarClima && avisoClimaDesactivado) {
+    function actualizarAvisoClima() {
+      avisoClimaDesactivado.classList.toggle('d-none', chkUsarClima.checked);
+    }
+    chkUsarClima.addEventListener('change', actualizarAvisoClima);
+    actualizarAvisoClima();
+  }
+
+  // ==========================================
   // 1. PRESUPUESTO → USD
   // ==========================================
   function actualizarPreviewUSD() {
@@ -615,6 +628,7 @@ document.addEventListener('DOMContentLoaded', function () {
         categorias_activas_ids: categoriasActivasIds,
         subcategorias_activas_ids: subcategoriasActivasIds,
         intereses: intereses,
+        usar_clima: chkUsarClima ? chkUsarClima.checked : true,
         tamano_poblacion: 100,
         generaciones: 100,
         prob_cruce: 0.85,
@@ -671,6 +685,35 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         } else {
           bannerDiasCerrados?.classList.add('d-none');
+        }
+
+        // Banners de Clima
+        const bannerClimaDesactivado = document.getElementById('bannerClimaDesactivado');
+        if (bannerClimaDesactivado) {
+          bannerClimaDesactivado.classList.toggle('d-none', data.avisos_clima_global?.usar_clima !== false);
+        }
+
+        const bannerClimaNoDisponible = document.getElementById('bannerClimaNoDisponible');
+        if (bannerClimaNoDisponible) {
+          if (data.avisos_clima_global?.usar_clima && data.avisos_clima_global?.api_disponible === false) {
+            bannerClimaNoDisponible.classList.remove('d-none');
+          } else {
+            bannerClimaNoDisponible.classList.add('d-none');
+          }
+        }
+
+        const bannerAvisosClima = document.getElementById('bannerAvisosClima');
+        const detalleAvisosClima = document.getElementById('detalleAvisosClima');
+        const excluidosClima = data.avisos_clima_global?.atractivos_excluidos_clima || [];
+        if (bannerAvisosClima) {
+          if (excluidosClima.length > 0) {
+            bannerAvisosClima.classList.remove('d-none');
+            if (detalleAvisosClima) {
+              detalleAvisosClima.textContent = `Atractivos excluidos por clima adverso en todas las fechas: ${excluidosClima.map(a => a.nombre).join(', ')}.`;
+            }
+          } else {
+            bannerAvisosClima.classList.add('d-none');
+          }
         }
 
         // Banner tráfico
@@ -1007,23 +1050,64 @@ document.addEventListener('DOMContentLoaded', function () {
       const diaCap = infoDia.diaSemana || (paradasDelDia[0]?.dia_semana ? paradasDelDia[0].dia_semana.charAt(0).toUpperCase() + paradasDelDia[0].dia_semana.slice(1).toLowerCase() : '');
       const fechaFormateada = infoDia.fechaFormateada || (paradasDelDia[0]?.fecha ? paradasDelDia[0].fecha : '');
 
+      const climaDia = sol.clima_por_dia ? sol.clima_por_dia[d] : null;
+      let badgeClimaHTML = '';
+      if (climaDia) {
+        let colorBadge = 'bg-success-subtle text-success border-success-subtle';
+        if (climaDia.es_adversa) colorBadge = 'bg-danger-subtle text-danger border-danger-subtle';
+        else if (climaDia.precipitacion_mm > 0.1) colorBadge = 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
+
+        const tempStr = climaDia.temperatura != null ? `${Math.round(climaDia.temperatura)}°C` : '';
+        const precipStr = climaDia.precipitacion_mm > 0.1 ? `${climaDia.precipitacion_mm.toFixed(1)} mm/h` : '';
+
+        badgeClimaHTML = `
+          <span class="badge ${colorBadge} border d-inline-flex align-items-center gap-1 ms-auto py-1 px-2 fw-normal" style="font-size: 0.75rem;">
+            <i class="bi ${climaDia.icono || 'bi-cloud-fill'}"></i>
+            <span>${climaDia.descripcion || 'Sin datos'}</span>
+            ${tempStr ? `<span class="opacity-75">· ${tempStr}</span>` : ''}
+            ${precipStr ? `<span class="opacity-75">· ${precipStr}</span>` : ''}
+          </span>
+        `;
+      }
+
       // Encabezado del día
       const divDia = document.createElement('div');
-      divDia.className = 'd-flex align-items-center gap-2 p-2 px-3 rounded-3 bg-primary text-white fw-bold my-3 small shadow-sm';
+      divDia.className = 'd-flex align-items-center justify-content-between p-2 px-3 rounded-3 bg-primary text-white fw-bold my-3 small shadow-sm flex-wrap gap-2';
       divDia.innerHTML = `
-        <i class="bi bi-calendar2-week fs-6"></i>
-        <span>DÍA ${d}${diaCap ? ` — ${diaCap}` : ''}${fechaFormateada ? ` ${fechaFormateada}` : ''}</span>
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-calendar2-week fs-6"></i>
+          <span>DÍA ${d}${diaCap ? ` — ${diaCap}` : ''}${fechaFormateada ? ` ${fechaFormateada}` : ''}</span>
+        </div>
+        ${badgeClimaHTML}
       `;
       tl.appendChild(divDia);
 
       if (paradasDelDia.length === 0) {
+        const diaSemanaActual = (infoDia.diaSemana || '').toLowerCase();
+        const hayClimaAdverso = Boolean(climaDia && climaDia.es_adversa);
+        const hayAtractivosCerrados = Boolean(
+          (sol.paradas || []).some(p => {
+            const cerrados = (p.dias_cerrado || '').toLowerCase();
+            return cerrados.includes(diaSemanaActual);
+          }) || data.aviso_dias_cerrados
+        );
+
+        let causaTexto = 'Sin actividades programadas este día.';
+        if (hayAtractivosCerrados && hayClimaAdverso) {
+          causaTexto = 'Clima adverso y atractivos cerrados en este día. Las visitas se organizaron en los otros días del viaje.';
+        } else if (hayClimaAdverso) {
+          causaTexto = 'Condiciones climáticas adversas en este día. Las visitas se organizaron en los otros días del viaje.';
+        } else if (hayAtractivosCerrados) {
+          causaTexto = 'Atractivos cerrados o no disponibles en este día. Las visitas se organizaron en los otros días del viaje.';
+        }
+
         // Bloque de día vacío con aviso amarillo
         const divVacio = document.createElement('div');
         divVacio.className = 'alert alert-warning border-warning-subtle shadow-sm my-2 py-3 px-3 d-flex align-items-start gap-2 small';
         divVacio.innerHTML = `
           <i class="bi bi-exclamation-triangle-fill text-warning fs-5 flex-shrink-0 mt-1"></i>
           <div>
-            <strong>Sin actividades programadas:</strong> Este día no tiene actividades programadas porque los atractivos seleccionados están cerrados en esta fecha. Las visitas se distribuyeron en los días siguientes.
+            <strong>Sin actividades programadas:</strong> ${causaTexto}
           </div>
         `;
         tl.appendChild(divVacio);
@@ -1036,6 +1120,27 @@ document.addEventListener('DOMContentLoaded', function () {
           const cEnt = (parada.costo_entrada_bob || 0).toFixed(2);
           const subcat = parada.subcategoria || parada.categoria || 'General';
 
+          const climaParada = parada.clima;
+          let climaParadaHTML = '';
+          let avisoClimaHTML = '';
+          if (climaParada && climaParada.temperatura != null) {
+            const esAdv = climaParada.es_adversa;
+            const colorClima = esAdv ? 'bg-danger-subtle text-danger border-danger-subtle' : 'bg-light text-muted border';
+            climaParadaHTML = `
+              <span class="badge ${colorClima} border ms-1" style="font-size: 0.7rem;">
+                <i class="bi ${climaParada.icono || 'bi-cloud-fill'} me-1"></i>${climaParada.descripcion || ''} · ${Math.round(climaParada.temperatura)}°C
+              </span>
+            `;
+          }
+          if (climaParada && climaParada.es_adversa) {
+            avisoClimaHTML = `
+              <div class="mt-2 p-1 px-2 rounded bg-danger-subtle text-danger border border-danger-subtle d-inline-flex align-items-center gap-1" style="font-size: 0.75rem;">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <span><strong>Advertencia:</strong> ${climaParada.razon_adversa}</span>
+              </div>
+            `;
+          }
+
           const div = document.createElement('div');
           div.className = 'timeline-step';
           div.innerHTML = `
@@ -1043,11 +1148,15 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="card border bg-white p-3 shadow-none">
               <div class="d-flex justify-content-between align-items-start">
                 <div>
-                  <span class="badge bg-primary text-white mb-1 me-1">${subcat}</span>
+                  <div class="d-flex align-items-center flex-wrap gap-1 mb-1">
+                    <span class="badge bg-primary text-white">${subcat}</span>
+                    ${climaParadaHTML}
+                  </div>
                   <h6 class="fw-bold mb-1 text-dark">${parada.nombre}</h6>
                   <div class="small text-muted">
                     <i class="bi bi-clock me-1 text-primary"></i>${hLleg} - ${hSal} (${tVis} min) &middot; Entrada: Bs. ${cEnt}
                   </div>
+                  ${avisoClimaHTML}
                 </div>
                 <span class="badge bg-success-subtle text-success border border-success-subtle small">Parada #${parada.numero || (j + 1)}</span>
               </div>
