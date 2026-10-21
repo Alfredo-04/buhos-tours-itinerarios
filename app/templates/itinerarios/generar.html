@@ -104,13 +104,7 @@
     <div>
       <div class="d-flex align-items-center gap-2 mb-1">
         <h2 class="mb-0 fw-bold">Generación de Itinerarios</h2>
-        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1 small">
-          <i class="bi bi-cpu-fill me-1"></i> Motor NSGA-II
-        </span>
       </div>
-      <p class="text-muted mb-0">
-        Optimización multiobjetivo de rutas turísticas mediante algoritmos genéticos y ruteo real por calles (OSRM y matriz pre-calculada).
-      </p>
     </div>
 
     <!-- Indicador de Tipo de Cambio Oficial -->
@@ -200,6 +194,14 @@
           </div>
         </div>
 
+        <!-- Desglose Secuencial (Timeline) -->
+        <h6 class="fw-bold text-uppercase small text-muted mb-3" style="letter-spacing: 0.05em;">
+          <i class="bi bi-signpost-split-fill text-primary me-1"></i> Secuencia del Recorrido Paso a Paso
+        </h6>
+        <div id="modalTimelineContenido" class="ps-2">
+          <!-- Renderizado dinámico vía JavaScript -->
+        </div>
+
         <!-- Contenedor del Mapa Leaflet -->
         <div class="mt-3 mb-4">
           <div id="contenedorMapaItinerario" 
@@ -210,13 +212,7 @@
           </div>
         </div>
 
-        <!-- Desglose Secuencial (Timeline) -->
-        <h6 class="fw-bold text-uppercase small text-muted mb-3" style="letter-spacing: 0.05em;">
-          <i class="bi bi-signpost-split-fill text-primary me-1"></i> Secuencia del Recorrido Paso a Paso
-        </h6>
-        <div id="modalTimelineContenido" class="ps-2">
-          <!-- Renderizado dinámico vía JavaScript -->
-        </div>
+        
 
       </div>
 
