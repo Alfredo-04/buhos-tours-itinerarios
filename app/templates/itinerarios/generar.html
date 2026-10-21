@@ -93,6 +93,36 @@
   .categoria-desactivada {
     opacity: 0.5 !important;
   }
+  /* Corrección de color de texto en hover y active para el selector de moneda sobre fondo blanco */
+  .opcion-moneda:hover, 
+  .dropdown-item:hover, 
+  .opcion-moneda:focus, 
+  .dropdown-item:focus {
+    background-color: #d1d1d1 !important;
+    color: #212529 !important;
+  }
+
+  .opcion-moneda.active, 
+  .dropdown-item.active {
+    background-color: #5abdff !important;
+    color: #ffffff !important;
+  }
+
+  /* Forzar que el texto del selector de moneda sea siempre oscuro y visible */
+  #labelMonedaActual, 
+  .input-group-text.bg-white,
+  button.dropdown-toggle.text-white,
+  .selector-moneda-btn {
+    color: #212529 !important;
+  }
+
+  /* Si es un botón tipo Bootstrap que usa fondo claro o gris */
+  .input-group .btn-outline-secondary, 
+  .input-group .btn-light {
+    color: #0080ff !important;
+    background-color: #f8f9fa !important;
+    border-color: #ced4da !important;
+  }
 </style>
 {% endblock %}
 
@@ -119,20 +149,15 @@
     </div>
   </div>
 
-  <!-- Layout Principal de 2 Columnas -->
-  <div class="row g-4">
-    
-    <!-- Columna Izquierda: Formulario de Preferencias (35%) -->
-    <div class="col-12 col-lg-4 col-xl-4">
-      {% include "itinerarios/partials/panel_config.html" %}
-    </div>
+  <!-- SECCIÓN 1: FORMULARIO DE CONFIGURACIÓN (Arriba) -->
+  <div class="mb-5">
+    {% include "itinerarios/partials/panel_config.html" %}
+  </div>
 
-    <!-- Columna Derecha: Resultados y Operadores (65%) -->
-    <div class="col-12 col-lg-8 col-xl-8">
-      {% include "itinerarios/partials/panel_operadores.html" %}
-      {% include "itinerarios/partials/panel_resultados.html" %}
-    </div>
-
+  <!-- SECCIÓN 2: RESULTADOS Y OPERADORES (Abajo) -->
+  <div class="mb-5">
+    {% include "itinerarios/partials/panel_operadores.html" %}
+    {% include "itinerarios/partials/panel_resultados.html" %}
   </div>
 </div>
 
@@ -223,6 +248,25 @@
     </div>
   </div>
 </div>
+
+<!-- Modal Confirmar Reinicio -->
+<div class="modal fade" id="modalConfirmarReinicio" tabindex="-1" aria-labelledby="modalConfirmarReinicioLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-danger text-white border-0">
+        <h5 class="modal-title fw-bold" id="modalConfirmarReinicioLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>¿Reiniciar todo?</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body py-4">
+        <p class="mb-0">Se reiniciarán todos los parámetros configurados y las soluciones generadas actuales para empezar de nuevo.</p>
+      </div>
+      <div class="modal-footer border-0 bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="btnConfirmarReinicio">Sí, reiniciar página</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -249,13 +293,20 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ==========================================
-  // REFERENCIAS DOM
+  // REFERENCIAS DOM Y CONSTANTES DE PERSISTENCIA
   // ==========================================
+  const KEY_FORM = 'buhos_form_state_v1';
+  const KEY_RESULTS = 'buhos_results_state_v1';
+
+  const btnReiniciarForm = document.getElementById('btnReiniciarFormulario');
+  const btnConfirmarReinicio = document.getElementById('btnConfirmarReinicio');
+
   const btnGenerar = document.getElementById('btnGenerarItinerarios');
   const btnTextGenerar = document.getElementById('btnTextGenerar');
   const spinnerGenerar = document.getElementById('spinnerGenerar');
   const iconGenerar = document.getElementById('iconGenerar');
   const inputPresupuesto = document.getElementById('presupuesto_max');
+  const inputNumPersonas = document.getElementById('num_personas');
   const previewUSD = document.getElementById('previewPresupuestoUSD');
   const contadorAtractivos = document.getElementById('contadorAtractivosSeleccionados');
   const alertaAtractivos = document.getElementById('alertaAtractivosMinimos');
@@ -387,15 +438,157 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ==========================================
-  // 1. PRESUPUESTO → USD
+  // 1. LÍMITES ESTRICTOS Y SELECTOR DE MONEDA (PRESUPUESTO Y GRUPO)
   // ==========================================
-  function actualizarPreviewUSD() {
-    const bob = parseFloat(inputPresupuesto.value) || 0;
-    previewUSD.textContent = `$${(bob / TC_OFICIAL).toFixed(2)} USD`;
+  const LIMITE_PRESUPUESTO_BOB = 100000;
+  const LIMITE_PRESUPUESTO_USD = 15000;
+  const LIMITE_MAX_PERSONAS = 50;
+
+  // Límite de paradas dinámico según atractivos disponibles en el DOM (máx. 31)
+  const totalAtractivosDisponibles = document.querySelectorAll('.chk-atractivo').length;
+  const LIMITE_MAX_PARADAS = totalAtractivosDisponibles > 0 ? Math.min(31, totalAtractivosDisponibles) : 31;
+
+  let monedaSeleccionada = 'BOB';
+  const labelMonedaActual = document.getElementById('labelMonedaActual');
+
+  // Formateador estándar de 2 decimales para evitar desbordes visuales
+  const formateadorMoneda = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+  function actualizarEquivalenciaPresupuesto() {
+    if (!inputPresupuesto || !previewUSD) return;
+    const maxPermitido = monedaSeleccionada === 'BOB' ? LIMITE_PRESUPUESTO_BOB : LIMITE_PRESUPUESTO_USD;
+    let val = parseFloat(inputPresupuesto.value);
+
+    // Recortar automáticamente si se excede el máximo permitido
+    if (!isNaN(val) && val > maxPermitido) {
+      val = maxPermitido;
+      inputPresupuesto.value = maxPermitido;
+    }
+
+    if (isNaN(val) || val <= 0) {
+      previewUSD.textContent = monedaSeleccionada === 'BOB' ? '$0.00 USD' : 'Bs. 0.00 BOB';
+      return;
+    }
+
+    if (monedaSeleccionada === 'BOB') {
+      const usd = val / TC_OFICIAL;
+      previewUSD.textContent = `$${formateadorMoneda.format(usd)} USD`;
+      previewUSD.className = 'text-success fw-bold';
+    } else {
+      const bob = val * TC_OFICIAL;
+      previewUSD.textContent = `Bs. ${formateadorMoneda.format(bob)} BOB`;
+      previewUSD.className = 'text-primary fw-bold';
+    }
   }
-  if (inputPresupuesto && previewUSD) {
-    inputPresupuesto.addEventListener('input', actualizarPreviewUSD);
-    actualizarPreviewUSD();
+
+  // Alias para retrocompatibilidad
+  function actualizarPreviewUSD() {
+    actualizarEquivalenciaPresupuesto();
+  }
+
+  function cambiarMoneda(nuevaMoneda, reconvertirValor = true) {
+    if (nuevaMoneda !== 'BOB' && nuevaMoneda !== 'USD') return;
+    if (nuevaMoneda === monedaSeleccionada && reconvertirValor) return;
+
+    const anteriorMoneda = monedaSeleccionada;
+    monedaSeleccionada = nuevaMoneda;
+
+    const limiteMax = nuevaMoneda === 'BOB' ? LIMITE_PRESUPUESTO_BOB : LIMITE_PRESUPUESTO_USD;
+    if (inputPresupuesto) {
+      inputPresupuesto.max = limiteMax;
+    }
+
+    if (labelMonedaActual) {
+      labelMonedaActual.textContent = nuevaMoneda === 'BOB' ? 'Bs. BOB' : '$ USD';
+    }
+
+    document.querySelectorAll('.opcion-moneda').forEach(btn => {
+      const esActiva = btn.getAttribute('data-moneda') === nuevaMoneda;
+      btn.classList.toggle('active', esActiva);
+    });
+
+    if (reconvertirValor && inputPresupuesto) {
+      const val = parseFloat(inputPresupuesto.value);
+      if (!isNaN(val) && val > 0) {
+        let nuevoValor = val;
+        if (anteriorMoneda === 'BOB' && nuevaMoneda === 'USD') {
+          // De BOB a USD
+          nuevoValor = parseFloat((val / TC_OFICIAL).toFixed(2));
+        } else if (anteriorMoneda === 'USD' && nuevaMoneda === 'BOB') {
+          // De USD a BOB
+          nuevoValor = parseFloat((val * TC_OFICIAL).toFixed(2));
+        }
+        if (nuevoValor > limiteMax) nuevoValor = limiteMax;
+        inputPresupuesto.value = nuevoValor;
+      }
+    }
+
+    actualizarEquivalenciaPresupuesto();
+    if (typeof guardarEstadoFormulario === 'function') guardarEstadoFormulario();
+  }
+
+  if (inputPresupuesto) {
+    inputPresupuesto.min = 1;
+    inputPresupuesto.max = LIMITE_PRESUPUESTO_BOB;
+
+    // Recorte automático en input si excede el max
+    inputPresupuesto.addEventListener('input', function () {
+      const maxPermitido = monedaSeleccionada === 'BOB' ? LIMITE_PRESUPUESTO_BOB : LIMITE_PRESUPUESTO_USD;
+      const val = parseFloat(this.value);
+      if (!isNaN(val) && val > maxPermitido) {
+        this.value = maxPermitido;
+      }
+      actualizarEquivalenciaPresupuesto();
+    });
+
+    // Control al perder foco / cambio para valores menores a 1 o no válidos
+    inputPresupuesto.addEventListener('change', function () {
+      const maxPermitido = monedaSeleccionada === 'BOB' ? LIMITE_PRESUPUESTO_BOB : LIMITE_PRESUPUESTO_USD;
+      let val = parseFloat(this.value);
+      if (isNaN(val) || val < 1) {
+        this.value = 1;
+      } else if (val > maxPermitido) {
+        this.value = maxPermitido;
+      }
+      actualizarEquivalenciaPresupuesto();
+    });
+
+    actualizarEquivalenciaPresupuesto();
+  }
+
+  document.querySelectorAll('.opcion-moneda').forEach(btn => {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      const targetMoneda = this.getAttribute('data-moneda');
+      cambiarMoneda(targetMoneda, true);
+    });
+  });
+
+  // ==========================================
+  // VALIDACIÓN ESTRICTA: NÚMERO DE PERSONAS
+  // ==========================================
+  if (inputNumPersonas) {
+    inputNumPersonas.min = 1;
+    inputNumPersonas.max = LIMITE_MAX_PERSONAS;
+
+    inputNumPersonas.addEventListener('input', function () {
+      const val = parseInt(this.value, 10);
+      if (!isNaN(val) && val > LIMITE_MAX_PERSONAS) {
+        this.value = LIMITE_MAX_PERSONAS;
+      }
+    });
+
+    inputNumPersonas.addEventListener('change', function () {
+      let val = parseInt(this.value, 10);
+      if (isNaN(val) || val < 1) {
+        this.value = 1;
+      } else if (val > LIMITE_MAX_PERSONAS) {
+        this.value = LIMITE_MAX_PERSONAS;
+      }
+    });
   }
 
   // ==========================================
@@ -410,8 +603,66 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   // ==========================================
-  // 3. AUTO-RANGO PARADAS (inicia DESACTIVADO)
+  // 3. AUTO-RANGO PARADAS Y VALIDACIÓN ESTRICTA (MÍN - MÁX)
   // ==========================================
+  if (inputMinParadas) {
+    inputMinParadas.min = 1;
+    inputMinParadas.max = LIMITE_MAX_PARADAS;
+    inputMinParadas.placeholder = "Min (1)";
+
+    inputMinParadas.addEventListener('input', function () {
+      const val = parseInt(this.value, 10);
+      if (!isNaN(val) && val > LIMITE_MAX_PARADAS) {
+        this.value = LIMITE_MAX_PARADAS;
+      }
+    });
+
+    inputMinParadas.addEventListener('change', function () {
+      let minVal = parseInt(this.value, 10);
+      let maxVal = parseInt(inputMaxParadas?.value, 10);
+      if (isNaN(minVal) || minVal < 1) {
+        this.value = 1;
+        minVal = 1;
+      } else if (minVal > LIMITE_MAX_PARADAS) {
+        this.value = LIMITE_MAX_PARADAS;
+        minVal = LIMITE_MAX_PARADAS;
+      }
+      // Validar que min_paradas no sea mayor que max_paradas
+      if (inputMaxParadas && !isNaN(maxVal) && minVal > maxVal) {
+        inputMaxParadas.value = minVal;
+      }
+    });
+  }
+
+  if (inputMaxParadas) {
+    inputMaxParadas.min = 1;
+    inputMaxParadas.max = LIMITE_MAX_PARADAS;
+    inputMaxParadas.placeholder = `Max (${LIMITE_MAX_PARADAS})`;
+
+    inputMaxParadas.addEventListener('input', function () {
+      const val = parseInt(this.value, 10);
+      if (!isNaN(val) && val > LIMITE_MAX_PARADAS) {
+        this.value = LIMITE_MAX_PARADAS;
+      }
+    });
+
+    inputMaxParadas.addEventListener('change', function () {
+      let maxVal = parseInt(this.value, 10);
+      let minVal = parseInt(inputMinParadas?.value, 10);
+      if (isNaN(maxVal) || maxVal < 1) {
+        this.value = 1;
+        maxVal = 1;
+      } else if (maxVal > LIMITE_MAX_PARADAS) {
+        this.value = LIMITE_MAX_PARADAS;
+        maxVal = LIMITE_MAX_PARADAS;
+      }
+      // Validar que min_paradas no sea mayor que max_paradas
+      if (inputMinParadas && !isNaN(minVal) && maxVal < minVal) {
+        inputMinParadas.value = maxVal;
+      }
+    });
+  }
+
   function actualizarEstadoRangoParadas() {
     if (!chkAutoRango || !inputMinParadas || !inputMaxParadas) return;
     const autoActivo = chkAutoRango.checked;
@@ -561,6 +812,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (caja) caja.classList.remove('atractivo-desactivado');
       });
       actualizarConteoAtractivos();
+      if (typeof guardarEstadoFormulario === 'function') guardarEstadoFormulario();
     });
   }
 
@@ -574,6 +826,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (caja) caja.classList.add('atractivo-desactivado');
       });
       actualizarConteoAtractivos();
+      if (typeof guardarEstadoFormulario === 'function') guardarEstadoFormulario();
     });
   }
 
@@ -591,6 +844,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (caja) caja.classList.remove('atractivo-desactivado');
       });
       actualizarConteoAtractivos();
+      if (typeof guardarEstadoFormulario === 'function') guardarEstadoFormulario();
     });
   });
 
@@ -605,6 +859,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (caja) caja.classList.add('atractivo-desactivado');
       });
       actualizarConteoAtractivos();
+      if (typeof guardarEstadoFormulario === 'function') guardarEstadoFormulario();
     });
   });
 
@@ -620,7 +875,13 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       const transportesIds = Array.from(document.querySelectorAll('.chk-transporte:checked')).map(el => parseInt(el.value));
-      const numPersonas = parseInt(document.getElementById('num_personas').value) || 1;
+      const numPersonas = parseInt(document.getElementById('num_personas')?.value, 10) || 1;
+      if (isNaN(numPersonas) || numPersonas < 1 || numPersonas > LIMITE_MAX_PERSONAS) {
+        alert(`El número de personas debe estar entre 1 y ${LIMITE_MAX_PERSONAS}.`);
+        if (inputNumPersonas) inputNumPersonas.value = Math.min(Math.max(numPersonas || 1, 1), LIMITE_MAX_PERSONAS);
+        inputNumPersonas?.focus();
+        return;
+      }
 
       if (transportesIds.length === 1) {
         const chkUnico = document.querySelector('.chk-transporte:checked');
@@ -643,10 +904,19 @@ document.addEventListener('DOMContentLoaded', function () {
       const forzarAtractivos = document.getElementById('chkForzarAtractivos')?.checked || false;
       const forzarTransporte = document.getElementById('chkForzarTransporte')?.checked || false;
       const autoRango = chkAutoRango ? chkAutoRango.checked : false;
-      let minParadas = parseInt(inputMinParadas?.value) || 2;
-      let maxParadas = parseInt(inputMaxParadas?.value) || 15;
-      if (isNaN(minParadas) || minParadas < 1) minParadas = 2;
-      if (isNaN(maxParadas) || maxParadas < minParadas) maxParadas = Math.max(minParadas, 15);
+      let minParadas = parseInt(inputMinParadas?.value, 10) || 2;
+      let maxParadas = parseInt(inputMaxParadas?.value, 10) || 15;
+      if (!autoRango) {
+        if (isNaN(minParadas) || minParadas < 1) minParadas = 1;
+        if (minParadas > LIMITE_MAX_PARADAS) minParadas = LIMITE_MAX_PARADAS;
+        if (isNaN(maxParadas) || maxParadas < 1) maxParadas = 1;
+        if (maxParadas > LIMITE_MAX_PARADAS) maxParadas = LIMITE_MAX_PARADAS;
+        if (minParadas > maxParadas) {
+          alert(`El número mínimo de paradas (${minParadas}) no puede ser mayor que el máximo (${maxParadas}).`);
+          inputMinParadas?.focus();
+          return;
+        }
+      }
 
       const autoFechas = chkAutoFechas ? chkAutoFechas.checked : true;
       const fechaInicio = inputFechaInicio?.value || null;
@@ -681,10 +951,30 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       }
 
+      const valPresupuesto = parseFloat(inputPresupuesto ? inputPresupuesto.value : document.getElementById('presupuesto_max').value);
+      const maxPresupuestoPermitido = monedaSeleccionada === 'BOB' ? LIMITE_PRESUPUESTO_BOB : LIMITE_PRESUPUESTO_USD;
+      if (isNaN(valPresupuesto) || valPresupuesto <= 0) {
+        alert('El presupuesto debe ser un número positivo mayor a 0.');
+        inputPresupuesto?.focus();
+        return;
+      }
+      if (valPresupuesto > maxPresupuestoPermitido) {
+        alert(`El presupuesto máximo no puede exceder ${monedaSeleccionada === 'BOB' ? 'Bs. 100,000' : '$15,000 USD'}.`);
+        inputPresupuesto.value = maxPresupuestoPermitido;
+        actualizarEquivalenciaPresupuesto();
+        inputPresupuesto?.focus();
+        return;
+      }
+
+      // El algoritmo opera internamente en Bolivianos; convertir si está seleccionado USD
+      const presupuestoFinalBOB = monedaSeleccionada === 'USD'
+        ? Math.round((valPresupuesto * TC_OFICIAL) * 100) / 100
+        : valPresupuesto;
+
       const payload = {
         atractivos_ids: atractivosIds,
         transporte_ids: transportesIds,
-        presupuesto_max: parseFloat(document.getElementById('presupuesto_max').value),
+        presupuesto_max: presupuestoFinalBOB,
         fecha_inicio_viaje: fechaInicio,
         num_dias_disponibles: numDias,
         hora_inicio_dia: horaInicio,
@@ -721,127 +1011,12 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!res.success) throw new Error(res.error || 'Error al ejecutar el algoritmo.');
 
         const data = res.data;
-        const solucionesViables = data.soluciones_viables || (data.hay_viables ? (data.soluciones || []) : []);
-        const solucionesNoViables = data.soluciones_no_viables || (!data.hay_viables ? (data.soluciones || []) : []);
-        ultimasSoluciones = [...solucionesViables, ...solucionesNoViables];
-
-        estadoVacio.classList.add('d-none');
-        contenedorResultados.classList.remove('d-none');
-
-        // Banner informativo cuando NO hay viables (Restricciones muy estrictas)
-        const bannerNoViables = document.getElementById('bannerSolucionesNoViables');
-        const tituloTabla = document.getElementById('tituloTablaSoluciones');
-        const subtituloTabla = document.getElementById('subtituloTablaSoluciones');
-        if (!data.hay_viables) {
-          bannerNoViables?.classList.remove('d-none');
-          if (tituloTabla) tituloTabla.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-octagon-fill me-1"></i> Itinerarios Aproximados (Exceden Límites)</span>';
-          if (subtituloTabla) subtituloTabla.textContent = 'Mostrando las mejores 3-5 soluciones no viables con análisis y sugerencias.';
-        } else {
-          bannerNoViables?.classList.add('d-none');
-          if (tituloTabla) tituloTabla.textContent = 'Itinerarios Óptimos Generados';
-          if (subtituloTabla) subtituloTabla.textContent = 'Ordenados por cumplimiento, afinidad y tiempo total';
+        try {
+          localStorage.setItem(KEY_RESULTS, JSON.stringify(data));
+        } catch (e) {
+          console.error('Error al guardar resultados en localStorage:', e);
         }
-
-        // Banner de Días Cerrados
-        const bannerDiasCerrados = document.getElementById('bannerDiasCerrados');
-        const detalleDiasCerrados = document.getElementById('detalleAvisoDiasCerrados');
-        if (data.aviso_dias_cerrados && bannerDiasCerrados) {
-          bannerDiasCerrados.classList.remove('d-none');
-          if (detalleDiasCerrados) {
-            if (data.atractivos_excluidos_cierre?.length > 0) {
-              detalleDiasCerrados.textContent = `Atractivos no disponibles en las fechas seleccionadas: ${data.atractivos_excluidos_cierre.join(', ')}`;
-            } else {
-              detalleDiasCerrados.textContent = 'Algunos atractivos no atienden en los días seleccionados para tu viaje.';
-            }
-          }
-        } else {
-          bannerDiasCerrados?.classList.add('d-none');
-        }
-
-        // Banners de Clima
-        const bannerClimaDesactivado = document.getElementById('bannerClimaDesactivado');
-        if (bannerClimaDesactivado) {
-          bannerClimaDesactivado.classList.toggle('d-none', data.avisos_clima_global?.usar_clima !== false);
-        }
-
-        const bannerClimaNoDisponible = document.getElementById('bannerClimaNoDisponible');
-        if (bannerClimaNoDisponible) {
-          if (data.avisos_clima_global?.usar_clima && data.avisos_clima_global?.api_disponible === false) {
-            bannerClimaNoDisponible.classList.remove('d-none');
-          } else {
-            bannerClimaNoDisponible.classList.add('d-none');
-          }
-        }
-
-        const bannerAvisosClima = document.getElementById('bannerAvisosClima');
-        const detalleAvisosClima = document.getElementById('detalleAvisosClima');
-        const excluidosClima = data.avisos_clima_global?.atractivos_excluidos_clima || [];
-        if (bannerAvisosClima) {
-          if (excluidosClima.length > 0) {
-            bannerAvisosClima.classList.remove('d-none');
-            if (detalleAvisosClima) {
-              detalleAvisosClima.textContent = `Atractivos excluidos por clima adverso en todas las fechas: ${excluidosClima.map(a => a.nombre).join(', ')}.`;
-            }
-          } else {
-            bannerAvisosClima.classList.add('d-none');
-          }
-        }
-
-        // Banner tráfico
-        const bannerTrafico = document.getElementById('bannerAvisoTrafico');
-        const listaAvisos = document.getElementById('listaAvisosTrafico');
-        if (listaAvisos) listaAvisos.innerHTML = '';
-        if (data.avisos_trafico?.length > 0 && bannerTrafico) {
-          data.avisos_trafico.forEach(av => {
-            const li = document.createElement('li');
-            const nivelTexto = av.nivel_texto || traducirNivelTraficoJS(av.color_nivel, av.factor_congestion || av.factor);
-            const iconoNivel = av.color_nivel === 'rojo' ? '🔴' : (av.color_nivel === 'naranja' ? '🟠' : '🟡');
-            li.className = 'py-1';
-            li.innerHTML = `${iconoNivel} <strong>${av.zona_nombre || av.zona}</strong>: ${nivelTexto}`;
-            listaAvisos.appendChild(li);
-          });
-          bannerTrafico.classList.remove('d-none');
-        } else {
-          bannerTrafico?.classList.add('d-none');
-        }
-
-        // KPIs (basados en soluciones principales / viables)
-        const solsParaKPI = data.hay_viables ? solucionesViables : solucionesNoViables;
-        if (kpiSoluciones) kpiSoluciones.textContent = solsParaKPI.length;
-        if (kpiComputo) kpiComputo.textContent = `${data.tiempo_ejecucion_seg}s`;
-        if (solsParaKPI.length > 0) {
-          const maxAf = Math.max(...solsParaKPI.map(s => s.afinidad));
-          const minT = Math.min(...solsParaKPI.map(s => s.tiempo_total_min));
-          if (kpiAfinidad) kpiAfinidad.textContent = `${(maxAf * 100).toFixed(1)}%`;
-          if (kpiTiempo) kpiTiempo.textContent = `${Math.floor(minT / 60)}h ${Math.round(minT % 60)}m`;
-        }
-        if (badgeTotalSolucionesTabla) badgeTotalSolucionesTabla.textContent = `${solsParaKPI.length} soluciones`;
-
-        // Gráficos y tabla
-        renderizarGraficoPareto(data.frente_pareto, solsParaKPI);
-        renderizarGraficoConvergencia(data.historial_convergencia);
-        renderizarGraficoDiversidad(data.historial_diversidad);
-
-        // Renderizar Tabla Principal (Sección A)
-        renderizarTablaSoluciones(solsParaKPI, data.hay_viables);
-
-        // Renderizar Sección B: Soluciones que Exceden Límites (Colapsable)
-        const seccionNoViables = document.getElementById('seccionSolucionesNoViables');
-        const badgeNoViables = document.getElementById('badgeTotalSolucionesNoViables');
-        const tbodyNoViables = document.getElementById('tbodySolucionesNoViables');
-
-        if (data.hay_viables && solucionesNoViables.length > 0) {
-          // Si hay viables y también no viables: mostrar Sección B abajo
-          if (seccionNoViables) seccionNoViables.classList.remove('d-none');
-          if (badgeNoViables) badgeNoViables.textContent = `${solucionesNoViables.length} no viables`;
-          renderizarTablaNoViables(solucionesNoViables);
-        } else {
-          // Si no hay viables (las no viables ya están en la tabla principal), o si no hay ninguna no viable
-          if (seccionNoViables) seccionNoViables.classList.add('d-none');
-          if (tbodyNoViables) tbodyNoViables.innerHTML = '';
-        }
-
-        contenedorResultados.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        procesarYRenderizarResultados(data, true);
 
       } catch (err) {
         alert('Error: ' + err.message);
@@ -849,7 +1024,7 @@ document.addEventListener('DOMContentLoaded', function () {
         btnGenerar.disabled = false;
         spinnerGenerar.classList.add('d-none');
         iconGenerar.classList.remove('d-none');
-        btnTextGenerar.textContent = 'Generar Itinerarios Óptimos';
+        btnTextGenerar.textContent = 'Generar Itinerarios';
       }
     });
   }
@@ -1737,6 +1912,331 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+  // ==========================================
+  // FUNCIÓN PARA PROCESAR Y RENDERIZAR RESULTADOS
+  // ==========================================
+  function procesarYRenderizarResultados(data, hacerScroll = false) {
+    if (!data) return;
+
+    const solucionesViables = data.soluciones_viables || (data.hay_viables ? (data.soluciones || []) : []);
+    const solucionesNoViables = data.soluciones_no_viables || (!data.hay_viables ? (data.soluciones || []) : []);
+    ultimasSoluciones = [...solucionesViables, ...solucionesNoViables];
+
+    if (estadoVacio) estadoVacio.classList.add('d-none');
+    if (contenedorResultados) contenedorResultados.classList.remove('d-none');
+
+    // Banner informativo cuando NO hay viables (Restricciones muy estrictas)
+    const bannerNoViables = document.getElementById('bannerSolucionesNoViables');
+    const tituloTabla = document.getElementById('tituloTablaSoluciones');
+    const subtituloTabla = document.getElementById('subtituloTablaSoluciones');
+    if (!data.hay_viables) {
+      bannerNoViables?.classList.remove('d-none');
+      if (tituloTabla) tituloTabla.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-octagon-fill me-1"></i> Itinerarios Aproximados (Exceden Límites)</span>';
+      if (subtituloTabla) subtituloTabla.textContent = 'Mostrando las mejores soluciones no viables con análisis y sugerencias.';
+    } else {
+      bannerNoViables?.classList.add('d-none');
+      if (tituloTabla) tituloTabla.textContent = 'Itinerarios Óptimos Generados';
+      if (subtituloTabla) subtituloTabla.textContent = 'Ordenados por cumplimiento, afinidad y tiempo total';
+    }
+
+    // Banner de Días Cerrados
+    const bannerDiasCerrados = document.getElementById('bannerDiasCerrados');
+    const detalleDiasCerrados = document.getElementById('detalleAvisoDiasCerrados');
+    if (data.aviso_dias_cerrados && bannerDiasCerrados) {
+      bannerDiasCerrados.classList.remove('d-none');
+      if (detalleDiasCerrados) {
+        if (data.atractivos_excluidos_cierre?.length > 0) {
+          detalleDiasCerrados.textContent = `Atractivos no disponibles en las fechas seleccionadas: ${data.atractivos_excluidos_cierre.join(', ')}`;
+        } else {
+          detalleDiasCerrados.textContent = 'Algunos atractivos no atienden en los días seleccionados para tu viaje.';
+        }
+      }
+    } else {
+      bannerDiasCerrados?.classList.add('d-none');
+    }
+
+    // Banners de Clima
+    const bannerClimaDesactivado = document.getElementById('bannerClimaDesactivado');
+    if (bannerClimaDesactivado) {
+      bannerClimaDesactivado.classList.toggle('d-none', data.avisos_clima_global?.usar_clima !== false);
+    }
+
+    const bannerClimaNoDisponible = document.getElementById('bannerClimaNoDisponible');
+    if (bannerClimaNoDisponible) {
+      if (data.avisos_clima_global?.usar_clima && data.avisos_clima_global?.api_disponible === false) {
+        bannerClimaNoDisponible.classList.remove('d-none');
+      } else {
+        bannerClimaNoDisponible.classList.add('d-none');
+      }
+    }
+
+    const bannerAvisosClima = document.getElementById('bannerAvisosClima');
+    const detalleAvisosClima = document.getElementById('detalleAvisosClima');
+    const excluidosClima = data.avisos_clima_global?.atractivos_excluidos_clima || [];
+    if (bannerAvisosClima) {
+      if (excluidosClima.length > 0) {
+        bannerAvisosClima.classList.remove('d-none');
+        if (detalleAvisosClima) {
+          detalleAvisosClima.textContent = `Atractivos excluidos por clima adverso en todas las fechas: ${excluidosClima.map(a => a.nombre).join(', ')}.`;
+        }
+      } else {
+        bannerAvisosClima.classList.add('d-none');
+      }
+    }
+
+    // Banner tráfico
+    const bannerTrafico = document.getElementById('bannerAvisoTrafico');
+    const listaAvisos = document.getElementById('listaAvisosTrafico');
+    if (listaAvisos) listaAvisos.innerHTML = '';
+    if (data.avisos_trafico?.length > 0 && bannerTrafico) {
+      data.avisos_trafico.forEach(av => {
+        const li = document.createElement('li');
+        const nivelTexto = av.nivel_texto || traducirNivelTraficoJS(av.color_nivel, av.factor_congestion || av.factor);
+        const iconoNivel = av.color_nivel === 'rojo' ? '🔴' : (av.color_nivel === 'naranja' ? '🟠' : '🟡');
+        li.className = 'py-1';
+        li.innerHTML = `${iconoNivel} <strong>${av.zona_nombre || av.zona}</strong>: ${nivelTexto}`;
+        listaAvisos.appendChild(li);
+      });
+      bannerTrafico.classList.remove('d-none');
+    } else {
+      bannerTrafico?.classList.add('d-none');
+    }
+
+    // KPIs (basados en soluciones principales / viables)
+    const solsParaKPI = data.hay_viables ? solucionesViables : solucionesNoViables;
+    if (kpiSoluciones) kpiSoluciones.textContent = solsParaKPI.length;
+    if (kpiComputo) kpiComputo.textContent = `${data.tiempo_ejecucion_seg}s`;
+    if (solsParaKPI.length > 0) {
+      const maxAf = Math.max(...solsParaKPI.map(s => s.afinidad));
+      const minT = Math.min(...solsParaKPI.map(s => s.tiempo_total_min));
+      if (kpiAfinidad) kpiAfinidad.textContent = `${(maxAf * 100).toFixed(1)}%`;
+      if (kpiTiempo) kpiTiempo.textContent = `${Math.floor(minT / 60)}h ${Math.round(minT % 60)}m`;
+    }
+    if (badgeTotalSolucionesTabla) badgeTotalSolucionesTabla.textContent = `${solsParaKPI.length} soluciones`;
+
+    // Gráficos y tabla
+    renderizarGraficoPareto(data.frente_pareto, solsParaKPI);
+    renderizarGraficoConvergencia(data.historial_convergencia);
+    renderizarGraficoDiversidad(data.historial_diversidad);
+
+    // Renderizar Tabla Principal (Sección A)
+    renderizarTablaSoluciones(solsParaKPI, data.hay_viables);
+
+    // Renderizar Sección B: Soluciones que Exceden Límites (Colapsable)
+    const seccionNoViables = document.getElementById('seccionSolucionesNoViables');
+    const badgeNoViables = document.getElementById('badgeTotalSolucionesNoViables');
+    const tbodyNoViables = document.getElementById('tbodySolucionesNoViables');
+
+    if (data.hay_viables && solucionesNoViables.length > 0) {
+      if (seccionNoViables) seccionNoViables.classList.remove('d-none');
+      if (badgeNoViables) badgeNoViables.textContent = `${solucionesNoViables.length} no viables`;
+      renderizarTablaNoViables(solucionesNoViables);
+    } else {
+      if (seccionNoViables) seccionNoViables.classList.add('d-none');
+      if (tbodyNoViables) tbodyNoViables.innerHTML = '';
+    }
+
+    if (hacerScroll && contenedorResultados) {
+      contenedorResultados.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  // ==========================================
+  // PERSISTENCIA DE FORMULARIO (localStorage)
+  // ==========================================
+  function guardarEstadoFormulario() {
+    const formState = {
+      moneda: monedaSeleccionada,
+      presupuesto: document.getElementById('presupuesto_max')?.value,
+      num_personas: document.getElementById('num_personas')?.value,
+      min_paradas: document.getElementById('min_paradas')?.value,
+      max_paradas: document.getElementById('max_paradas')?.value,
+      auto_rango: document.getElementById('chkAutoRangoParadas')?.checked,
+      fecha_inicio: document.getElementById('fecha_inicio_viaje')?.value,
+      dias: document.getElementById('num_dias_disponibles')?.value,
+      hora_inicio: document.getElementById('hora_inicio_dia')?.value,
+      hora_fin: document.getElementById('hora_fin_dia')?.value,
+      auto_fechas: document.getElementById('chkAutoFechas')?.checked,
+      usar_clima: document.getElementById('chkUsarClima')?.checked,
+      forzar_atractivos: document.getElementById('chkForzarAtractivos')?.checked,
+      forzar_transporte: document.getElementById('chkForzarTransporte')?.checked,
+      atractivos: Array.from(document.querySelectorAll('.chk-atractivo:checked')).map(c => parseInt(c.value)),
+      transportes: Array.from(document.querySelectorAll('.chk-transporte:checked')).map(c => parseInt(c.value)),
+      categorias: Array.from(document.querySelectorAll('.chk-categoria-padre:checked')).map(c => parseInt(c.value)),
+      subcategorias: Array.from(document.querySelectorAll('.chk-subcategoria:checked')).map(c => parseInt(c.value)),
+      sliders: {}
+    };
+
+    document.querySelectorAll('.slider-interes').forEach(s => {
+      if (s.id) {
+        formState.sliders[s.id] = s.value;
+      }
+    });
+
+    try {
+      localStorage.setItem(KEY_FORM, JSON.stringify(formState));
+    } catch (e) {
+      console.error('Error guardando estado del formulario:', e);
+    }
+  }
+
+  const formGen = document.getElementById('formGenerarItinerario');
+  if (formGen) {
+    formGen.addEventListener('change', guardarEstadoFormulario);
+    formGen.addEventListener('input', guardarEstadoFormulario);
+  }
+
+  // ==========================================
+  // RESTAURACIÓN DESDE LOCALSTORAGE AL CARGAR
+  // ==========================================
+  // 1. Restaurar Formulario
+  const savedForm = localStorage.getItem(KEY_FORM);
+  if (savedForm) {
+    try {
+      const state = JSON.parse(savedForm);
+      if (state.moneda && (state.moneda === 'USD' || state.moneda === 'BOB')) {
+        cambiarMoneda(state.moneda, false);
+      }
+      if (state.presupuesto !== undefined && inputPresupuesto) {
+        inputPresupuesto.value = state.presupuesto;
+        if (typeof actualizarEquivalenciaPresupuesto === 'function') {
+          actualizarEquivalenciaPresupuesto();
+        }
+      }
+      if (state.num_personas !== undefined && inputNumPersonas) {
+        const p = parseInt(state.num_personas, 10);
+        inputNumPersonas.value = !isNaN(p) ? Math.min(Math.max(p, 1), LIMITE_MAX_PERSONAS) : 1;
+      }
+      if (state.min_paradas !== undefined && inputMinParadas) {
+        const mp = parseInt(state.min_paradas, 10);
+        inputMinParadas.value = !isNaN(mp) ? Math.min(Math.max(mp, 1), LIMITE_MAX_PARADAS) : 4;
+      }
+      if (state.max_paradas !== undefined && inputMaxParadas) {
+        const xp = parseInt(state.max_paradas, 10);
+        inputMaxParadas.value = !isNaN(xp) ? Math.min(Math.max(xp, 1), LIMITE_MAX_PARADAS) : 10;
+      }
+      if (state.auto_rango !== undefined && chkAutoRango) {
+        chkAutoRango.checked = !!state.auto_rango;
+        if (typeof actualizarEstadoRangoParadas === 'function') actualizarEstadoRangoParadas();
+      }
+      if (state.fecha_inicio !== undefined && inputFechaInicio) {
+        inputFechaInicio.value = state.fecha_inicio;
+      }
+      if (state.dias !== undefined && inputNumDias) {
+        inputNumDias.value = state.dias;
+      }
+      if (state.hora_inicio !== undefined && inputHoraInicio) {
+        inputHoraInicio.value = state.hora_inicio;
+      }
+      if (state.hora_fin !== undefined && inputHoraFin) {
+        inputHoraFin.value = state.hora_fin;
+      }
+      if (state.auto_fechas !== undefined && chkAutoFechas) {
+        chkAutoFechas.checked = !!state.auto_fechas;
+        if (typeof actualizarEstadoAutoFechas === 'function') actualizarEstadoAutoFechas();
+      }
+      if (state.usar_clima !== undefined && chkUsarClima) {
+        chkUsarClima.checked = !!state.usar_clima;
+        if (typeof actualizarAvisoClima === 'function') actualizarAvisoClima();
+      }
+      if (state.forzar_atractivos !== undefined && document.getElementById('chkForzarAtractivos')) {
+        document.getElementById('chkForzarAtractivos').checked = !!state.forzar_atractivos;
+      }
+      if (state.forzar_transporte !== undefined && document.getElementById('chkForzarTransporte')) {
+        document.getElementById('chkForzarTransporte').checked = !!state.forzar_transporte;
+      }
+
+      // Checkboxes de transportes
+      if (Array.isArray(state.transportes)) {
+        document.querySelectorAll('.chk-transporte').forEach(c => {
+          c.checked = state.transportes.includes(parseInt(c.value));
+        });
+      }
+
+      // Checkboxes de categorías
+      if (Array.isArray(state.categorias)) {
+        document.querySelectorAll('.chk-categoria-padre').forEach(c => {
+          const catId = c.getAttribute('data-cat-id');
+          const activa = state.categorias.includes(parseInt(c.value));
+          c.checked = activa;
+          const tarjeta = c.closest('.p-3');
+          const sliderCat = document.getElementById(`slider_cat_${catId}`);
+          if (sliderCat) {
+            sliderCat.disabled = !activa;
+            sliderCat.classList.toggle('slider-desactivado', !activa);
+          }
+          if (tarjeta) tarjeta.classList.toggle('categoria-desactivada', !activa);
+        });
+      }
+
+      // Checkboxes de subcategorías
+      if (Array.isArray(state.subcategorias)) {
+        document.querySelectorAll('.chk-subcategoria').forEach(c => {
+          const subcatId = c.getAttribute('data-subcat-id');
+          const activa = state.subcategorias.includes(parseInt(c.value));
+          c.checked = activa;
+          const filaSub = c.closest('.py-1');
+          const sliderSub = document.getElementById(`slider_subcat_${subcatId}`);
+          if (sliderSub) {
+            sliderSub.disabled = !activa;
+            sliderSub.classList.toggle('slider-desactivado', !activa);
+          }
+          if (filaSub) filaSub.classList.toggle('subcategoria-desactivada', !activa);
+        });
+      }
+
+      // Checkboxes de atractivos
+      if (Array.isArray(state.atractivos)) {
+        document.querySelectorAll('.chk-atractivo').forEach(c => {
+          const activa = state.atractivos.includes(parseInt(c.value));
+          c.checked = activa;
+          const caja = c.closest('.item-atractivo-box');
+          if (caja) caja.classList.toggle('atractivo-desactivado', !activa);
+        });
+        if (typeof actualizarConteoAtractivos === 'function') actualizarConteoAtractivos();
+      }
+
+      // Sliders
+      if (state.sliders && typeof state.sliders === 'object') {
+        Object.keys(state.sliders).forEach(id => {
+          const slider = document.getElementById(id);
+          if (slider) {
+            slider.value = state.sliders[id];
+            slider.dispatchEvent(new Event('input'));
+          }
+        });
+      }
+
+    } catch (e) {
+      console.error('Error restaurando formulario desde localStorage:', e);
+    }
+  }
+
+  // 2. Restaurar Resultados
+  const savedResults = localStorage.getItem(KEY_RESULTS);
+  if (savedResults) {
+    try {
+      const data = JSON.parse(savedResults);
+      procesarYRenderizarResultados(data, false);
+    } catch (e) {
+      console.error('Error restaurando resultados desde localStorage:', e);
+    }
+  }
+
+  // 3. Lógica del Reinicio
+  btnReiniciarForm?.addEventListener('click', () => {
+    const modalEl = document.getElementById('modalConfirmarReinicio');
+    if (modalEl) {
+      const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+      modal.show();
+    }
+  });
+
+  btnConfirmarReinicio?.addEventListener('click', () => {
+    localStorage.removeItem(KEY_FORM);
+    localStorage.removeItem(KEY_RESULTS);
+    window.location.reload();
+  });
 });
 </script>
 {% endblock %}

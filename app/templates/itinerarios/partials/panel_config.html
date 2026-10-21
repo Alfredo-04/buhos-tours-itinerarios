@@ -2,337 +2,381 @@
 <div class="card card-custom border-0 shadow-sm mb-4">
   <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0 d-flex align-items-center justify-content-between">
     <div class="d-flex align-items-center gap-2">
-      <div class="rounded-circle p-2 d-flex align-items-center justify-content-center" style="background: var(--color-ai-bg); color: var(--color-ai-accent); width: 38px; height: 38px;">
+      <div class="rounded-circle p-2 d-flex align-items-center justify-content-center" style="background: var(--color-ai-bg, #EEF2FF); color: var(--color-ai-accent, #4F46E5); width: 38px; height: 38px;">
         <i class="bi bi-sliders2-vertical fs-5"></i>
       </div>
       <div>
-        <h5 class="mb-0 fw-bold">Parámetros de Entrada</h5>
-        <small class="text-muted">Define preferencias y restricciones del viaje</small>
+        <h5 class="mb-0 fw-bold">Parámetros de Generación</h5>
+        <small class="text-muted">Define preferencias y restricciones del itinerario</small>
       </div>
     </div>
+    <button type="button" class="btn btn-outline-danger btn-sm" id="btnReiniciarFormulario" title="Restablecer valores por defecto">
+      <i class="bi bi-arrow-counterclockwise"></i> Reiniciar
+    </button>
   </div>
 
   <div class="card-body p-4">
     <form id="formGenerarItinerario" onsubmit="return false;">
       
-      <!-- 1. Restricciones (Presupuesto, Personas, Paradas) -->
-      <div class="mb-4">
-        <label class="form-label fw-semibold text-uppercase small text-muted mb-2" style="letter-spacing: 0.05em;">
-          <i class="bi bi-wallet2 text-primary me-1"></i> Presupuesto y Grupo
-        </label>
+      <div class="row g-4">
         
-        <div class="row g-3">
-          <div class="col-12 col-sm-6">
-            <label for="presupuesto_max" class="form-label small fw-medium">Presupuesto Máximo</label>
-            <div class="input-group">
-              <span class="input-group-text bg-light text-muted small">Bs.</span>
-              <input type="number" class="form-control" id="presupuesto_max" name="presupuesto_max" value="1500" min="10" step="5" required>
-            </div>
-            <div class="form-text small text-muted d-flex justify-content-between">
-              <span>Equivalente:</span>
-              <strong id="previewPresupuestoUSD" class="text-success">$0.00 USD</strong>
-            </div>
-          </div>
-
-          <div class="col-12 col-sm-6">
-            <label for="num_personas" class="form-label small fw-medium">Número de Personas</label>
-            <div class="input-group">
-              <span class="input-group-text bg-light text-muted small"><i class="bi bi-people-fill"></i></span>
-              <input type="number" class="form-control" id="num_personas" name="num_personas" value="1" min="1" max="60" required>
-            </div>
-            <div class="form-text small text-muted">Tamaño del grupo de turistas.</div>
-          </div>
-
-          <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-              <label class="form-label small fw-medium mb-0">Rango de Paradas (Mín - Máx)</label>
-            </div>
-            <div class="input-group" id="contenedorRangoParadas">
-              <span class="input-group-text bg-light text-muted small"><i class="bi bi-signpost-split"></i></span>
-              <input type="number" class="form-control" id="min_paradas" name="min_paradas" value="4" min="1" max="50" placeholder="Min (2)" disabled style="opacity: 0.55;">
-              <span class="input-group-text bg-light text-muted small">a</span>
-              <input type="number" class="form-control" id="max_paradas" name="max_paradas" value="10" min="2" max="50" placeholder="Max (15)" disabled style="opacity: 0.55;">
-            </div>
-            <div class="form-check form-switch mt-2">
-              <input class="form-check-input" type="checkbox" role="switch" id="chkAutoRangoParadas" checked>
-              <label class="form-check-label small text-muted cursor-pointer" for="chkAutoRangoParadas">
-                <i class="bi bi-magic text-primary me-1"></i> Dejar que el algoritmo decida la cantidad de paradas
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <hr class="my-3 text-muted opacity-25">
-
-      <!-- Fechas y Ventana Horaria (Multi-día) -->
-      <div class="mb-4">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-          <label class="form-label fw-semibold text-uppercase small text-muted mb-0" style="letter-spacing: 0.05em;">
-            <i class="bi bi-calendar-range text-primary me-1"></i> Fechas y Horarios del Viaje
-          </label>
-        </div>
-
-        <div class="form-check form-switch mb-3 p-2 bg-light rounded border">
-          <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="chkAutoFechas">
-          <label class="form-check-label small fw-medium text-dark cursor-pointer" for="chkAutoFechas">
-            <i class="bi bi-magic text-primary me-1"></i> Dejar que el algoritmo decida las fechas y horarios óptimos
-          </label>
-          <div class="form-text small text-muted ps-4" style="font-size: 0.75rem;">
-            Usa valores recomendados (inicia mañana, hasta 3 días, horario 09:00 a 18:00).
-          </div>
-        </div>
-
-        <div id="contenedorFechasHorarios" class="row g-3">
-          <div class="col-12 col-sm-6">
-            <label for="fecha_inicio_viaje" class="form-label small fw-medium">Fecha de Inicio del Viaje</label>
-            <div class="input-group">
-              <span class="input-group-text bg-light text-muted small"><i class="bi bi-calendar-event"></i></span>
-              <input type="date" class="form-control" id="fecha_inicio_viaje" name="fecha_inicio_viaje">
-            </div>
-            <div class="form-text small text-muted">Desde cuándo estará disponible el turista.</div>
-          </div>
-
-          <div class="col-12 col-sm-6">
-            <label for="num_dias_disponibles" class="form-label small fw-medium">Días Disponibles</label>
-            <div class="input-group">
-              <span class="input-group-text bg-light text-muted small"><i class="bi bi-calendar3"></i></span>
-              <input type="number" class="form-control" id="num_dias_disponibles" name="num_dias_disponibles" min="1" max="14" value="3">
-              <span class="input-group-text bg-light text-muted small">días</span>
-            </div>
-            <div class="form-text small text-muted">Máximo de días que puede durar el itinerario (1 a 14).</div>
-          </div>
-
-          <div class="col-12">
-            <label class="form-label small fw-medium">Ventana Horaria Diaria</label>
-            <div class="input-group">
-              <span class="input-group-text bg-light text-muted small"><i class="bi bi-clock"></i> De</span>
-              <input type="time" class="form-control" id="hora_inicio_dia" name="hora_inicio_dia" min="06:00" max="19:00" value="09:00">
-              <span class="input-group-text bg-light text-muted small">a</span>
-              <input type="time" class="form-control" id="hora_fin_dia" name="hora_fin_dia" min="06:30" max="19:59" value="18:00">
-            </div>
-            <div class="form-text small text-muted">Rango horario en que el turista puede realizar actividades cada día (06:00 a 19:59).</div>
-          </div>
-
-          <div class="col-12">
-            <div class="form-check form-switch p-2 ps-5 bg-white border rounded mb-2">
-              <input class="form-check-input" type="checkbox" role="switch" id="chkUsarClima" checked>
-              <label class="form-check-label small fw-semibold text-dark cursor-pointer" for="chkUsarClima">
-                <i class="bi bi-cloud-sun-fill text-info me-1"></i> Considerar clima en la generación
-              </label>
-              <div class="text-muted" style="font-size: 0.7rem;">
-                Los atractivos al aire libre con pronóstico adverso serán excluidos o trasladados.
+        <!-- TARJETA 1: Presupuesto y Grupo (col-12 col-lg-4) -->
+        <div class="col-12 col-lg-4">
+          <div class="p-3 bg-light rounded border h-100 d-flex flex-column">
+            <h6 class="fw-bold text-muted small text-uppercase mb-3 d-flex align-items-center gap-2" style="letter-spacing: 0.05em;">
+              <i class="bi bi-wallet2 text-primary"></i> Presupuesto y Grupo
+            </h6>
+            
+            <div class="row g-3">
+              <div class="col-12 col-sm-6">
+                <label for="presupuesto_max" class="form-label small fw-medium">Presupuesto Máximo</label>
+                <div class="input-group">
+                  <button class="btn btn-outline-secondary dropdown-toggle d-flex align-items-center gap-1 px-2 fw-semibold" 
+                          type="button" 
+                          id="btnMonedaPresupuesto" 
+                          data-bs-toggle="dropdown" 
+                          aria-expanded="false" 
+                          style="font-size: 0.8rem; background-color: #F8FAFC;" 
+                          title="Cambiar moneda (BOB / USD)">
+                    <span id="labelMonedaActual">Bs. BOB</span>
+                  </button>
+                  <ul class="dropdown-menu shadow-sm py-1" style="min-width: 170px; font-size: 0.82rem;">
+                    <li>
+                      <button type="button" class="dropdown-item py-2 d-flex align-items-center gap-2 opcion-moneda active" data-moneda="BOB" id="optMonedaBOB">
+                        <i class="bi bi-cash-stack text-success fs-6"></i>
+                        <div>
+                          <strong>Bs. BOB</strong>
+                          <small class="text-muted d-block" style="font-size: 0.7rem;">Bolivianos</small>
+                        </div>
+                      </button>
+                    </li>
+                    <li><hr class="dropdown-divider my-1"></li>
+                    <li>
+                      <button type="button" class="dropdown-item py-2 d-flex align-items-center gap-2 opcion-moneda" data-moneda="USD" id="optMonedaUSD">
+                        <i class="bi bi-currency-dollar text-primary fs-6"></i>
+                        <div>
+                          <strong>$ USD</strong>
+                          <small class="text-muted d-block" style="font-size: 0.7rem;">Dólares Americanos</small>
+                        </div>
+                      </button>
+                    </li>
+                  </ul>
+                  <input type="number" class="form-control" id="presupuesto_max" name="presupuesto_max" value="1500" min="1" max="100000" step="any" required placeholder="0.00">
+                </div>
+                <div class="form-text small text-muted d-flex justify-content-between align-items-center mt-1">
+                  <span>Equivalente:</span>
+                  <strong id="previewPresupuestoUSD" class="text-success">$215.52 USD</strong>
+                </div>
               </div>
-            </div>
 
-            <div id="avisoClimaDesactivado" class="alert alert-info py-2 px-3 small mt-2 d-none" role="alert">
-              <i class="bi bi-info-circle me-1"></i>
-              El clima no será considerado. Los atractivos al aire libre podrían verse afectados por lluvia o viento.
-            </div>
-          </div>
-        </div>
-      </div>
+              <div class="col-12 col-sm-6">
+                <label for="num_personas" class="form-label small fw-medium">Número de Personas</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-white text-muted small"><i class="bi bi-people-fill"></i></span>
+                  <input type="number" class="form-control" id="num_personas" name="num_personas" value="1" min="1" max="50" required>
+                </div>
+                <div class="form-text small text-muted">Tamaño del grupo (1 a 50).</div>
+              </div>
 
-      <hr class="my-4 text-muted opacity-25">
-
-      <!-- 2. Intereses por Categoría y Subcategorías -->
-      <div class="mb-4">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-          <label class="form-label fw-semibold text-uppercase small text-muted mb-0" style="letter-spacing: 0.05em;">
-            <i class="bi bi-heart-pulse-fill text-danger me-1"></i> Categorías y Subcategorías
-          </label>
-          <span class="badge bg-light text-dark border small">Peso 0.0 - 1.0</span>
-        </div>
-        <p class="small text-muted mb-3">Marca las categorías o subcategorías de tu interés y ajusta su ponderación para el algoritmo.</p>
-
-        <div class="d-flex flex-column gap-3" id="contenedorCategoriasSubcategorias">
-          {% for cat in categorias %}
-            {% set subcats_cat = cat.subcategorias|selectattr('deleted_at', 'none')|list %}
-            <div class="p-3 rounded bg-light border">
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <div class="form-check mb-0">
-                  <input class="form-check-input chk-categoria-padre" type="checkbox" value="{{ cat.id_categoria }}" id="chk_cat_padre_{{ cat.id_categoria }}" checked data-cat-id="{{ cat.id_categoria }}">
-                  <label class="form-check-label fw-bold small text-dark cursor-pointer" for="chk_cat_padre_{{ cat.id_categoria }}">
-                    <i class="bi bi-tag-fill text-primary me-1"></i> {{ cat.nombre }}
+              <div class="col-12">
+                <label class="form-label small fw-medium mb-1">Rango de Paradas (Mín - Máx)</label>
+                <div class="input-group" id="contenedorRangoParadas">
+                  <span class="input-group-text bg-white text-muted small"><i class="bi bi-signpost-split"></i></span>
+                  <input type="number" class="form-control" id="min_paradas" name="min_paradas" value="4" min="1" max="31" placeholder="Min (1)" disabled style="opacity: 0.55;">
+                  <span class="input-group-text bg-white text-muted small">a</span>
+                  <input type="number" class="form-control" id="max_paradas" name="max_paradas" value="10" min="1" max="31" placeholder="Max (31)" disabled style="opacity: 0.55;">
+                </div>
+                <div class="form-check form-switch mt-2">
+                  <input class="form-check-input" type="checkbox" role="switch" id="chkAutoRangoParadas" checked>
+                  <label class="form-check-label small text-muted cursor-pointer" for="chkAutoRangoParadas">
+                    <i class="bi bi-magic text-primary me-1"></i> Cantidad de paradas automática
                   </label>
                 </div>
-                <div class="d-flex align-items-center gap-2">
-                  <span class="badge rounded-pill bg-white text-dark border px-2 py-1 small fw-bold" id="badge_cat_{{ cat.id_categoria }}">0.70</span>
-                </div>
               </div>
-
-              <!-- Slider para la categoría general -->
-              <input type="range" class="form-range slider-interes slider-cat-general mb-2" 
-                     id="slider_cat_{{ cat.id_categoria }}" 
-                     data-cat-nombre="{{ cat.nombre }}" 
-                     data-badge-id="badge_cat_{{ cat.id_categoria }}"
-                     min="0.0" max="1.0" step="0.05" value="0.70">
-
-              <!-- Subcategorías anidadas con pesos individuales -->
-              {% if subcats_cat|length > 0 %}
-                <div class="ms-3 ps-2 border-start mt-2 contenedor-subcats-anidadas" id="subcats_de_cat_{{ cat.id_categoria }}">
-                  <small class="text-muted fw-semibold d-block mb-1" style="font-size: 0.72rem;">Subcategorías:</small>
-                  {% for subcat in subcats_cat %}
-                    <div class="py-1">
-                      <div class="d-flex justify-content-between align-items-center">
-                        <div class="form-check mb-0">
-                          <input class="form-check-input chk-subcategoria chk-subcat-de-cat-{{ cat.id_categoria }}" type="checkbox" value="{{ subcat.id_subcategoria }}" id="chk_subcat_{{ subcat.id_subcategoria }}" checked data-subcat-nombre="{{ subcat.nombre }}" data-cat-id="{{ cat.id_categoria }}" data-subcat-id="{{ subcat.id_subcategoria }}">
-                          <label class="form-check-label small text-muted cursor-pointer" for="chk_subcat_{{ subcat.id_subcategoria }}">
-                            {{ subcat.nombre }}
-                          </label>
-                        </div>
-                        <span class="badge bg-white text-muted border small px-2 py-0" id="badge_subcat_{{ subcat.id_subcategoria }}">0.70</span>
-                      </div>
-                      <input type="range" class="form-range slider-interes slider-subcategoria slider-subcat-de-cat-{{ cat.id_categoria }}" 
-                             id="slider_subcat_{{ subcat.id_subcategoria }}" 
-                             data-cat-nombre="{{ subcat.nombre }}" 
-                             data-badge-id="badge_subcat_{{ subcat.id_subcategoria }}"
-                             min="0.0" max="1.0" step="0.05" value="0.70" style="height: 4px;">
-                    </div>
-                  {% endfor %}
-                </div>
-              {% endif %}
             </div>
-          {% endfor %}
-        </div>
-      </div>
-
-      <hr class="my-4 text-muted opacity-25">
-
-      <!-- 3. Selección de Atractivos Turísticos (Agrupados por Categoría y Subcategoría) -->
-      <div class="mb-4">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-          <label class="form-label fw-semibold text-uppercase small text-muted mb-0" style="letter-spacing: 0.05em;">
-            <i class="bi bi-geo-alt-fill text-success me-1"></i> Atractivos Turísticos
-          </label>
-          <div class="btn-group btn-group-sm">
-            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;" id="btnSelectAllAtractivos">Todos</button>
-            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;" id="btnDeselectAllAtractivos">Ninguno</button>
           </div>
         </div>
 
-        <!-- Opción de Forzar Atractivos Seleccionados -->
-        <div class="form-check form-switch p-2 ps-5 bg-white border rounded mb-2">
-          <input class="form-check-input" type="checkbox" role="switch" id="chkForzarAtractivos">
-          <label class="form-check-label small fw-semibold text-dark cursor-pointer" for="chkForzarAtractivos">
-            <i class="bi bi-pin-angle-fill text-danger me-1"></i> Forzar todos los atractivos seleccionados
-          </label>
-          <div class="text-muted" style="font-size: 0.7rem;">
-            Si está activo, el itinerario incluirá obligatoriamente TODOS los puntos marcados. Si está desactivado (recomendado), el algoritmo optimiza el mejor subconjunto.
-          </div>
-        </div>
-
-        <p class="small text-muted mb-2">
-          Si marcas varios, el algoritmo optimiza cuáles incluir y su orden. Si dejas todo sin marcar, optimiza sobre todo el catálogo.
-        </p>
-
-        <div class="accordion accordion-flush border rounded" id="accordionAtractivos">
-          {% for cat in categorias %}
-            {% set atractivos_cat = cat.atractivos|selectattr('deleted_at', 'none')|list %}
-            {% if atractivos_cat|length > 0 %}
-              <div class="accordion-item">
-                <h2 class="accordion-header d-flex align-items-center bg-light" id="headingCat_{{ cat.id_categoria }}">
-                  <button class="accordion-button py-2 px-3 collapsed bg-light flex-grow-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCat_{{ cat.id_categoria }}" aria-expanded="false">
-                    <span class="fw-semibold small">{{ cat.nombre }}</span>
-                    <span class="badge bg-secondary ms-2 rounded-pill small" style="font-size: 0.7rem;">{{ atractivos_cat|length }}</span>
-                  </button>
-                  <div class="pe-3 d-flex gap-1">
-                    <button type="button" class="btn btn-link btn-sm text-primary p-0 btn-cat-select-all" data-cat-id="{{ cat.id_categoria }}" style="font-size: 0.7rem;">Todos</button>
-                    <span class="text-muted small">|</span>
-                    <button type="button" class="btn btn-link btn-sm text-secondary p-0 btn-cat-clear" data-cat-id="{{ cat.id_categoria }}" style="font-size: 0.7rem;">Limpiar</button>
-                  </div>
-                </h2>
-                <div id="collapseCat_{{ cat.id_categoria }}" class="accordion-collapse collapse show">
-                  <div class="accordion-body p-2">
-                    {% for a in atractivos_cat %}
-                      <div class="form-check py-1 px-4 rounded hover-bg-light item-atractivo-box" data-cat-id="{{ cat.id_categoria }}" data-subcat-id="{{ a.id_subcategoria }}">
-                        <input class="form-check-input chk-atractivo chk-atr-cat-{{ cat.id_categoria }} chk-atr-subcat-{{ a.id_subcategoria }}" 
-                               type="checkbox" 
-                               value="{{ a.id_atractivo }}" 
-                               id="chk_atr_{{ a.id_atractivo }}" 
-                               data-cat-id="{{ cat.id_categoria }}" 
-                               data-subcat-id="{{ a.id_subcategoria }}" 
-                               checked>
-                        <label class="form-check-label small d-flex justify-content-between align-items-center w-100 cursor-pointer" for="chk_atr_{{ a.id_atractivo }}">
-                          <span class="text-truncate me-2 fw-medium" title="{{ a.nombre }}">
-                            {{ a.nombre }}
-                            <span class="badge bg-light text-muted border ms-1" style="font-size: 0.65rem;">{{ a.subcategoria.nombre }}</span>
-                          </span>
-                          <span class="badge bg-light text-muted border small" style="font-size: 0.7rem;">
-                            {{ a.tiempo_visita_estimado or 60 }} min | Bs. {{ "%.2f"|format(a.costo_entrada or 0) }}
-                          </span>
-                        </label>
-                      </div>
-                    {% endfor %}
-                  </div>
-                </div>
-              </div>
-            {% endif %}
-          {% endfor %}
-        </div>
-        <div class="small text-muted mt-2 d-flex justify-content-between">
-          <span>Seleccionados: <strong id="contadorAtractivosSeleccionados">0</strong></span>
-          <span id="alertaAtractivosMinimos" class="text-info small d-none"><i class="bi bi-info-circle me-1"></i>Sin selección: se optimizará sobre todo el catálogo</span>
-        </div>
-      </div>
-
-      <hr class="my-4 text-muted opacity-25">
-
-      <!-- 4. Medios de Transporte Disponibles -->
-      <div class="mb-4">
-        <label class="form-label fw-semibold text-uppercase small text-muted mb-2" style="letter-spacing: 0.05em;">
-          <i class="bi bi-bus-front-fill text-warning me-1"></i> Medios de Transporte
-        </label>
-        <!-- Opción de Forzar Transporte Seleccionado -->
-        <div class="form-check form-switch p-2 ps-5 bg-white border rounded mb-2">
-          <input class="form-check-input" type="checkbox" role="switch" id="chkForzarTransporte">
-          <label class="form-check-label small fw-semibold text-dark cursor-pointer" for="chkForzarTransporte">
-            <i class="bi bi-lock-fill text-warning me-1"></i> Forzar transporte único
-          </label>
-          <div class="text-muted" style="font-size: 0.7rem;">
-            Obliga a utilizar exclusivamente el transporte marcado para toda la jornada.
-          </div>
-        </div>
-
-        <p class="small text-muted mb-2">
-          <strong>Regla:</strong> Si marcas 1 solo, se usará obligatoriamente en todos los tramos. Si marcas varios, el algoritmo elige el mejor según distancia (caminata si &lt; 300m), capacidad y costo diario.
-        </p>
-
-        <div class="d-flex flex-column gap-2">
-          {% for t in transportes %}
-            <div class="form-check p-2 ps-4 border rounded hover-bg-light">
-              <input class="form-check-input chk-transporte" type="checkbox" value="{{ t.id_transporte }}" id="chk_trans_{{ t.id_transporte }}" checked data-capacidad="{{ t.capacidad or 999 }}">
-              <label class="form-check-label small d-flex justify-content-between align-items-center w-100 cursor-pointer" for="chk_trans_{{ t.id_transporte }}">
-                <div>
-                  <div class="fw-semibold">{{ t.nombre }}</div>
-                  <div class="text-muted" style="font-size: 0.72rem;">
-                    Tipo: {{ t.tipo }} | Vel: {{ t.velocidad_promedio_kmh }} km/h | Cap: {{ t.capacidad or 'Ilimitada' }} pers.
-                  </div>
-                </div>
-                <div class="text-end">
-                  <span class="badge bg-light text-dark border">
-                    Bs. {{ "%.2f"|format(t.costo or 0) }}
-                  </span>
-                  <div class="text-muted small" style="font-size: 0.7rem;">({{ t.tipo_costo|replace('_', ' ') }})</div>
-                </div>
+        <!-- TARJETA 2: Fechas y Horarios (col-12 col-lg-4) -->
+        <div class="col-12 col-lg-4">
+          <div class="p-3 bg-light rounded border h-100 d-flex flex-column">
+            <h6 class="fw-bold text-muted small text-uppercase mb-3 d-flex align-items-center gap-2" style="letter-spacing: 0.05em;">
+              <i class="bi bi-calendar-range text-primary"></i> Fechas y Horarios
+            </h6>
+            
+            <div class="form-check form-switch mb-3 p-2 bg-white rounded border">
+              <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="chkAutoFechas">
+              <label class="form-check-label small fw-medium text-dark cursor-pointer" for="chkAutoFechas">
+                <i class="bi bi-magic text-primary me-1"></i> Fechas y horarios automáticos
               </label>
+              <div class="form-text small text-muted ps-4" style="font-size: 0.72rem;">
+                Recomendado (inicia mañana, 3 días, 09:00 a 18:00).
+              </div>
             </div>
-          {% endfor %}
-        </div>
-      </div>
 
-      <!-- 5. Parámetros Calibrados Internos (Ocultos para el usuario final según especificación) -->
+            <div id="contenedorFechasHorarios" class="row g-3">
+              <div class="col-12 col-sm-6">
+                <label for="fecha_inicio_viaje" class="form-label small fw-medium">Fecha de Inicio</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-white text-muted small"><i class="bi bi-calendar-event"></i></span>
+                  <input type="date" class="form-control" id="fecha_inicio_viaje" name="fecha_inicio_viaje">
+                </div>
+                <div class="form-text small text-muted" style="font-size: 0.72rem;">Comienzo del viaje.</div>
+              </div>
+
+              <div class="col-12 col-sm-6">
+                <label for="num_dias_disponibles" class="form-label small fw-medium">Días Disponibles</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-white text-muted small"><i class="bi bi-calendar3"></i></span>
+                  <input type="number" class="form-control" id="num_dias_disponibles" name="num_dias_disponibles" min="1" max="14" value="3">
+                  <span class="input-group-text bg-white text-muted small">días</span>
+                </div>
+                <div class="form-text small text-muted" style="font-size: 0.72rem;">Duración (1 a 14).</div>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label small fw-medium">Ventana Horaria Diaria</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-white text-muted small"><i class="bi bi-clock"></i> De</span>
+                  <input type="time" class="form-control" id="hora_inicio_dia" name="hora_inicio_dia" min="06:00" max="19:00" value="09:00">
+                  <span class="input-group-text bg-white text-muted small">a</span>
+                  <input type="time" class="form-control" id="hora_fin_dia" name="hora_fin_dia" min="06:30" max="19:59" value="18:00">
+                </div>
+                <div class="form-text small text-muted" style="font-size: 0.72rem;">Rango permitido cada día (06:00 a 19:59).</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TARJETA 3: Medios de Transporte (col-12 col-lg-4) -->
+        <div class="col-12 col-lg-4">
+          <div class="p-3 bg-light rounded border h-100 d-flex flex-column">
+            <!-- Cabecera con título y switch de forzar transporte -->
+            <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+              <h6 class="fw-bold text-muted small text-uppercase mb-0 d-flex align-items-center gap-1" style="letter-spacing: 0.05em; font-size: 0.75rem;">
+                <i class="bi bi-bus-front-fill text-warning"></i> Transporte
+              </h6>
+              <div class="form-check form-switch m-0 ps-4">
+                <input class="form-check-input" type="checkbox" role="switch" id="chkForzarTransporte" style="cursor: pointer;">
+                <label class="form-check-label small fw-semibold text-dark cursor-pointer mb-0" for="chkForzarTransporte" style="font-size: 0.72rem;">
+                  <i class="bi bi-lock-fill text-warning me-1"></i> Forzar único
+                </label>
+              </div>
+            </div>
+
+            <p class="text-muted mb-2" style="font-size: 0.72rem; line-height: 1.25;">
+              Elige opciones de traslado o activa <em>forzar</em> para usar exclusivamente un vehículo.
+            </p>
+
+            <!-- Lista de vehículos scrollable con altura suficiente para 4 transportes completos -->
+            <div class="d-flex flex-column gap-2 overflow-auto pe-1 flex-grow-1" style="max-height: 360px;">
+              {% for t in transportes %}
+                <div class="py-2 px-3 bg-white rounded border hover-bg-light" style="height: auto;">
+                  <div class="d-flex align-items-center justify-content-between gap-2 w-100">
+                    <!-- Checkbox + Info vehículo -->
+                    <div class="d-flex align-items-start gap-2 flex-grow-1 min-w-0" style="min-width: 0;">
+                      <input class="form-check-input mt-1 chk-transporte flex-shrink-0" type="checkbox" value="{{ t.id_transporte }}" id="chk_trans_{{ t.id_transporte }}" checked data-capacidad="{{ t.capacidad or 999 }}">
+                      <label class="form-check-label w-100 cursor-pointer mb-0 text-truncate" for="chk_trans_{{ t.id_transporte }}">
+                        <div class="fw-semibold text-dark text-truncate" style="font-size: 0.82rem;" title="{{ t.nombre }}">{{ t.nombre }}</div>
+                        <div class="text-muted text-truncate" style="font-size: 0.7rem; line-height: 1.2;" title="{{ t.tipo }} | {{ t.velocidad_promedio_kmh }} km/h | Cap: {{ t.capacidad or 'Ilim.' }}">
+                          {{ t.tipo }} · {{ t.velocidad_promedio_kmh }} km/h · Cap: {{ t.capacidad or 'Ilim.' }}
+                        </div>
+                      </label>
+                    </div>
+                    <!-- Tarifa a la derecha -->
+                    <div class="text-end flex-shrink-0">
+                      <span class="badge bg-light text-dark border fw-bold" style="font-size: 0.72rem;">
+                        Bs. {{ "%.2f"|format(t.costo or 0) }}
+                      </span>
+                      <div class="text-muted" style="font-size: 0.65rem;">({{ t.tipo_costo|replace('_', ' ') }})</div>
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- FRANJA HORIZONTAL: CLIMA Y CONDICIONES (col-12) -->
+        <div class="col-12">
+          <div class="p-3 bg-light rounded border">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+              <div class="d-flex align-items-center gap-3">
+                <div class="form-check form-switch m-0 ps-5">
+                  <input class="form-check-input" type="checkbox" role="switch" id="chkUsarClima" checked style="cursor: pointer;">
+                  <label class="form-check-label fw-semibold text-dark cursor-pointer mb-0" for="chkUsarClima">
+                    <i class="bi bi-cloud-sun-fill text-info me-1"></i> Considerar clima en la generación
+                  </label>
+                  <div class="text-muted small" style="font-size: 0.75rem;">
+                    Los atractivos al aire libre con pronóstico adverso serán excluidos o trasladados a días despejados.
+                  </div>
+                </div>
+              </div>
+              <div id="avisoClimaDesactivado" class="alert alert-info py-1 px-3 small mb-0 d-none" role="alert" style="font-size: 0.75rem;">
+                <i class="bi bi-info-circle me-1"></i>
+                Clima no considerado: atractivos exteriores podrían verse afectados por lluvias o viento.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TARJETA 5: Preferencias de Interés (col-12 col-lg-6) -->
+        <div class="col-12 col-lg-6">
+          <div class="p-3 bg-light rounded border h-100 d-flex flex-column">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <h6 class="fw-bold text-muted small text-uppercase mb-0 d-flex align-items-center gap-2" style="letter-spacing: 0.05em;">
+                <i class="bi bi-heart-pulse-fill text-danger"></i> Preferencias de Interés
+              </h6>
+              <span class="badge bg-white text-dark border small">Peso 0.0 - 1.0</span>
+            </div>
+            <p class="small text-muted mb-3" style="font-size: 0.75rem;">
+              Marca las categorías o subcategorías y pondera su afinidad para el algoritmo.
+            </p>
+
+            <div class="d-flex flex-column gap-3 overflow-auto pe-1" id="contenedorCategoriasSubcategorias" style="max-height: 480px;">
+              {% for cat in categorias %}
+                {% set subcats_cat = cat.subcategorias|selectattr('deleted_at', 'none')|list %}
+                <div class="p-3 rounded bg-white border">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="form-check mb-0">
+                      <input class="form-check-input chk-categoria-padre" type="checkbox" value="{{ cat.id_categoria }}" id="chk_cat_padre_{{ cat.id_categoria }}" checked data-cat-id="{{ cat.id_categoria }}">
+                      <label class="form-check-label fw-bold small text-dark cursor-pointer" for="chk_cat_padre_{{ cat.id_categoria }}">
+                        <i class="bi bi-tag-fill text-primary me-1"></i> {{ cat.nombre }}
+                      </label>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="badge rounded-pill bg-light text-dark border px-2 py-1 small fw-bold" id="badge_cat_{{ cat.id_categoria }}">0.70</span>
+                    </div>
+                  </div>
+
+                  <!-- Slider para la categoría general -->
+                  <input type="range" class="form-range slider-interes slider-cat-general mb-2" 
+                         id="slider_cat_{{ cat.id_categoria }}" 
+                         data-cat-nombre="{{ cat.nombre }}" 
+                         data-badge-id="badge_cat_{{ cat.id_categoria }}"
+                         min="0.0" max="1.0" step="0.05" value="0.70">
+
+                  <!-- Subcategorías anidadas con pesos individuales -->
+                  {% if subcats_cat|length > 0 %}
+                    <div class="ms-3 ps-2 border-start mt-2 contenedor-subcats-anidadas" id="subcats_de_cat_{{ cat.id_categoria }}">
+                      <small class="text-muted fw-semibold d-block mb-1" style="font-size: 0.72rem;">Subcategorías:</small>
+                      {% for subcat in subcats_cat %}
+                        <div class="py-1">
+                          <div class="d-flex justify-content-between align-items-center">
+                            <div class="form-check mb-0">
+                              <input class="form-check-input chk-subcategoria chk-subcat-de-cat-{{ cat.id_categoria }}" type="checkbox" value="{{ subcat.id_subcategoria }}" id="chk_subcat_{{ subcat.id_subcategoria }}" checked data-subcat-nombre="{{ subcat.nombre }}" data-cat-id="{{ cat.id_categoria }}" data-subcat-id="{{ subcat.id_subcategoria }}">
+                              <label class="form-check-label small text-muted cursor-pointer" for="chk_subcat_{{ subcat.id_subcategoria }}">
+                                {{ subcat.nombre }}
+                              </label>
+                            </div>
+                            <span class="badge bg-light text-muted border small px-2 py-0" id="badge_subcat_{{ subcat.id_subcategoria }}">0.70</span>
+                          </div>
+                          <input type="range" class="form-range slider-interes slider-subcategoria slider-subcat-de-cat-{{ cat.id_categoria }}" 
+                                 id="slider_subcat_{{ subcat.id_subcategoria }}" 
+                                 data-cat-nombre="{{ subcat.nombre }}" 
+                                 data-badge-id="badge_subcat_{{ subcat.id_subcategoria }}"
+                                 min="0.0" max="1.0" step="0.05" value="0.70" style="height: 4px;">
+                        </div>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- TARJETA 6: Atractivos Turísticos (col-12 col-lg-6) -->
+        <div class="col-12 col-lg-6">
+          <div class="p-3 bg-light rounded border h-100 d-flex flex-column">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <h6 class="fw-bold text-muted small text-uppercase mb-0 d-flex align-items-center gap-2" style="letter-spacing: 0.05em;">
+                <i class="bi bi-geo-alt-fill text-success"></i> Selección de Atractivos
+              </h6>
+              <div class="btn-group btn-group-sm">
+                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.72rem;" id="btnSelectAllAtractivos">Todos</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.72rem;" id="btnDeselectAllAtractivos">Ninguno</button>
+              </div>
+            </div>
+
+            <!-- Opción de Forzar Atractivos Seleccionados -->
+            <div class="form-check form-switch p-2 ps-5 bg-white border rounded mb-2">
+              <input class="form-check-input" type="checkbox" role="switch" id="chkForzarAtractivos">
+              <label class="form-check-label small fw-semibold text-dark cursor-pointer" for="chkForzarAtractivos">
+                <i class="bi bi-pin-angle-fill text-danger me-1"></i> Forzar todos los atractivos seleccionados
+              </label>
+              <div class="text-muted" style="font-size: 0.7rem;">
+                Si está activo, obliga a incluir todos los puntos marcados. Desactivado (recomendado): el algoritmo optimiza el mejor subconjunto.
+              </div>
+            </div>
+
+            <!-- Acordeón Atractivos -->
+            <div class="accordion accordion-flush border rounded overflow-auto flex-grow-1 bg-white" id="accordionAtractivos" style="max-height: 400px;">
+              {% for cat in categorias %}
+                {% set atractivos_cat = cat.atractivos|selectattr('deleted_at', 'none')|list %}
+                {% if atractivos_cat|length > 0 %}
+                  <div class="accordion-item">
+                    <h2 class="accordion-header d-flex align-items-center bg-light" id="headingCat_{{ cat.id_categoria }}">
+                      <button class="accordion-button py-2 px-3 collapsed bg-light flex-grow-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCat_{{ cat.id_categoria }}" aria-expanded="false">
+                        <span class="fw-semibold small">{{ cat.nombre }}</span>
+                        <span class="badge bg-secondary ms-2 rounded-pill small" style="font-size: 0.7rem;">{{ atractivos_cat|length }}</span>
+                      </button>
+                      <div class="pe-3 d-flex gap-1">
+                        <button type="button" class="btn btn-link btn-sm text-primary p-0 btn-cat-select-all" data-cat-id="{{ cat.id_categoria }}" style="font-size: 0.7rem;">Todos</button>
+                        <span class="text-muted small">|</span>
+                        <button type="button" class="btn btn-link btn-sm text-secondary p-0 btn-cat-clear" data-cat-id="{{ cat.id_categoria }}" style="font-size: 0.7rem;">Limpiar</button>
+                      </div>
+                    </h2>
+                    <div id="collapseCat_{{ cat.id_categoria }}" class="accordion-collapse collapse show">
+                      <div class="accordion-body p-2">
+                        {% for a in atractivos_cat %}
+                          <div class="form-check py-1 px-4 rounded hover-bg-light item-atractivo-box" data-cat-id="{{ cat.id_categoria }}" data-subcat-id="{{ a.id_subcategoria }}">
+                            <input class="form-check-input chk-atractivo chk-atr-cat-{{ cat.id_categoria }} chk-atr-subcat-{{ a.id_subcategoria }}" 
+                                   type="checkbox" 
+                                   value="{{ a.id_atractivo }}" 
+                                   id="chk_atr_{{ a.id_atractivo }}" 
+                                   data-cat-id="{{ cat.id_categoria }}" 
+                                   data-subcat-id="{{ a.id_subcategoria }}" 
+                                   checked>
+                            <label class="form-check-label small d-flex justify-content-between align-items-center w-100 cursor-pointer" for="chk_atr_{{ a.id_atractivo }}">
+                              <span class="text-truncate me-2 fw-medium" title="{{ a.nombre }}">
+                                {{ a.nombre }}
+                                <span class="badge bg-light text-muted border ms-1" style="font-size: 0.65rem;">{{ a.subcategoria.nombre }}</span>
+                              </span>
+                              <span class="badge bg-light text-muted border small" style="font-size: 0.7rem;">
+                                {{ a.tiempo_visita_estimado or 60 }} min | Bs. {{ "%.2f"|format(a.costo_entrada or 0) }}
+                              </span>
+                            </label>
+                          </div>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+
+            <div class="small text-muted mt-2 d-flex justify-content-between pt-1">
+              <span>Seleccionados: <strong id="contadorAtractivosSeleccionados" class="text-primary">0</strong></span>
+              <span id="alertaAtractivosMinimos" class="text-info small d-none"><i class="bi bi-info-circle me-1"></i>Sin selección: catálogo completo</span>
+            </div>
+          </div>
+        </div>
+
+      </div> <!-- Fin del row g-4 -->
+
+      <!-- Parámetros Calibrados Internos (Ocultos) -->
       <input type="hidden" id="tamano_poblacion" name="tamano_poblacion" value="50">
       <input type="hidden" id="generaciones" name="generaciones" value="40">
       <input type="hidden" id="prob_cruce" name="prob_cruce" value="0.9">
       <input type="hidden" id="prob_mutacion" name="prob_mutacion" value="0.1">
 
-      <!-- Botón Principal de Ejecución -->
-      <div class="d-grid mt-4">
-        <button type="button" class="btn btn-primary py-3 fw-bold d-flex align-items-center justify-content-center gap-2 shadow-sm" id="btnGenerarItinerarios">
-          <i class="bi bi-cpu-fill fs-5" id="iconGenerar"></i>
+      <!-- Botón de Generar (Centrado abajo) -->
+      <div class="d-flex justify-content-center mt-4">
+        <button type="button" class="btn btn-primary btn-lg px-5 py-3 fw-bold shadow d-flex align-items-center justify-content-center gap-2" id="btnGenerarItinerarios">
+          <i class="bi bi-cpu-fill fs-4" id="iconGenerar"></i>
           <span class="spinner-border spinner-border-sm d-none" id="spinnerGenerar" role="status" aria-hidden="true"></span>
-          <span id="btnTextGenerar">Generar Itinerarios Óptimos</span>
+          <span id="btnTextGenerar">Generar Itinerarios</span>
         </button>
       </div>
 
