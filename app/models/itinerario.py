@@ -17,6 +17,17 @@ class Itinerario(db.Model):
     # Soft delete
     deleted_at = db.Column(db.DateTime, nullable=True, default=None)
 
+    # --- NUEVOS CAMPOS ---
+    afinidad = db.Column(db.Numeric(5, 4), nullable=True)  # % de afinidad (0.0000 a 1.0000)
+    costo_total_bob = db.Column(db.Numeric(10, 2), nullable=True)
+    costo_entradas_bob = db.Column(db.Numeric(10, 2), nullable=True)
+    costo_transporte_bob = db.Column(db.Numeric(10, 2), nullable=True)
+    distancia_total_km = db.Column(db.Numeric(8, 2), nullable=True)
+    fecha_inicio = db.Column(db.Date, nullable=True)
+    fecha_fin = db.Column(db.Date, nullable=True)
+    dias_totales = db.Column(db.Integer, nullable=True, default=1)
+    es_viable = db.Column(db.Boolean, nullable=False, default=True)
+
     # Relación con GENERACION
     generacion = db.relationship('Generacion', backref='itinerarios', lazy=True)
 

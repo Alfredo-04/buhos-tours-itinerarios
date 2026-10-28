@@ -1,9 +1,15 @@
 from typing import Any
+from datetime import datetime, timedelta
+import hashlib
+import json
 from app.models.atractivo import Atractivo
 from app.models.subcategoria import Subcategoria
 from app.models.transporte import Transporte
 from app.models.categoria import Categoria
+from app.models.generacion import Generacion
+from app.models.consulta_nsga2 import ConsultaNSGA2
 from app.services.nsga2_service import ejecutar_nsga2
+from app import db
 
 
 def preparar_datos_nsga2(
@@ -113,14 +119,128 @@ def generar_itinerarios(
     subcategorias_activas_ids: list[int] | None = None,
     tiempo_disponible_horas: float | None = None,
     usar_clima: bool = True,
+    id_usuario: int | None = None,
     **kwargs: Any
 ) -> dict[str, Any]:
     """
     Orquesta el flujo de generación de itinerarios turísticos multiobjetivo con NSGA-II:
-    1. Filtra estrictamente por categorías y subcategorías activas.
-    2. Ejecuta el motor genético NSGA-II con ruteo real OSRM, ventanas horarias, multi-día, tráfico y clima.
+    1. Validaciones de integridad de entrada (min/max paradas, cantidad de atractivos).
+    2. Rate limiting (3 seg) y deduplicación (2 min) por usuario para evitar spam.
+    3. Carga y filtro de atractivos y transportes disponibles.
+    4. Ejecución del algoritmo NSGA-II multiobjetivo.
+    5. Persistencia y auditoría de la consulta en las tablas Generacion y ConsultaNSGA2.
     """
-    # 1. Preparar datos desde la base de datos
+    # 1. VALIDACIÓN DE INTEGRIDAD (Payload)
+    if min_paradas is not None and max_paradas is not None and min_paradas > max_paradas:
+        raise ValueError("El mínimo de paradas no puede ser mayor al máximo.")
+    if atractivos_ids is not None and len(atractivos_ids) == 1:
+        raise ValueError("Debes seleccionar al menos 2 atractivos turísticos.")
+
+    # 1.1 Resolver las fechas reales ANTES de calcular el hash
+    # Asumiendo que 'fecha_inicio_viaje' puede venir como None si 'auto_fechas' es True
+    fecha_hoy = datetime.utcnow().date()
+
+    if auto_fechas or not fecha_inicio_viaje:
+        # Regla por defecto: empieza mañana
+        fecha_inicio_resuelta = fecha_hoy + timedelta(days=1)
+    else:
+        # Si el usuario puso una fecha, la usamos (viene como string o date, la convertimos a date)
+        if isinstance(fecha_inicio_viaje, str):
+            try:
+                fecha_inicio_resuelta = datetime.strptime(fecha_inicio_viaje.strip()[:10], '%Y-%m-%d').date()
+            except ValueError:
+                fecha_inicio_resuelta = fecha_hoy + timedelta(days=1)
+        elif isinstance(fecha_inicio_viaje, datetime):
+            fecha_inicio_resuelta = fecha_inicio_viaje.date()
+        else:
+            fecha_inicio_resuelta = fecha_inicio_viaje
+
+    # 1.2 Construir el payload_dict blindado CON LA FECHA RESUELTA
+    t_ids = kwargs.get('transportes_ids') or transporte_ids or []
+    payload_dict = {
+        "atractivos_ids": sorted([int(x) for x in atractivos_ids]) if atractivos_ids else [],
+        "transportes_ids": sorted([int(x) for x in t_ids]) if t_ids else [],
+        "categorias_activas_ids": sorted([int(x) for x in categorias_activas_ids]) if categorias_activas_ids else [],
+        "subcategorias_activas_ids": sorted([int(x) for x in subcategorias_activas_ids]) if subcategorias_activas_ids else [],
+
+        "presupuesto_max": float(presupuesto_max),
+        "num_personas": int(num_personas),
+        "min_paradas": int(min_paradas),
+        "max_paradas": int(max_paradas),
+
+        # ¡AQUÍ ESTÁ LA MAGIA! Usamos la fecha resuelta, no los inputs sueltos
+        "fecha_inicio_resuelta": str(fecha_inicio_resuelta),
+        "num_dias_disponibles": int(num_dias_disponibles),
+        "hora_inicio_dia": str(hora_inicio_dia),
+        "hora_fin_dia": str(hora_fin_dia),
+
+        "auto_rango_paradas": bool(auto_rango_paradas),
+        "forzar_atractivos": bool(forzar_atractivos),
+        "forzar_transporte": bool(forzar_transporte),
+        "usar_clima": bool(usar_clima),
+        "tiempo_disponible_horas": float(tiempo_disponible_horas) if tiempo_disponible_horas else 0.0,
+        "intereses": {str(k): float(v) for k, v in sorted(intereses.items())} if intereses else {},
+
+        "tamano_poblacion": int(tamano_poblacion),
+        "generaciones": int(generaciones),
+        "prob_cruce": float(prob_cruce),
+        "prob_mutacion": float(prob_mutacion),
+    }
+
+    # Serializar el diccionario a un string JSON ordenado
+    payload_str = json.dumps(payload_dict, sort_keys=True)
+    hash_actual = hashlib.sha256(payload_str.encode('utf-8')).hexdigest()
+
+    # 2. LÓGICA DE CACHÉ Y RATE LIMITING
+    if id_usuario:
+        # a) Buscar si este usuario ya hizo esta consulta y tiene resultados guardados en caché
+        consulta_existente = db.session.query(ConsultaNSGA2).join(
+            Generacion, ConsultaNSGA2.id_generacion == Generacion.id_generacion
+        ).filter(
+            Generacion.id_usuario == id_usuario,
+            ConsultaNSGA2.hash_parametros == hash_actual
+        ).order_by(ConsultaNSGA2.fecha.desc()).first()
+
+        # Lógica de Caché con Expiración (24 horas)
+        if consulta_existente and consulta_existente.resultados_json:
+            fecha_consulta = consulta_existente.fecha
+            ahora = datetime.utcnow()
+            if hasattr(fecha_consulta, 'tzinfo') and fecha_consulta.tzinfo is not None:
+                from datetime import timezone
+                ahora = datetime.now(timezone.utc)
+
+            tiempo_transcurrido = ahora - fecha_consulta
+
+            # Si pasaron menos de 24 horas, usamos la caché
+            if tiempo_transcurrido.total_seconds() < 86400:
+                print("[CACHE HIT] Devolviendo resultados guardados sin ejecutar NSGA-II.")
+                try:
+                    resultados_cacheados = json.loads(consulta_existente.resultados_json)
+                    if isinstance(resultados_cacheados, dict):
+                        resultados_cacheados['id_generacion'] = consulta_existente.id_generacion
+                    return resultados_cacheados
+                except Exception as ex_json:
+                    print(f"[CACHE ERROR] No se pudo deserializar resultados_json ({ex_json}), ejecutando NSGA-II...")
+            else:
+                print("[CACHE EXPIRADO] La consulta tiene más de 24h. Recalculando itinerario...")
+
+        # b) Rate Limiting (esperar 3 segundos entre consultas consecutivas cuando es consulta nueva)
+        ultima_gen = Generacion.query.filter_by(id_usuario=id_usuario).order_by(Generacion.fecha_generacion.desc()).first()
+
+        if ultima_gen and ultima_gen.fecha_generacion:
+            ahora = datetime.utcnow()
+            fecha_gen = ultima_gen.fecha_generacion
+            if hasattr(fecha_gen, 'tzinfo') and fecha_gen.tzinfo is not None:
+                from datetime import timezone
+                ahora = datetime.now(timezone.utc)
+
+            segundos_desde_ultima = (ahora - fecha_gen).total_seconds()
+            if segundos_desde_ultima < 3:
+                raise ValueError("Por favor, espera unos segundos antes de volver a generar.")
+
+    print("[CACHE MISS] Ejecutando NSGA-II (esto tomará unos segundos)...")
+
+    # 3. Preparar datos desde la base de datos
     atractivos_data, transportes_data = preparar_datos_nsga2(
         atractivos_ids=atractivos_ids,
         transporte_ids=transporte_ids,
@@ -129,7 +249,7 @@ def generar_itinerarios(
     )
 
     if len(atractivos_data) < 2:
-        raise ValueError("Se requieren al menos 2 atractivos turísticos activos para construir un itinerario.")
+        raise ValueError("Debes seleccionar al menos 2 atractivos turísticos.")
 
     if len(transportes_data) < 1:
         raise ValueError("No se encontraron medios de transporte disponibles para planificar el viaje.")
@@ -140,7 +260,7 @@ def generar_itinerarios(
     #   - no hay atractivos seleccionados explícitamente
     k_libre = bool(auto_rango_paradas) and (len(atractivos_ids or []) == 0)
 
-    # 2. Ejecutar el motor puro NSGA-II
+    # 4. Ejecutar el motor puro NSGA-II
     resultado = ejecutar_nsga2(
         atractivos=atractivos_data,
         transportes=transportes_data,
@@ -165,5 +285,124 @@ def generar_itinerarios(
         usar_clima=bool(usar_clima),
         k_libre=k_libre,
     )
+
+    # 5. GUARDADO EN BD (Generación y ConsultaNSGA2)
+    if id_usuario:
+        try:
+            # Extraer fechas resueltas
+            fecha_ini_str = resultado.get('parametros_usados', {}).get('fecha_inicio_viaje')
+            if fecha_ini_str and isinstance(fecha_ini_str, str):
+                try:
+                    fecha_ini_date = datetime.strptime(fecha_ini_str, "%Y-%m-%d").date()
+                except ValueError:
+                    fecha_ini_date = datetime.utcnow().date() + timedelta(days=1)
+            elif hasattr(fecha_ini_str, 'year'):
+                fecha_ini_date = fecha_ini_str
+            else:
+                fecha_ini_date = datetime.utcnow().date() + timedelta(days=1)
+
+            dias_tot = int(resultado.get('parametros_usados', {}).get('num_dias_disponibles', num_dias_disponibles or 1))
+            fecha_fin_date = fecha_ini_date + timedelta(days=max(0, dias_tot - 1))
+
+            # Extraer horas diarias
+            h_ini_raw = resultado.get('parametros_usados', {}).get('hora_inicio_dia', hora_inicio_dia)
+            h_fin_raw = resultado.get('parametros_usados', {}).get('hora_fin_dia', hora_fin_dia)
+            hora_ini_obj = None
+            hora_fin_obj = None
+            if h_ini_raw:
+                if hasattr(h_ini_raw, 'hour'):
+                    hora_ini_obj = h_ini_raw
+                else:
+                    try:
+                        hora_ini_obj = datetime.strptime(str(h_ini_raw)[:5], "%H:%M").time()
+                    except ValueError:
+                        pass
+            if h_fin_raw:
+                if hasattr(h_fin_raw, 'hour'):
+                    hora_fin_obj = h_fin_raw
+                else:
+                    try:
+                        hora_fin_obj = datetime.strptime(str(h_fin_raw)[:5], "%H:%M").time()
+                    except ValueError:
+                        pass
+
+            soluciones = resultado.get('soluciones', [])
+            num_sols = len(soluciones)
+            mejor_afinidad = max([s.get('afinidad', 0.0) for s in soluciones], default=0.0) if soluciones else 0.0
+            mejor_tiempo = min([s.get('tiempo_total_min', 0.0) for s in soluciones], default=0.0) if soluciones else 0.0
+
+            # a) Crear la Generación primero (padre)
+            nueva_generacion = Generacion(
+                id_usuario=id_usuario,
+                fecha_inicio_viaje=fecha_ini_date,
+                fecha_fin_viaje=fecha_fin_date,
+                presupuesto=presupuesto_max,
+                cantidad_soluciones=num_sols,
+                observaciones=f"Optimización NSGA-II ({'Viable' if resultado.get('hay_viables') else 'No viable'})",
+                hora_inicio_dia=hora_ini_obj,
+                hora_fin_dia=hora_fin_obj,
+                auto_rango_paradas=bool(auto_rango_paradas),
+                min_paradas=int(min_paradas),
+                max_paradas=int(max_paradas),
+                usar_clima=bool(usar_clima),
+                intereses_json=json.dumps(intereses, ensure_ascii=False) if intereses else None,
+            )
+            db.session.add(nueva_generacion)
+            db.session.flush()  # Para obtener el id_generacion generado
+            resultado['id_generacion'] = nueva_generacion.id_generacion
+
+            # b) Crear la ConsultaNSGA2 vinculada
+            hist_afin = resultado.get('historial_convergencia', {}).get('mejor_afinidad', [])
+            convergencia_val = float(hist_afin[-1]) if hist_afin else None
+
+            hist_div = resultado.get('historial_diversidad', {}).get('diversidad', [])
+            diversidad_val = float(hist_div[-1]) if hist_div else None
+
+            tiempo_disp = resultado.get('parametros_usados', {}).get('tiempo_disponible_horas')
+            if tiempo_disp is None:
+                tiempo_disp = float(tiempo_disponible_horas or (dias_tot * 9.0))
+
+            nueva_consulta = ConsultaNSGA2(
+                id_generacion=nueva_generacion.id_generacion,  # Relación FK
+                num_atractivos=len(atractivos_ids) if atractivos_ids else len(atractivos_data),
+                num_transportes=len(transporte_ids) if transporte_ids else len(transportes_data),
+                presupuesto=presupuesto_max,
+                tiempo_disponible_horas=tiempo_disp,
+                intereses=json.dumps(intereses, ensure_ascii=False) if intereses else None,
+                tamano_poblacion=tamano_poblacion,
+                generaciones=generaciones,
+                prob_cruce=prob_cruce,
+                prob_mutacion=prob_mutacion,
+                num_soluciones=num_sols,
+                mejor_afinidad=mejor_afinidad,
+                mejor_tiempo=mejor_tiempo,
+                soluciones_viables=resultado.get('total_soluciones_viables', len(resultado.get('soluciones_viables', []))),
+                todas_exceden=not bool(resultado.get('hay_viables', False)),
+                tiempo_ejecucion_seg=resultado.get('tiempo_ejecucion_seg', 0.0),
+                convergencia=convergencia_val,
+                diversidad_final=diversidad_val,
+                fecha_inicio_viaje=fecha_ini_date,
+                fecha_fin_viaje=fecha_fin_date,
+                hora_inicio_dia=hora_ini_obj,
+                hora_fin_dia=hora_fin_obj,
+                auto_rango_paradas=bool(auto_rango_paradas),
+                min_paradas=int(min_paradas),
+                max_paradas=int(max_paradas),
+                usar_clima=bool(usar_clima),
+                atractivos_ids_json=json.dumps(atractivos_ids or [a['id'] for a in atractivos_data]),
+                transporte_ids_json=json.dumps(transporte_ids or [t['id'] for t in transportes_data]),
+                hubo_soluciones_viables=bool(resultado.get('hay_viables', False)),
+                hash_parametros=hash_actual,  # Guardar hash para deduplicar a futuro
+                resultados_json=json.dumps(resultado, default=str, ensure_ascii=False),  # Guardar JSON completo en caché
+            )
+            db.session.add(nueva_consulta)
+            db.session.commit()
+
+            resultado['id_generacion'] = nueva_generacion.id_generacion
+
+        except Exception as e:
+            db.session.rollback()
+            print(f"[WARNING] No se pudo guardar la auditoría en BD: {e}")
+            # No lanzar la excepción. El usuario igual recibe sus itinerarios.
 
     return resultado

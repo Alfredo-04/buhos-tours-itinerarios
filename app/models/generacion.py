@@ -13,6 +13,15 @@ class Generacion(db.Model):
     cantidad_soluciones = db.Column(db.Integer, nullable=False)
     observaciones = db.Column(db.Text, nullable=True)
 
+    # --- NUEVOS CAMPOS ---
+    hora_inicio_dia = db.Column(db.Time, nullable=True)
+    hora_fin_dia = db.Column(db.Time, nullable=True)
+    auto_rango_paradas = db.Column(db.Boolean, nullable=False, default=True)
+    min_paradas = db.Column(db.Integer, nullable=True)
+    max_paradas = db.Column(db.Integer, nullable=True)
+    usar_clima = db.Column(db.Boolean, nullable=False, default=True)
+    intereses_json = db.Column(db.Text, nullable=True)  # Guarda los sliders en formato JSON
+
     # Relación con USUARIO
     usuario = db.relationship('Usuario', backref='generaciones', lazy=True)
 

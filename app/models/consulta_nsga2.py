@@ -25,6 +25,23 @@ class ConsultaNSGA2(db.Model):
     convergencia = db.Column(db.Numeric(5, 4), nullable=True)
     diversidad_final = db.Column(db.Numeric(5, 4), nullable=True)
 
+    # --- NUEVOS CAMPOS ---
+    fecha_inicio_viaje = db.Column(db.Date, nullable=True)
+    fecha_fin_viaje = db.Column(db.Date, nullable=True)
+    hora_inicio_dia = db.Column(db.Time, nullable=True)
+    hora_fin_dia = db.Column(db.Time, nullable=True)
+    auto_rango_paradas = db.Column(db.Boolean, nullable=False, default=True)
+    min_paradas = db.Column(db.Integer, nullable=True)
+    max_paradas = db.Column(db.Integer, nullable=True)
+    usar_clima = db.Column(db.Boolean, nullable=False, default=True)
+    
+    # Guardar los IDs usados en esta consulta para el entrenamiento empírico
+    atractivos_ids_json = db.Column(db.Text, nullable=True) 
+    transporte_ids_json = db.Column(db.Text, nullable=True)
+    hubo_soluciones_viables = db.Column(db.Boolean, nullable=False, default=True)
+    hash_parametros = db.Column(db.String(64), nullable=True)
+    resultados_json = db.Column(db.Text, nullable=True)  # Guarda el JSON de soluciones para caché
+
     # Relación con GENERACION
     generacion = db.relationship('Generacion', backref='consultas_nsga2', lazy=True)
 

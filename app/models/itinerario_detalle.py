@@ -13,6 +13,12 @@ class ItinerarioDetalle(db.Model):
     hora_salida_estimada = db.Column(db.Time, nullable=True)
     tiempo_traslado_desde_anterior = db.Column(db.Integer, nullable=True)  # derivado, en minutos
 
+    # --- NUEVOS CAMPOS ---
+    costo_entrada_bob = db.Column(db.Numeric(10, 2), nullable=True)
+    clima_temperatura = db.Column(db.Numeric(5, 2), nullable=True)
+    clima_lluvia_mm = db.Column(db.Numeric(5, 2), nullable=True)
+    clima_descripcion = db.Column(db.String(100), nullable=True)
+
     # Relaciones con modelos de fases anteriores
     itinerario = db.relationship('Itinerario', backref=db.backref('detalles', cascade='all, delete-orphan'), lazy=True)
     atractivo = db.relationship('Atractivo', backref='detalles', lazy=True)

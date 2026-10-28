@@ -77,10 +77,10 @@ def generar_action():
         prob_mutacion = data.get('prob_mutacion', 0.2)
 
         # Validaciones de entrada (si el usuario seleccionó atractivos, deben ser al menos 2; si no seleccionó ninguno, se usa todo el catálogo)
-        if atractivos_ids and isinstance(atractivos_ids, list) and len(atractivos_ids) == 1:
+        if atractivos_ids and isinstance(atractivos_ids, list) and len(atractivos_ids) < 2:
             return jsonify({
                 "success": False,
-                "error": "Si especificas atractivos, debes seleccionar al menos 2 para formar una ruta de viaje."
+                "error": "Debes seleccionar al menos 2 atractivos turísticos."
             }), 400
 
         try:
@@ -186,12 +186,12 @@ def generar_action():
         min_paradas = data.get('min_paradas', 2)
         max_paradas = data.get('max_paradas', 15)
         try:
-            min_paradas = max(1, int(min_paradas))
+            min_paradas = int(min_paradas)
         except (TypeError, ValueError):
             min_paradas = 2
 
         try:
-            max_paradas = max(min_paradas, int(max_paradas))
+            max_paradas = int(max_paradas)
         except (TypeError, ValueError):
             max_paradas = 15
 
@@ -219,6 +219,7 @@ def generar_action():
             categorias_activas_ids=categorias_activas_ids,
             subcategorias_activas_ids=subcategorias_activas_ids,
             usar_clima=usar_clima,
+            id_usuario=current_user.id_usuario,
         )
 
         return jsonify({
