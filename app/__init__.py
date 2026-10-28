@@ -99,6 +99,18 @@ def create_app(config_class=Config):
 
     # Middleware de seguridad global
     @app.before_request
+    def check_schema_updates():
+        # Ejecutar una sola vez la verificación de columnas dinámicas
+        if not getattr(app, '_snapshot_column_checked', False):
+            app._snapshot_column_checked = True
+            try:
+                db.session.execute(db.text("ALTER TABLE itinerario ADD COLUMN IF NOT EXISTS snapshot_json TEXT;"))
+                db.session.execute(db.text("ALTER TABLE itinerario ADD COLUMN IF NOT EXISTS num_personas INTEGER NOT NULL DEFAULT 1;"))
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
+    @app.before_request
     def enforce_security_policies():
         from flask_login import current_user
         from flask import request, redirect, url_for, flash

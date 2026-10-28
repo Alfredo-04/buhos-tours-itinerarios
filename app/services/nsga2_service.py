@@ -231,63 +231,178 @@ def detectar_trafico_tramo(
     return factor_maximo, avisos
 
 
+def formatear_nombre_transporte(nombre: str, cantidad: int = 1) -> str:
+    """
+    Formatea el nombre del transporte mostrando cantidad y emoji si aplica.
+    Ejemplos:
+      - 'Taxi', 1 -> '🚕 Taxi'
+      - 'Taxi', 3 -> '🚕 3 Taxis'
+      - 'Van', 2  -> '🚐 2 Vans'
+      - 'Caminata', 1 -> '🚶 Caminata'
+    """
+    nombre_limpio = (nombre or "Vehículo").strip()
+    nombre_lower = nombre_limpio.lower()
+
+    # Identificar emoji según tipo
+    emoji = ""
+    emojis_conocidos = ["🚕", "🚐", "🚌", "🚶", "🚡", "🚗"]
+    for em in emojis_conocidos:
+        if em in nombre_limpio:
+            emoji = f"{em} "
+            nombre_limpio = nombre_limpio.replace(em, "").strip()
+            nombre_lower = nombre_limpio.lower()
+            break
+
+    if not emoji:
+        if any(k in nombre_lower for k in ["taxi", "auto", "movil", "privado"]):
+            emoji = "🚕 "
+        elif any(k in nombre_lower for k in ["van", "combi"]):
+            emoji = "🚐 "
+        elif any(k in nombre_lower for k in ["minibus", "bus", "micro"]):
+            emoji = "🚌 "
+        elif any(k in nombre_lower for k in ["telef", "cable"]):
+            emoji = "🚡 "
+        elif any(k in nombre_lower for k in ["camin", "pie", "walk"]):
+            emoji = "🚶 "
+        else:
+            emoji = "🚗 "
+
+    if cantidad <= 1:
+        return f"{emoji}{nombre_limpio}".strip()
+
+    # Pluralización
+    if "taxi" in nombre_lower:
+        base = "Taxis"
+    elif "van" in nombre_lower:
+        base = "Vans"
+    elif "minibus" in nombre_lower:
+        base = "Minibuses"
+    elif "bus" in nombre_lower:
+        base = "Buses"
+    elif "telef" in nombre_lower:
+        base = "Cabinas de Teleférico"
+    elif nombre_lower.endswith(("a", "e", "i", "o", "u")):
+        base = f"{nombre_limpio}s"
+    elif nombre_lower.endswith(("s", "x")):
+        base = nombre_limpio
+    else:
+        base = f"{nombre_limpio}es"
+
+    return f"{emoji}{cantidad} {base}".strip()
+
+
+def evaluar_capacidad_transporte(
+    t: dict[str, Any],
+    num_personas: int = 1,
+    permitir_multiples_vehiculos: bool = False
+) -> tuple[int, str | None, bool]:
+    """
+    Evalúa la capacidad de un transporte para un grupo según las reglas de negocio:
+    1. Si distancia/tipo es caminata (sin capacidad numérica): 1 vehículo, viable.
+    2. Si num_personas <= cap: 1 vehículo, sin advertencia.
+    3. Si num_personas == cap + 1 (tolerancia +1): 1 vehículo, advertencia de sobrecupo.
+    4. Si num_personas > cap + 1:
+       - Si permitir_multiples_vehiculos == False: no viable en 1 vehículo.
+       - Si permitir_multiples_vehiculos == True: ceil(num_personas / cap) vehículos, viable.
+    Retorna: (cantidad_vehiculos, advertencia_capacidad, es_viable)
+    """
+    import math
+    cap = t.get("capacidad")
+    nombre = t.get("nombre", "Vehículo")
+
+    # Si no tiene capacidad (ej. Caminata o ilimitado)
+    if cap is None or cap <= 0:
+        return 1, None, True
+
+    if num_personas <= cap:
+        return 1, None, True
+
+    if num_personas == cap + 1:
+        adv = "El grupo excede la capacidad por 1 asiento. Irán sin asiento disponible, se recomienda cambiar a una Van."
+        return 1, adv, True
+
+    # num_personas > cap + 1
+    if permitir_multiples_vehiculos:
+        cant = int(math.ceil(num_personas / float(cap)))
+        return cant, None, True
+    else:
+        return 1, None, False
+
+
 def asignar_transporte_tramo(
     distancia_km: float,
     transportes_disponibles: list[dict[str, Any]],
     num_personas: int = 1,
-    presupuesto_bajo: bool = False
+    presupuesto_bajo: bool = False,
+    permitir_multiples_vehiculos: bool = False
 ) -> dict[str, Any]:
     """
-    Asignación inteligente de transporte con regla estricta de caminata:
+    Asignación inteligente de transporte con regla estricta de caminata y capacidad:
     - Si distancia < 0.3 km (300m) -> Caminata (si está disponible).
     - Si distancia >= 0.3 km -> Vehículo (Taxi, Van, Minibús, Teleférico).
+    - Capacidad con tolerancia +1 y múltiples unidades si el switch está activo.
     """
     if not transportes_disponibles:
         raise ValueError("No hay medios de transporte disponibles.")
-
-    if len(transportes_disponibles) == 1:
-        t_unico = transportes_disponibles[0]
-        cap = t_unico.get("capacidad")
-        if cap is not None and cap < num_personas:
-            raise ValueError(f"El transporte '{t_unico.get('nombre')}' tiene capacidad para {cap} personas, pero el grupo es de {num_personas}.")
-        return t_unico
-
-    aptos = [t for t in transportes_disponibles if (t.get("capacidad") is None or t.get("capacidad") >= num_personas)]
-    if not aptos:
-        aptos = sorted(transportes_disponibles, key=lambda t: t.get("capacidad") or 0, reverse=True)
 
     def match_tipo(t, keywords):
         nombre = (t.get("nombre") or "").lower()
         tipo = (t.get("tipo") or "").lower()
         return any(kw in nombre or kw in tipo for kw in keywords)
 
-    caminata = next((t for t in aptos if match_tipo(t, ["camin", "pie", "walk"])), None)
-    teleferico = next((t for t in aptos if match_tipo(t, ["telef", "cable"])), None)
-    van = next((t for t in aptos if match_tipo(t, ["van", "minibus", "bus", "micro"])), None)
-    taxi = next((t for t in aptos if match_tipo(t, ["taxi", "auto", "movil", "privado"])), None)
+    # Identificar caminata
+    caminata = next((t for t in transportes_disponibles if match_tipo(t, ["camin", "pie", "walk"])), None)
 
-    vehiculos = [t for t in aptos if t != caminata]
-    if not vehiculos:
-        vehiculos = aptos
+    # Regla estricta: < 300m caminata si está disponible
+    if distancia_km < 0.3 and caminata:
+        t_cam = dict(caminata)
+        t_cam["cantidad_vehiculos"] = 1
+        t_cam["advertencia_capacidad"] = None
+        t_cam["nombre_formateado"] = formatear_nombre_transporte(caminata.get("nombre", "A pie"), 1)
+        return t_cam
 
-    # Regla estricta: < 300m caminata; >= 300m vehículo
-    if distancia_km < 0.3:
-        if caminata:
-            return caminata
+    # Para distancias >= 300m o si no hay caminata, buscar vehículos aptos según capacidad
+    candidatos_aptos = []
+    for t in transportes_disponibles:
+        if t == caminata:
+            continue
+        cant, adv, viable = evaluar_capacidad_transporte(t, num_personas, permitir_multiples_vehiculos)
+        if viable:
+            t_copia = dict(t)
+            t_copia["cantidad_vehiculos"] = cant
+            t_copia["advertencia_capacidad"] = adv
+            t_copia["nombre_formateado"] = formatear_nombre_transporte(t.get("nombre", "Vehículo"), cant)
+            candidatos_aptos.append(t_copia)
 
-    # Para distancias >= 300 metros, preferir vehículos
+    # Si ningún vehículo es apto y no se permiten múltiples unidades
+    if not candidatos_aptos:
+        if len(transportes_disponibles) == 1:
+            t_u = transportes_disponibles[0]
+            raise ValueError(f"El transporte '{t_u.get('nombre')}' tiene capacidad para {t_u.get('capacidad')} personas, pero el grupo es de {num_personas}. Habilita múltiples vehículos si deseas continuar.")
+        raise ValueError(f"Los transportes seleccionados no tienen capacidad suficiente para el grupo de {num_personas} personas. Habilita la opción de múltiples vehículos.")
+
+    teleferico = next((t for t in candidatos_aptos if match_tipo(t, ["telef", "cable"])), None)
+    van = next((t for t in candidatos_aptos if match_tipo(t, ["van", "minibus", "bus", "micro"])), None)
+    taxi = next((t for t in candidatos_aptos if match_tipo(t, ["taxi", "auto", "movil", "privado"])), None)
+
+    vehiculos = candidatos_aptos
+
     if distancia_km < 2.0:
-        return taxi or van or teleferico or vehiculos[0]
+        elegido = taxi or van or teleferico or vehiculos[0]
     elif 2.0 <= distancia_km < 5.0:
         if presupuesto_bajo:
-            return teleferico or van or taxi or vehiculos[0]
-        return teleferico or van or taxi or vehiculos[0]
+            elegido = teleferico or van or taxi or vehiculos[0]
+        else:
+            elegido = teleferico or van or taxi or vehiculos[0]
     elif 5.0 <= distancia_km <= 15.0:
         if presupuesto_bajo:
-            return teleferico or van or vehiculos[0]
-        return van or taxi or teleferico or vehiculos[0]
+            elegido = teleferico or van or vehiculos[0]
+        else:
+            elegido = van or taxi or teleferico or vehiculos[0]
     else:  # > 15 km
-        return van or taxi or vehiculos[0]
+        elegido = van or taxi or vehiculos[0]
+
+    return elegido
 
 
 class ItinerarioVariableProblem(Problem):
@@ -495,7 +610,8 @@ class ItinerarioVariableProblem(Problem):
                 if tipo_c == "por_persona":
                     costo_total += c_unit * self.num_personas
                 else:  # por_dia
-                    costo_total += c_unit
+                    cant_veh = int(t_asignado.get("cantidad_vehiculos", 1) or 1)
+                    costo_total += c_unit * cant_veh
 
         return costo_total
 
@@ -886,6 +1002,7 @@ def ejecutar_nsga2(
     usar_clima: bool = True,
     k_libre: bool | None = None,
     atractivos_seleccionados_explicitamente: bool = False,
+    permitir_multiples_vehiculos: bool = False,
     **kwargs: Any
 ) -> dict[str, Any]:
     """
@@ -1050,10 +1167,20 @@ def ejecutar_nsga2(
     # 1. Validar transporte único o forzado
     transporte_fijo = None
     if len(transportes) == 1 or forzar_transporte:
-        transporte_fijo = transportes[0]
-        cap = transporte_fijo.get("capacidad")
-        if cap is not None and cap < num_personas:
-            raise ValueError(f"El transporte '{transporte_fijo.get('nombre')}' no tiene capacidad para el grupo ({num_personas} personas).")
+        t_base = transportes[0]
+        cant_v, adv_v, viable_v = evaluar_capacidad_transporte(
+            t_base, num_personas, permitir_multiples_vehiculos
+        )
+        if not viable_v:
+            cap = t_base.get("capacidad")
+            raise ValueError(
+                f"El transporte '{t_base.get('nombre')}' tiene capacidad para {cap} personas, pero el grupo es de {num_personas}. "
+                "Habilita la opción de permitir múltiples vehículos si deseas continuar."
+            )
+        transporte_fijo = dict(t_base)
+        transporte_fijo["cantidad_vehiculos"] = cant_v
+        transporte_fijo["advertencia_capacidad"] = adv_v
+        transporte_fijo["nombre_formateado"] = formatear_nombre_transporte(t_base.get("nombre", "Vehículo"), cant_v)
 
     # 2. Cargar zonas de tráfico y patrones vigentes
     zonas_trafico = cargar_zonas_y_patrones_db()
@@ -1089,13 +1216,22 @@ def ejecutar_nsga2(
                 dist_km = ruta_real["distancia_km"]
 
                 if transporte_fijo is not None:
-                    t_tramo = transporte_fijo
+                    # Si la distancia es < 0.3 km y hay opción a pie, respetar caminata a menos que se fuerce
+                    caminata_opt = next((t for t in transportes if any(k in (t.get("nombre") or "").lower() for k in ["camin", "pie", "walk"])), None)
+                    if dist_km < 0.3 and caminata_opt and not forzar_transporte:
+                        t_tramo = dict(caminata_opt)
+                        t_tramo["cantidad_vehiculos"] = 1
+                        t_tramo["advertencia_capacidad"] = None
+                        t_tramo["nombre_formateado"] = formatear_nombre_transporte(caminata_opt.get("nombre", "A pie"), 1)
+                    else:
+                        t_tramo = transporte_fijo
                 else:
                     t_tramo = asignar_transporte_tramo(
                         distancia_km=dist_km,
                         transportes_disponibles=transportes,
                         num_personas=num_personas,
-                        presupuesto_bajo=presupuesto_bajo
+                        presupuesto_bajo=presupuesto_bajo,
+                        permitir_multiples_vehiculos=permitir_multiples_vehiculos
                     )
 
                 vel_transporte = max(1.0, float(t_tramo.get("velocidad_promedio_kmh", 30.0) or 30.0))
@@ -1409,14 +1545,27 @@ def ejecutar_nsga2(
                     "destino_nombre": atr["nombre"],
                     "distancia_km": round(dist_km, 2),
                     "tiempo_traslado_min": round(t_traslado_min, 1),
-                    "transporte_usado": t_asignado.get("nombre") if t_asignado else "Vehículo",
+                    "id_transporte": t_asignado.get("id") if t_asignado else (transportes[0].get("id") if transportes else 1),
+                    "transporte_usado": t_asignado.get("nombre_formateado") or (t_asignado.get("nombre") if t_asignado else "Vehículo"),
                     "transporte_tipo": t_asignado.get("tipo") if t_asignado else "General",
+                    "cantidad_vehiculos": t_asignado.get("cantidad_vehiculos", 1) if t_asignado else 1,
+                    "advertencia_capacidad": t_asignado.get("advertencia_capacidad") if t_asignado else None,
                     "factor_trafico": round(factor_trafico, 2),
                     "hora_salida": hora_actual_step.strftime("%H:%M"),
                     "hora_llegada": hora_llegada_est.strftime("%H:%M"),
                     "polyline_coords": matriz_polylines[idx_previo][idx_atr],
                     "avisos_trafico": tramo_avisos,
                 })
+
+            # Determinar transporte representativo de la parada (NUNCA NULL)
+            t_parada = t_asignado
+            if not t_parada:
+                # Buscar transporte de la ruta o fallback transporte_fijo / transportes[0]
+                t_parada = transporte_fijo or (transportes[0] if transportes else None)
+
+            id_trans_p = t_parada.get("id") if t_parada else 1
+            nom_trans_p = t_parada.get("nombre_formateado") or (t_parada.get("nombre") if t_parada else "Vehículo")
+            t_tras_estimado = round(t_traslado_min, 1) if (t_traslado_min and t_traslado_min > 0) else 15.0
 
             # Clima de la parada en su hora de llegada
             clima_parada = None
@@ -1444,6 +1593,9 @@ def ejecutar_nsga2(
                 "costo_entrada_bob": float(atr.get("costo_entrada", 0.0) or 0.0),
                 "hora_llegada": hora_llegada_est.strftime("%H:%M"),
                 "hora_salida": hora_salida_vis_est.strftime("%H:%M"),
+                "id_transporte": id_trans_p,
+                "transporte_usado": nom_trans_p,
+                "tiempo_traslado_desde_anterior": int(round(t_tras_estimado)),
                 "clima": {
                     "estado": clima_parada.get("estado", "bueno") if clima_parada else "bueno",
                     "razon": clima_parada.get("razon") or clima_parada.get("razon_clima") if clima_parada else None,
@@ -1682,6 +1834,15 @@ def ejecutar_nsga2(
                         info['geometria_wkt'] = z.get('geometria_wkt', '')
                         break
 
+        # Advertencia de sobrecupo / capacidad si aplica
+        adv_cap_sol = None
+        for tr in tramos:
+            if tr.get("advertencia_capacidad"):
+                adv_cap_sol = tr["advertencia_capacidad"]
+                break
+        if not adv_cap_sol and transporte_fijo and transporte_fijo.get("advertencia_capacidad"):
+            adv_cap_sol = transporte_fijo.get("advertencia_capacidad")
+
         nueva_solucion = {
             "fecha_inicio": fecha_inicio_viaje.strftime("%Y-%m-%d"),
             "fecha_fin": fecha_fin_calculada.strftime("%Y-%m-%d"),
@@ -1708,6 +1869,7 @@ def ejecutar_nsga2(
             "mensajes_exceso": mensajes_exceso,
             "excesos": excesos,
             "sugerencias_ajuste": sugerencias_no_viable,
+            "advertencia_capacidad": adv_cap_sol,
             "transporte_asignado": {
                 "nombre": transporte_resumen,
                 "es_mixto": len(nombres_unicos_transporte) > 1,
@@ -1800,6 +1962,10 @@ def ejecutar_nsga2(
                     p['hora_llegada'] = hora_inicio.strftime('%H:%M')  # Se pone la hora de inicio (después de esperar si abrió tarde)
                     p['hora_salida'] = hora_salida.strftime('%H:%M')
                     p['numero'] = numero_global
+                    if idx_previo_d is not None and t_traslado > 0:
+                        p['tiempo_traslado_desde_anterior'] = int(round(t_traslado))
+                    elif not p.get('tiempo_traslado_desde_anterior'):
+                        p['tiempo_traslado_desde_anterior'] = 15
                     numero_global += 1
 
                     paradas_detalle.append(p)
@@ -2014,6 +2180,7 @@ def ejecutar_nsga2(
         "aviso_dias_cerrados": "⚠️ Algunos atractivos fueron excluidos por estar cerrados en las fechas seleccionadas." if hay_atractivos_excluidos else None,
         "atractivos_excluidos_cierre": [a["nombre"] for a in atractivos_cerrados_todos_los_dias] if hay_atractivos_excluidos else [],
         "parametros_usados": {
+            "num_personas": int(num_personas),
             "num_atractivos_seleccionados": len(atractivos_efectivos),
             "presupuesto_max_bob": float(presupuesto_max),
             "fecha_inicio_viaje": fecha_inicio_viaje.strftime("%Y-%m-%d"),

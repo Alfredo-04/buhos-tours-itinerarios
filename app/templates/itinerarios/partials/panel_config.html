@@ -168,6 +168,14 @@
               Elige opciones de traslado o activa <em>forzar</em> para usar exclusivamente un vehículo.
             </p>
 
+            <!-- Switch: Permitir múltiples vehículos si el grupo excede la capacidad -->
+            <div class="form-check form-switch mb-2 p-2 bg-white rounded border">
+              <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="chkPermitirMultiplesVehiculos" style="cursor: pointer;">
+              <label class="form-check-label small fw-semibold text-dark cursor-pointer mb-0" for="chkPermitirMultiplesVehiculos" style="font-size: 0.73rem;">
+                <i class="bi bi-intersect text-primary me-1"></i> Permitir múltiples vehículos si el grupo excede la capacidad
+              </label>
+            </div>
+
             <!-- Lista de vehículos scrollable con altura suficiente para 4 transportes completos -->
             <div class="d-flex flex-column gap-2 overflow-auto pe-1 flex-grow-1" style="max-height: 360px;">
               {% for t in transportes %}

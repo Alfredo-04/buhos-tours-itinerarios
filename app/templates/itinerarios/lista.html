@@ -26,7 +26,7 @@
     </div>
 
     <div class="d-flex align-items-center gap-2">
-      {% if current_user.rol.nombre == 'admin' %}
+      {% if current_user.rol.nombre in ['admin', 'agente'] %}
       <a href="{{ url_for('itinerarios.generar_view') }}" class="btn btn-primary d-inline-flex align-items-center gap-2 shadow-sm">
         <i class="bi bi-cpu-fill"></i>
         <span>Generar Nuevo Itinerario</span>
@@ -51,10 +51,10 @@
           <thead class="bg-light text-muted small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">
             <tr>
               <th class="ps-4" style="width: 70px;">ID</th>
-              <th>Fecha y Duración</th>
+              <th>Nombre del Turista (Contacto)</th>
+              <th>Fecha Viaje</th>
               <th>Afinidad</th>
-              <th>Costo Total</th>
-              <th>Atractivos (Paradas)</th>
+              <th>Costo</th>
               <th>Estado</th>
               <th class="pe-4 text-end">Acción</th>
             </tr>
@@ -65,11 +65,42 @@
             {% set costo_bob = it.costo_total_bob or 0.0 %}
             {% set costo_usd = (costo_bob|float / tc)|round(2) %}
             {% set af_pct = ((it.afinidad or 0.0) * 100)|round(1) %}
+            {% set turista_contacto = it.viajes_turistas[0].turista if it.viajes_turistas and it.viajes_turistas|length > 0 else none %}
             <tr>
               <td class="ps-4 fw-bold text-muted">
                 #{{ it.id_itinerario }}
               </td>
 
+              <!-- Nombre del Turista (Contacto) -->
+              <td>
+                {% if turista_contacto %}
+                  <div class="fw-bold text-dark">
+                    <i class="bi bi-person-circle text-primary me-1"></i>
+                    {{ turista_contacto.nombres }} {{ turista_contacto.apellidos }}
+                  </div>
+                  <div class="small text-muted" style="font-size: 0.78rem;">
+                    <span>Doc: <strong>{{ turista_contacto.nro_documento or 'S/D' }}</strong></span>
+                    {% if turista_contacto.telefono %}
+                      &bull; <i class="bi bi-telephone ms-1"></i> {{ turista_contacto.telefono }}
+                    {% endif %}
+                  </div>
+                {% elif it.generacion and it.generacion.usuario %}
+                  <div class="fw-semibold text-dark">
+                    <i class="bi bi-person text-secondary me-1"></i>
+                    {{ it.generacion.usuario.nombre_completo }}
+                  </div>
+                  <small class="text-muted" style="font-size: 0.75rem;">Usuario del sistema</small>
+                {% else %}
+                  <span class="text-muted fst-italic">Sin contacto registrado</span>
+                {% endif %}
+                <div class="mt-1">
+                  <span class="badge bg-info text-dark">
+                    <i class="bi bi-people-fill"></i> {{ it.num_personas }} persona{{ 's' if it.num_personas > 1 else '' }}
+                  </span>
+                </div>
+              </td>
+
+              <!-- Fecha Viaje -->
               <td>
                 <div class="fw-semibold text-dark">
                   {% if it.fecha_inicio and it.fecha_fin %}
@@ -80,7 +111,7 @@
                     <span class="text-muted">Sin fecha asignada</span>
                   {% endif %}
                 </div>
-                <small class="text-muted d-block">
+                <small class="text-muted d-block" style="font-size: 0.75rem;">
                   <i class="bi bi-calendar3 me-1 text-primary"></i>
                   {{ it.dias_totales or 1 }} {{ 'día' if it.dias_totales == 1 else 'días' }}
                   {% if it.tiempo_total_estimado %}
@@ -89,6 +120,7 @@
                 </small>
               </td>
 
+              <!-- Afinidad -->
               <td>
                 <div class="d-flex align-items-center gap-2">
                   <div class="progress flex-grow-1" style="height: 6px; width: 60px; background-color: #E2E8F0;">
@@ -98,23 +130,13 @@
                 </div>
               </td>
 
+              <!-- Costo -->
               <td>
                 <div class="fw-bold text-dark">Bs. {{ "%.2f"|format(costo_bob) }}</div>
-                <small class="text-muted" style="font-size: 0.75rem;">${{ "%.2f"|format(costo_usd) }} USD</small>
+                <small class="text-success fw-medium" style="font-size: 0.75rem;">${{ "%.2f"|format(costo_usd) }} USD</small>
               </td>
 
-              <td>
-                {% set num_p = it.detalles|length %}
-                <span class="badge bg-light text-dark border me-1">
-                  <i class="bi bi-geo-alt-fill text-danger me-1"></i>{{ num_p }} paradas
-                </span>
-                {% if it.distancia_total_km %}
-                <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
-                  <i class="bi bi-signpost-2 me-1"></i>{{ "%.1f"|format(it.distancia_total_km) }} km aprox.
-                </small>
-                {% endif %}
-              </td>
-
+              <!-- Estado -->
               <td>
                 <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
                   {{ it.estado or 'Borrador' }}
@@ -126,10 +148,11 @@
                 {% endif %}
               </td>
 
+              <!-- Acción -->
               <td class="pe-4 text-end">
-                <a href="{{ url_for('itinerarios.detalle', id_itinerario=it.id_itinerario) }}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
+                <a href="{{ url_for('itinerarios.detalle', id_itinerario=it.id_itinerario) }}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 shadow-sm">
                   <i class="bi bi-eye"></i>
-                  <span>Ver Itinerario</span>
+                  <span>Ver Detalle</span>
                 </a>
               </td>
             </tr>
@@ -151,7 +174,7 @@
       <p class="text-muted mx-auto mb-4" style="max-width: 480px;">
         Genera combinaciones óptimas con nuestro motor multiobjetivo NSGA-II y haz clic en <strong>"Guardar"</strong> para preservarlas y consultarlas en cualquier momento.
       </p>
-      {% if current_user.rol.nombre == 'admin' %}
+      {% if current_user.rol.nombre in ['admin', 'agente'] %}
       <a href="{{ url_for('itinerarios.generar_view') }}" class="btn btn-primary px-4 py-2 shadow-sm">
         <i class="bi bi-cpu-fill me-2"></i>Ir al Generador de Itinerarios
       </a>

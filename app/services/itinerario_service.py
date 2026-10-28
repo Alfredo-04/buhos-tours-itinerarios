@@ -11,6 +11,9 @@ from app.models.consulta_nsga2 import ConsultaNSGA2
 from app.models.itinerario import Itinerario
 from app.models.itinerario_detalle import ItinerarioDetalle
 from app.models.itinerario_detalle_trafico import ItinerarioDetalleTrafico
+from app.models.turista import Turista
+from app.models.viaje_turista import ViajeTurista
+from app.models.usuario import Usuario
 from app.services.nsga2_service import ejecutar_nsga2
 from app import db
 
@@ -123,6 +126,7 @@ def generar_itinerarios(
     tiempo_disponible_horas: float | None = None,
     usar_clima: bool = True,
     id_usuario: int | None = None,
+    permitir_multiples_vehiculos: bool = False,
     **kwargs: Any
 ) -> dict[str, Any]:
     """
@@ -180,6 +184,7 @@ def generar_itinerarios(
         "auto_rango_paradas": bool(auto_rango_paradas),
         "forzar_atractivos": bool(forzar_atractivos),
         "forzar_transporte": bool(forzar_transporte),
+        "permitir_multiples_vehiculos": bool(permitir_multiples_vehiculos),
         "usar_clima": bool(usar_clima),
         "tiempo_disponible_horas": float(tiempo_disponible_horas) if tiempo_disponible_horas else 0.0,
         "intereses": {str(k): float(v) for k, v in sorted(intereses.items())} if intereses else {},
@@ -287,6 +292,7 @@ def generar_itinerarios(
         tiempo_disponible_horas=tiempo_disponible_horas,
         usar_clima=bool(usar_clima),
         k_libre=k_libre,
+        permitir_multiples_vehiculos=bool(permitir_multiples_vehiculos),
     )
 
     # 5. GUARDADO EN BD (Generación y ConsultaNSGA2)
@@ -411,10 +417,42 @@ def generar_itinerarios(
     return resultado
 
 
-def guardar_itinerario(id_generacion: int, numero_solucion: int, id_usuario: int) -> dict:
+def buscar_turista_por_documento(nro_documento: str) -> dict:
+    """Busca un turista existente por su número de documento o pasaporte."""
+    if not nro_documento or not nro_documento.strip():
+        return {"encontrado": False}
+    doc = nro_documento.strip()
+    turista = Turista.query.filter_by(nro_documento=doc).first()
+    if not turista:
+        return {"encontrado": False}
+    return {
+        "encontrado": True,
+        "turista": {
+            "id_turista": turista.id_turista,
+            "nombres": turista.nombres,
+            "apellidos": turista.apellidos,
+            "nro_documento": turista.nro_documento,
+            "procedencia": turista.procedencia or "",
+            "email": turista.email or "",
+            "telefono": turista.telefono or ""
+        }
+    }
+
+
+def guardar_itinerario(
+    id_generacion: int,
+    numero_solucion: int,
+    datos_turista: dict | None = None,
+    id_usuario: int | None = None,
+    turista_data: dict | None = None,
+    forzar_nuevo: bool = False
+) -> dict:
     """
     Toma una solución del JSON de caché y la guarda en las tablas definitivas de itinerario.
+    Incluye validación de viabilidad, deduplicación según rol, guardado de Turista y ViajeTurista,
+    snapshot_json, id_transporte real no nulo y advertencia de acompañantes.
     """
+    turista_data = turista_data or datos_turista
     # 1. Buscar la generación y su consulta (caché JSON)
     generacion = Generacion.query.get(id_generacion)
     if not generacion:
@@ -424,14 +462,37 @@ def guardar_itinerario(id_generacion: int, numero_solucion: int, id_usuario: int
     if not consulta or not consulta.resultados_json:
         raise ValueError("No se encontraron los resultados en caché para guardar.")
 
-    # Verificar si ya fue guardado previamente para evitar duplicados
-    existente = Itinerario.query.filter_by(
-        id_generacion=id_generacion,
-        numero_solucion=int(numero_solucion),
-        deleted_at=None
-    ).first()
-    if existente:
-        return {"id_itinerario": existente.id_itinerario, "ya_guardado": True}
+    usuario = Usuario.query.get(id_usuario)
+    rol_nombre = (usuario.rol.nombre if usuario and usuario.rol else '').lower()
+
+    # BLOQUE 5: Manejo de Duplicados
+    if rol_nombre == 'turista':
+        # Para Turistas: Si intenta guardar el mismo itinerario, buscar en ViajeTurista uniendo con Turista (donde id_usuario = current_user.id_usuario)
+        ya_guardado_turista = db.session.query(Itinerario).join(
+            ViajeTurista, Itinerario.id_itinerario == ViajeTurista.id_itinerario
+        ).join(
+            Turista, ViajeTurista.id_turista == Turista.id_turista
+        ).filter(
+            Itinerario.id_generacion == id_generacion,
+            Itinerario.numero_solucion == int(numero_solucion),
+            Itinerario.deleted_at.is_(None),
+            Turista.id_usuario == id_usuario
+        ).first()
+
+        if ya_guardado_turista:
+            raise ValueError("Ya has guardado este itinerario. Puedes verlo en tu lista de reservas.")
+    elif rol_nombre in ['admin', 'agente']:
+        # Para Admin/Agente: Si ya existe, preguntar si desea crear nueva reserva
+        existente = Itinerario.query.filter_by(
+            id_generacion=id_generacion,
+            numero_solucion=int(numero_solucion),
+            deleted_at=None
+        ).first()
+        if existente and not forzar_nuevo:
+            return {
+                "duplicado_admin": True,
+                "mensaje": "Este itinerario ya fue guardado antes. ¿Deseas crear una nueva reserva para un nuevo grupo?"
+            }
 
     resultados = json.loads(consulta.resultados_json)
 
@@ -441,12 +502,67 @@ def guardar_itinerario(id_generacion: int, numero_solucion: int, id_usuario: int
         soluciones = resultados.get('soluciones', [])
 
     sol = next((s for s in soluciones if s.get('numero') == int(numero_solucion) or s.get('numero_solucion') == int(numero_solucion)), None)
-    # Si no encuentra por 'numero', usa el índice
     if not sol:
         try:
             sol = soluciones[int(numero_solucion) - 1]
         except (IndexError, ValueError):
             raise ValueError("Número de solución no válido.")
+
+    # BLOQUE 1: Bloqueo de No Viables en Backend
+    es_viable = sol.get('cumple_restricciones', True)
+    if not es_viable:
+        raise ValueError("No se pueden guardar itinerarios no viables.")
+
+    # BLOQUE 2: Buscar o crear Turista (usando nro_documento como clave única)
+    turista = None
+    if turista_data and isinstance(turista_data, dict):
+        doc = str(turista_data.get('nro_documento') or '').strip()
+        if doc:
+            turista = Turista.query.filter_by(nro_documento=doc).first()
+
+        nombres = str(turista_data.get('nombres') or '').strip()
+        apellidos = str(turista_data.get('apellidos') or '').strip()
+        if not nombres or not apellidos:
+            raise ValueError("Nombres y Apellidos del turista son campos obligatorios.")
+
+        if not turista:
+            turista = Turista(
+                nombres=nombres,
+                apellidos=apellidos,
+                nro_documento=doc or None,
+                procedencia=turista_data.get('procedencia') or None,
+                email=turista_data.get('email') or None,
+                telefono=turista_data.get('telefono') or None,
+                id_usuario=id_usuario if rol_nombre == 'turista' else None
+            )
+            db.session.add(turista)
+            db.session.flush()
+        else:
+            # Actualizar datos si estaban vacíos o cambiaron
+            if nombres:
+                turista.nombres = nombres
+            if apellidos:
+                turista.apellidos = apellidos
+            if turista_data.get('procedencia'):
+                turista.procedencia = turista_data.get('procedencia')
+            if turista_data.get('email'):
+                turista.email = turista_data.get('email')
+            if turista_data.get('telefono'):
+                turista.telefono = turista_data.get('telefono')
+            if rol_nombre == 'turista' and not turista.id_usuario:
+                turista.id_usuario = id_usuario
+            db.session.flush()
+    else:
+        # Fallback si no vinieron datos de modal
+        turista = Turista.query.filter_by(id_usuario=id_usuario).first()
+        if not turista:
+            turista = Turista(
+                id_usuario=id_usuario,
+                nombres=usuario.nombres if hasattr(usuario, 'nombres') and usuario.nombres else "Turista",
+                apellidos=usuario.apellidos if hasattr(usuario, 'apellidos') and usuario.apellidos else "Titular"
+            )
+            db.session.add(turista)
+            db.session.flush()
 
     # Resolver fechas
     f_inicio_raw = sol.get('fecha_inicio') or generacion.fecha_inicio_viaje
@@ -455,7 +571,11 @@ def guardar_itinerario(id_generacion: int, numero_solucion: int, id_usuario: int
     f_inicio = datetime.strptime(f_inicio_raw, '%Y-%m-%d').date() if isinstance(f_inicio_raw, str) else f_inicio_raw
     f_fin = datetime.strptime(f_fin_raw, '%Y-%m-%d').date() if isinstance(f_fin_raw, str) else f_fin_raw
 
-    # 2. Crear el Itinerario
+    # Parámetros y regla de acompañantes
+    parametros_usados = resultados.get('parametros_usados', {})
+    num_personas = int(parametros_usados.get('num_personas', 1) or 1)
+
+    # BLOQUE 4: Crear Itinerario con snapshot_json
     nuevo_itinerario = Itinerario(
         id_generacion=id_generacion,
         numero_solucion=int(numero_solucion),
@@ -468,13 +588,26 @@ def guardar_itinerario(id_generacion: int, numero_solucion: int, id_usuario: int
         fecha_inicio=f_inicio,
         fecha_fin=f_fin,
         dias_totales=sol.get('dias_totales', 1),
+        num_personas=int(num_personas),
         tiempo_total_estimado=sol.get('tiempo_total_min'),
-        es_viable=sol.get('cumple_restricciones', True)
+        es_viable=True,
+        snapshot_json=json.dumps(sol, ensure_ascii=False)
     )
     db.session.add(nuevo_itinerario)
-    db.session.flush()  # Para obtener el id_itinerario
+    db.session.flush()  # Para obtener el id_itinerario y el UUID generado
 
-    # 3. Guardar los Detalles
+    # Crear ViajeTurista enlazando Itinerario y Turista
+    viaje_turista = ViajeTurista(
+        id_itinerario=nuevo_itinerario.id_itinerario,
+        id_turista=turista.id_turista
+    )
+    db.session.add(viaje_turista)
+
+    # Primer transporte de BD como respaldo de seguridad
+    primer_transporte = Transporte.query.filter(Transporte.deleted_at.is_(None)).first()
+    id_transporte_default = primer_transporte.id_transporte if primer_transporte else 1
+
+    # Guardar los Detalles
     for parada in sol.get('paradas', []):
         h_lleg_raw = parada.get('hora_llegada')
         h_sal_raw = parada.get('hora_salida')
@@ -494,14 +627,38 @@ def guardar_itinerario(id_generacion: int, numero_solucion: int, id_usuario: int
 
         clima_data = parada.get('clima') or {}
 
+        # id_transporte real del tramo / parada: NUNCA será NULL
+        id_trans = parada.get('id_transporte')
+        tiempo_tras = parada.get('tiempo_traslado_min') or parada.get('tiempo_traslado_desde_anterior')
+
+        if not id_trans:
+            for tramo in sol.get('tramos', []):
+                if tramo.get('destino_id') == parada['id'] and tramo.get('dia') == parada.get('dia', 1):
+                    id_trans = tramo.get('id_transporte')
+                    tiempo_tras = tramo.get('tiempo_traslado_min', 0)
+                    break
+
+        if not id_trans:
+            for tramo in sol.get('tramos', []):
+                if tramo.get('id_transporte'):
+                    id_trans = tramo.get('id_transporte')
+                    break
+
+        if not id_trans:
+            id_trans = id_transporte_default
+
+        if tiempo_tras is None or tiempo_tras == 0:
+            tiempo_tras = 15 if parada.get('numero', 1) == 1 else 10
+
         detalle = ItinerarioDetalle(
             id_itinerario=nuevo_itinerario.id_itinerario,
             id_atractivo=parada['id'],
+            id_transporte=id_trans,
             dia=parada['dia'],
             orden=parada.get('numero', 1),
             hora_llegada_estimada=h_llegada,
             hora_salida_estimada=h_salida,
-            tiempo_traslado_desde_anterior=0,
+            tiempo_traslado_desde_anterior=int(tiempo_tras),
             costo_entrada_bob=parada.get('costo_entrada_bob'),
             clima_temperatura=clima_data.get('temperatura'),
             clima_lluvia_mm=clima_data.get('precipitacion_mm'),
@@ -510,7 +667,7 @@ def guardar_itinerario(id_generacion: int, numero_solucion: int, id_usuario: int
         db.session.add(detalle)
         db.session.flush()
 
-        # 4. Guardar Tráfico (si hay avisos en la parada)
+        # Guardar Tráfico (si hay avisos en la parada)
         for aviso in parada.get('avisos_trafico', []):
             id_patron = aviso.get('id_patron')
             if id_patron:
@@ -523,15 +680,29 @@ def guardar_itinerario(id_generacion: int, numero_solucion: int, id_usuario: int
                 except Exception:
                     pass
 
+    # Regla de Acompañantes: Si num_personas > 1
+    advertencia_acompanantes = None
+    if num_personas > 1:
+        faltantes = num_personas - 1
+        advertencia_acompanantes = f"Faltan {faltantes} acompañantes por registrar. El itinerario no podrá cambiar de estado hasta que se completen."
+
     db.session.commit()
-    return {"id_itinerario": nuevo_itinerario.id_itinerario}
+
+    return {
+        "id_itinerario": nuevo_itinerario.id_itinerario,
+        "success": True,
+        "codigo_confirmacion": str(nuevo_itinerario.codigo_confirmacion),
+        "advertencia_acompanantes": advertencia_acompanantes,
+        "num_personas": int(num_personas)
+    }
 
 
 def listar_itinerarios_guardados(usuario_actual):
     """
-    Lista los itinerarios guardados. Preparado para separación de roles.
-    Admin y Agente ven todos los itinerarios no eliminados.
-    Turista ve únicamente los vinculados a sus generaciones.
+    Lista los itinerarios guardados con separación estricta de roles:
+    - Admin y Agente ven todos los itinerarios no eliminados.
+    - Turista ve únicamente los que le pertenecen a través de ViajeTurista -> Turista
+      o a través de su generacion.id_usuario.
     """
     rol_nombre = (usuario_actual.rol.nombre if usuario_actual.rol else '').lower()
     if rol_nombre in ['admin', 'agente']:
@@ -539,22 +710,61 @@ def listar_itinerarios_guardados(usuario_actual):
             Itinerario.deleted_at.is_(None)
         ).order_by(Itinerario.id_itinerario.desc()).all()
     else:
-        return Itinerario.query.join(Generacion).filter(
-            Generacion.id_usuario == usuario_actual.id_usuario,
-            Itinerario.deleted_at.is_(None)
-        ).order_by(Itinerario.id_itinerario.desc()).all()
+        return Itinerario.query.outerjoin(
+            ViajeTurista, Itinerario.id_itinerario == ViajeTurista.id_itinerario
+        ).outerjoin(
+            Turista, ViajeTurista.id_turista == Turista.id_turista
+        ).outerjoin(
+            Generacion, Itinerario.id_generacion == Generacion.id_generacion
+        ).filter(
+            Itinerario.deleted_at.is_(None),
+            db.or_(
+                Turista.id_usuario == usuario_actual.id_usuario,
+                Generacion.id_usuario == usuario_actual.id_usuario
+            )
+        ).distinct().order_by(Itinerario.id_itinerario.desc()).all()
 
 
 def obtener_detalle_itinerario(id_itinerario: int) -> dict | None:
     """
     Reconstruye el JSON completo de un itinerario guardado para mostrarlo con el mismo
     nivel de detalle (mapas, timeline, clima, transportes) que en el generador.
+    Prioriza el snapshot_json guardado en la columna de Itinerario.
     """
     itinerario = Itinerario.query.get(id_itinerario)
     if not itinerario or itinerario.is_deleted:
         return None
 
-    # 1. Intentar cargar desde el JSON en ConsultaNSGA2 (máxima fidelidad de polilíneas, tráfico y tramos)
+    def _adjuntar_turista(s_dict):
+        if itinerario.viajes_turistas and len(itinerario.viajes_turistas) > 0:
+            t = itinerario.viajes_turistas[0].turista
+            if t:
+                s_dict['turista_contacto'] = {
+                    'nombres': t.nombres,
+                    'apellidos': t.apellidos,
+                    'nro_documento': t.nro_documento,
+                    'procedencia': t.procedencia,
+                    'email': t.email,
+                    'telefono': t.telefono
+                }
+        return s_dict
+
+    # 1. Prioridad: cargar directamente desde snapshot_json
+    if itinerario.snapshot_json:
+        try:
+            sol_dict = json.loads(itinerario.snapshot_json)
+            if isinstance(sol_dict, dict):
+                sol_dict['id_itinerario'] = itinerario.id_itinerario
+                sol_dict['id_generacion'] = itinerario.id_generacion
+                sol_dict['estado'] = itinerario.estado
+                sol_dict['codigo_confirmacion'] = str(itinerario.codigo_confirmacion) if itinerario.codigo_confirmacion else None
+                sol_dict['voucher_generado'] = itinerario.voucher_generado
+                sol_dict['num_personas'] = int(itinerario.num_personas or 1)
+                return _adjuntar_turista(sol_dict)
+        except Exception as e:
+            print(f"[WARNING] Error cargando snapshot_json de itinerario #{id_itinerario}: {e}")
+
+    # 2. Intentar cargar desde el JSON en ConsultaNSGA2
     consulta = ConsultaNSGA2.query.filter_by(id_generacion=itinerario.id_generacion).first()
     if consulta and consulta.resultados_json:
         try:
@@ -574,11 +784,12 @@ def obtener_detalle_itinerario(id_itinerario: int) -> dict | None:
                 sol_dict['estado'] = itinerario.estado
                 sol_dict['codigo_confirmacion'] = str(itinerario.codigo_confirmacion) if itinerario.codigo_confirmacion else None
                 sol_dict['voucher_generado'] = itinerario.voucher_generado
-                return sol_dict
+                sol_dict['num_personas'] = int(itinerario.num_personas or 1)
+                return _adjuntar_turista(sol_dict)
         except Exception as e:
             print(f"[WARNING] Error cargando JSON de itinerario desde ConsultaNSGA2: {e}")
 
-    # 2. Reconstrucción manual desde las tablas de la BD si no existe o falló el JSON
+    # 3. Reconstrucción manual desde las tablas de la BD si no existe o falló el JSON
     detalles = ItinerarioDetalle.query.filter_by(
         id_itinerario=id_itinerario
     ).order_by(ItinerarioDetalle.dia, ItinerarioDetalle.orden).all()
@@ -602,6 +813,8 @@ def obtener_detalle_itinerario(id_itinerario: int) -> dict | None:
             "hora_llegada": d.hora_llegada_estimada.strftime("%H:%M") if d.hora_llegada_estimada else "09:00",
             "hora_salida": d.hora_salida_estimada.strftime("%H:%M") if d.hora_salida_estimada else "10:00",
             "tiempo_visita_min": int(d.tiempo_traslado_desde_anterior or 60),
+            "id_transporte": d.id_transporte,
+            "tiempo_traslado_desde_anterior": int(d.tiempo_traslado_desde_anterior or 15),
             "clima": {
                 "temperatura": float(d.clima_temperatura) if d.clima_temperatura is not None else None,
                 "precipitacion_mm": float(d.clima_lluvia_mm) if d.clima_lluvia_mm is not None else None,
@@ -625,6 +838,7 @@ def obtener_detalle_itinerario(id_itinerario: int) -> dict | None:
         "fecha_inicio": itinerario.fecha_inicio.strftime("%Y-%m-%d") if itinerario.fecha_inicio else "",
         "fecha_fin": itinerario.fecha_fin.strftime("%Y-%m-%d") if itinerario.fecha_fin else "",
         "dias_totales": itinerario.dias_totales or 1,
+        "num_personas": int(itinerario.num_personas or 1),
         "cumple_restricciones": itinerario.es_viable,
         "num_atractivos": len(paradas),
         "atractivos_nombres": atractivos_nombres,

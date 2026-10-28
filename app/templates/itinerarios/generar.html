@@ -202,10 +202,15 @@
             </div>
           </div>
           <hr class="my-2 opacity-25">
-          <div class="d-flex flex-wrap justify-content-center gap-3 pt-1 small text-muted">
+          <div class="d-flex flex-wrap justify-content-center gap-3 pt-1 small text-muted align-items-center">
             <div><i class="bi bi-calendar-event text-primary me-1"></i><span id="modalFechasViaje">--</span></div>
             <div><i class="bi bi-calendar3 text-primary me-1"></i><span id="modalDiasTotales">--</span></div>
             <div><i class="bi bi-clock text-primary me-1"></i><span id="modalVentanaHoraria">--</span></div>
+            <div>
+              <span class="badge bg-primary">
+                <i class="bi bi-people-fill me-1"></i><span id="modalPersonasTexto">1 persona</span>
+              </span>
+            </div>
           </div>
         </div>
 
@@ -264,6 +269,77 @@
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <button type="button" class="btn btn-danger" id="btnConfirmarReinicio">Sí, reiniciar página</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 1: Confirmación de Guardado -->
+<div class="modal fade" id="modalConfirmarGuardado" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-success text-white border-0">
+        <h5 class="modal-title fw-bold"><i class="bi bi-save me-2"></i>Guardar Itinerario</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body py-4 text-center">
+        <p class="mb-0 fs-5">¿Estás seguro de guardar este itinerario?</p>
+        <small class="text-muted">Podrás gestionarlo y asignarle turistas más adelante.</small>
+      </div>
+      <div class="modal-footer border-0 bg-light justify-content-center">
+        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success px-4" id="btnConfirmarGuardado">Sí, guardar ahora</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 2: Formulario de Turista -->
+<div class="modal fade" id="modalFormularioTurista" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-primary text-white border-0">
+        <h5 class="modal-title fw-bold"><i class="bi bi-person-plus-fill me-2"></i>Datos del Turista (Contacto Principal)</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formTurista" novalidate>
+        <div class="modal-body p-4">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Nombres *</label>
+              <input type="text" class="form-control" name="nombres" id="inpNombres" required pattern="^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$">
+              <span class="text-danger small d-none" id="errNombres">Solo letras y espacios.</span>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Apellidos *</label>
+              <input type="text" class="form-control" name="apellidos" id="inpApellidos" required pattern="^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$">
+              <span class="text-danger small d-none" id="errApellidos">Solo letras y espacios.</span>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Nro. Documento * (Alfanumérico)</label>
+              <input type="text" class="form-control" name="nro_documento" id="inpDocumento" required pattern="^[a-zA-Z0-9-]+$">
+              <span class="text-danger small d-none" id="errDocumento">Solo letras, números y guiones.</span>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Procedencia</label>
+              <input type="text" class="form-control" name="procedencia" id="inpProcedencia">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Email</label>
+              <input type="email" class="form-control" name="email" id="inpEmail">
+              <span class="text-danger small d-none" id="errEmail">Correo electrónico inválido.</span>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Teléfono</label>
+              <input type="text" class="form-control" name="telefono" id="inpTelefono" pattern="^[+]?[\d\s-]{7,15}$">
+              <span class="text-danger small d-none" id="errTelefono">Teléfono inválido (mín. 7 dígitos).</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer border-0 bg-light">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary fw-bold" id="btnValidarFormulario">Continuar a Confirmación</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
@@ -887,8 +963,10 @@ document.addEventListener('DOMContentLoaded', function () {
       if (transportesIds.length === 1) {
         const chkUnico = document.querySelector('.chk-transporte:checked');
         const cap = parseInt(chkUnico.getAttribute('data-capacidad') || '999');
-        if (cap < numPersonas) {
-          alert(`El transporte no tiene capacidad (${cap}) para ${numPersonas} personas.`);
+        const chkMulti = document.getElementById('chkPermitirMultiplesVehiculos');
+        const permitirMulti = chkMulti ? chkMulti.checked : false;
+        if (!permitirMulti && numPersonas > cap + 1) {
+          alert(`El transporte seleccionado no tiene capacidad (${cap} asientos) para ${numPersonas} personas. Activa la opción de permitir múltiples vehículos o selecciona un transporte con mayor capacidad.`);
           return;
         }
       }
@@ -972,6 +1050,9 @@ document.addEventListener('DOMContentLoaded', function () {
         ? Math.round((valPresupuesto * TC_OFICIAL) * 100) / 100
         : valPresupuesto;
 
+      const chkPermitirMultiplesVehiculos = document.getElementById('chkPermitirMultiplesVehiculos');
+      const permitirMultiplesVehiculos = chkPermitirMultiplesVehiculos ? chkPermitirMultiplesVehiculos.checked : false;
+
       const payload = {
         atractivos_ids: atractivosIds,
         transporte_ids: transportesIds,
@@ -984,6 +1065,7 @@ document.addEventListener('DOMContentLoaded', function () {
         num_personas: numPersonas,
         forzar_atractivos: forzarAtractivos,
         forzar_transporte: forzarTransporte,
+        permitir_multiples_vehiculos: permitirMultiplesVehiculos,
         min_paradas: minParadas,
         max_paradas: maxParadas,
         auto_rango_paradas: autoRango,
@@ -1031,61 +1113,43 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ==========================================
-  // 9. DELEGACIÓN "VER DETALLE" Y "GUARDAR" (AMBAS TABLAS)
+  // 9. DELEGACIÓN "VER DETALLE" Y "GUARDAR" (FLUJO INVERTIDO Y VALIDACIONES)
   // ==========================================
-  async function manejarGuardarItinerario(btn) {
-    const id_gen = btn.getAttribute('data-gen');
-    const num_sol = btn.getAttribute('data-sol');
+  let itinerarioPendiente = null;
 
-    if (!id_gen || !num_sol) {
-      alert("No se pudo identificar la generación o el número de solución para guardar.");
-      return;
-    }
-
-    btn.disabled = true;
-    const originalHTML = btn.innerHTML;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Guardando...';
-
-    try {
-      const res = await fetch('/itinerarios/guardar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_generacion: parseInt(id_gen), numero_solucion: parseInt(num_sol) })
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        btn.className = 'btn btn-sm btn-outline-success';
-        btn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Guardado';
-        btn.disabled = true;
-        alert("¡Itinerario guardado con éxito! Puedes verlo en la sección de Itinerarios.");
-      } else {
-        alert("Error al guardar: " + (data.error || 'No se pudo guardar el itinerario.'));
-        btn.disabled = false;
-        btn.innerHTML = originalHTML;
-      }
-    } catch (err) {
-      alert("Error de conexión al guardar el itinerario: " + err.message);
-      btn.disabled = false;
-      btn.innerHTML = originalHTML;
-    }
-  }
-
-  const tbodySolucionesNoViables = document.getElementById('tbodySolucionesNoViables');
+  // 1. Al hacer clic en "Guardar" (en la tabla)
   if (tbodySoluciones) {
-    tbodySoluciones.addEventListener('click', function (e) {
+    tbodySoluciones.addEventListener('click', function(e) {
       const btnDetalle = e.target.closest('.btn-ver-detalle');
       if (btnDetalle) {
         const idx = parseInt(btnDetalle.getAttribute('data-sol-index'));
         mostrarModalDetalle(idx);
         return;
       }
-      const btnGuardar = e.target.closest('.btn-guardar-itinerario');
-      if (btnGuardar) {
-        manejarGuardarItinerario(btnGuardar);
+      const btn = e.target.closest('.btn-guardar-itinerario');
+      if (btn) {
+        itinerarioPendiente = {
+          id_gen: btn.getAttribute('data-gen'),
+          num_sol: btn.getAttribute('data-sol'),
+          btn: btn
+        };
+        // Limpiar formulario y abrir el Modal del Formulario DIRECTAMENTE
+        const formEl = document.getElementById('formTurista');
+        if (formEl) formEl.reset();
+
+        ['errNombres', 'errApellidos', 'errDocumento', 'errEmail', 'errTelefono'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.classList.add('d-none');
+        });
+
+        const modalForm = document.getElementById('modalFormularioTurista');
+        if (modalForm) {
+          bootstrap.Modal.getOrCreateInstance(modalForm).show();
+        }
       }
     });
   }
+
   if (tbodySolucionesNoViables) {
     tbodySolucionesNoViables.addEventListener('click', function (e) {
       const btnDetalle = e.target.closest('.btn-ver-detalle');
@@ -1094,9 +1158,129 @@ document.addEventListener('DOMContentLoaded', function () {
         mostrarModalDetalle(idx);
         return;
       }
-      const btnGuardar = e.target.closest('.btn-guardar-itinerario');
-      if (btnGuardar) {
-        manejarGuardarItinerario(btnGuardar);
+    });
+  }
+
+  // Autocompletado si el turista ya existe en la BD por Nro. Documento
+  const inpDocTurista = document.getElementById('inpDocumento');
+  if (inpDocTurista) {
+    let timerDocAuto = null;
+    inpDocTurista.addEventListener('input', function() {
+      clearTimeout(timerDocAuto);
+      const valDoc = inpDocTurista.value.trim();
+      if (valDoc.length >= 3) {
+        timerDocAuto = setTimeout(async () => {
+          try {
+            const resp = await fetch(`/itinerarios/turista/buscar?documento=${encodeURIComponent(valDoc)}`);
+            const dat = await resp.json();
+            if (dat.encontrado && dat.turista) {
+              const t = dat.turista;
+              if (t.nombres) document.getElementById('inpNombres').value = t.nombres;
+              if (t.apellidos) document.getElementById('inpApellidos').value = t.apellidos;
+              if (t.procedencia) document.getElementById('inpProcedencia').value = t.procedencia;
+              if (t.email) document.getElementById('inpEmail').value = t.email;
+              if (t.telefono) document.getElementById('inpTelefono').value = t.telefono;
+            }
+          } catch (e) {}
+        }, 400);
+      }
+    });
+  }
+
+  // 2. Validaciones visuales y envío del formulario
+  const formTurista = document.getElementById('formTurista');
+  if (formTurista) {
+    formTurista.addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      // Validaciones manuales (además de las de HTML5)
+      let isValid = true;
+      const regexTexto = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
+      const regexDoc = /^[a-zA-Z0-9-]+$/;
+      const regexTel = /^[+]?[\d\s-]{7,15}$/;
+
+      const nombres = document.getElementById('inpNombres');
+      const apellidos = document.getElementById('inpApellidos');
+      const doc = document.getElementById('inpDocumento');
+      const email = document.getElementById('inpEmail');
+      const tel = document.getElementById('inpTelefono');
+
+      // Resetear errores
+      ['errNombres','errApellidos','errDocumento','errEmail','errTelefono'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('d-none');
+      });
+
+      if (!regexTexto.test(nombres.value.trim())) { document.getElementById('errNombres').classList.remove('d-none'); isValid = false; }
+      if (!regexTexto.test(apellidos.value.trim())) { document.getElementById('errApellidos').classList.remove('d-none'); isValid = false; }
+      if (!regexDoc.test(doc.value.trim())) { document.getElementById('errDocumento').classList.remove('d-none'); isValid = false; }
+      
+      if (email.value.trim() && !email.checkValidity()) { document.getElementById('errEmail').classList.remove('d-none'); isValid = false; }
+      if (tel.value.trim() && !regexTel.test(tel.value.trim())) { document.getElementById('errTelefono').classList.remove('d-none'); isValid = false; }
+
+      if (!isValid) return; // Detener si hay errores
+
+      // Si todo es válido, CERRAR el form y ABRIR la confirmación
+      const modalFormInst = bootstrap.Modal.getInstance(document.getElementById('modalFormularioTurista'));
+      if (modalFormInst) modalFormInst.hide();
+      
+      setTimeout(() => {
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmarGuardado')).show();
+      }, 300);
+    });
+  }
+
+  // 3. Al confirmar en el Modal 1 (El paso final de persistencia)
+  const btnConfirmarGuardado = document.getElementById('btnConfirmarGuardado');
+  if (btnConfirmarGuardado) {
+    btnConfirmarGuardado.addEventListener('click', async function() {
+      if (!itinerarioPendiente) return;
+
+      const form = document.getElementById('formTurista');
+      const formData = new FormData(form);
+      
+      const payload = {
+        id_generacion: parseInt(itinerarioPendiente.id_gen),
+        numero_solucion: parseInt(itinerarioPendiente.num_sol),
+        turista: {
+          nombres: formData.get('nombres'),
+          apellidos: formData.get('apellidos'),
+          nro_documento: formData.get('nro_documento'),
+          procedencia: formData.get('procedencia'),
+          email: formData.get('email'),
+          telefono: formData.get('telefono')
+        }
+      };
+
+      btnConfirmarGuardado.disabled = true;
+      btnConfirmarGuardado.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Guardando...';
+
+      try {
+        const res = await fetch('/itinerarios/guardar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          alert("¡Itinerario guardado con éxito en la base de datos!");
+          const modalInst = bootstrap.Modal.getInstance(document.getElementById('modalConfirmarGuardado'));
+          if (modalInst) modalInst.hide();
+
+          if (itinerarioPendiente.btn) {
+            itinerarioPendiente.btn.className = 'btn btn-sm btn-outline-success';
+            itinerarioPendiente.btn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Guardado';
+            itinerarioPendiente.btn.disabled = true;
+          }
+        } else {
+          alert("Error: " + (data.error || 'No se pudo guardar el itinerario.'));
+        }
+      } catch (err) {
+        alert("Error de red al guardar: " + err.message);
+      } finally {
+        btnConfirmarGuardado.disabled = false;
+        btnConfirmarGuardado.innerHTML = 'Sí, guardar ahora';
       }
     });
   }
@@ -1213,7 +1397,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <td>${badge}</td>
         <td class="pe-4 text-end text-nowrap">
           <button class="btn btn-sm ${btnClass} btn-ver-detalle me-1" data-sol-index="${idxParam}"><i class="bi bi-eye me-1"></i>Ver Detalle</button>
-          <button class="btn btn-sm btn-success btn-guardar-itinerario" data-gen="${sol.id_generacion || (ultimoResultadoData && ultimoResultadoData.id_generacion) || ''}" data-sol="${sol.numero_solucion || sol.numero || (i + 1)}"><i class="bi bi-save me-1"></i>Guardar</button>
+          ${sol.cumple_restricciones ? `<button class="btn btn-sm btn-success btn-guardar-itinerario" data-gen="${sol.id_generacion || (ultimoResultadoData && ultimoResultadoData.id_generacion) || ''}" data-sol="${sol.numero_solucion || sol.numero || (i + 1)}"><i class="bi bi-save me-1"></i>Guardar</button>` : ''}
         </td>
       `;
       tbodySoluciones.appendChild(tr);
@@ -1264,7 +1448,6 @@ document.addEventListener('DOMContentLoaded', function () {
         </td>
         <td class="pe-4 text-end text-nowrap">
           <button class="btn btn-sm btn-outline-danger btn-ver-detalle me-1" data-sol-index="${idxParam}"><i class="bi bi-eye me-1"></i>Ver Detalle</button>
-          <button class="btn btn-sm btn-success btn-guardar-itinerario" data-gen="${sol.id_generacion || (ultimoResultadoData && ultimoResultadoData.id_generacion) || ''}" data-sol="${sol.numero_solucion || sol.numero || (i + 1)}"><i class="bi bi-save me-1"></i>Guardar</button>
         </td>
       `;
       tbodyNV.appendChild(tr);
@@ -1725,6 +1908,12 @@ document.addEventListener('DOMContentLoaded', function () {
     if (modalDias) modalDias.textContent = `${diasTotModal} día(s) de viaje`;
     if (modalVentana) modalVentana.textContent = `Horario: ${sol.hora_inicio_dia || '09:00'} a ${sol.hora_fin_dia || '18:00'}`;
 
+    const numPers = sol.num_personas || (ultimoResultadoData && ultimoResultadoData.parametros_usados ? ultimoResultadoData.parametros_usados.num_personas : 1) || 1;
+    const modalPersonasTexto = document.getElementById('modalPersonasTexto');
+    if (modalPersonasTexto) {
+      modalPersonasTexto.textContent = `${numPers} persona${numPers > 1 ? 's' : ''}`;
+    }
+
     const tl = document.getElementById('modalTimelineContenido');
     tl.innerHTML = '';
 
@@ -1764,6 +1953,13 @@ document.addEventListener('DOMContentLoaded', function () {
         ${sugHtml}
       `;
       tl.appendChild(dExc);
+    }
+
+    if (sol.advertencia_capacidad) {
+      const dCap = document.createElement('div');
+      dCap.className = 'alert alert-warning border-warning-subtle shadow-sm mb-3 py-2 px-3 small';
+      dCap.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i><strong>Aviso de transporte:</strong> ${sol.advertencia_capacidad}`;
+      tl.appendChild(dCap);
     }
 
     function obtenerInfoDia(fechaInicioStr, diaNumero) {
@@ -2131,6 +2327,7 @@ document.addEventListener('DOMContentLoaded', function () {
       usar_clima: document.getElementById('chkUsarClima')?.checked,
       forzar_atractivos: document.getElementById('chkForzarAtractivos')?.checked,
       forzar_transporte: document.getElementById('chkForzarTransporte')?.checked,
+      permitir_multiples_vehiculos: document.getElementById('chkPermitirMultiplesVehiculos')?.checked,
       atractivos: Array.from(document.querySelectorAll('.chk-atractivo:checked')).map(c => parseInt(c.value)),
       transportes: Array.from(document.querySelectorAll('.chk-transporte:checked')).map(c => parseInt(c.value)),
       categorias: Array.from(document.querySelectorAll('.chk-categoria-padre:checked')).map(c => parseInt(c.value)),
@@ -2215,6 +2412,9 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       if (state.forzar_transporte !== undefined && document.getElementById('chkForzarTransporte')) {
         document.getElementById('chkForzarTransporte').checked = !!state.forzar_transporte;
+      }
+      if (state.permitir_multiples_vehiculos !== undefined && document.getElementById('chkPermitirMultiplesVehiculos')) {
+        document.getElementById('chkPermitirMultiplesVehiculos').checked = !!state.permitir_multiples_vehiculos;
       }
 
       // Checkboxes de transportes

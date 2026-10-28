@@ -196,6 +196,8 @@ def generar_action():
         except (TypeError, ValueError):
             max_paradas = 15
 
+        permitir_multiples_vehiculos = bool(data.get('permitir_multiples_vehiculos', False))
+
         # Ejecutar orquestador
         resultado = generar_itinerarios(
             atractivos_ids=[int(aid) for aid in atractivos_ids] if atractivos_ids else [],
@@ -221,6 +223,7 @@ def generar_action():
             subcategorias_activas_ids=subcategorias_activas_ids,
             usar_clima=usar_clima,
             id_usuario=current_user.id_usuario,
+            permitir_multiples_vehiculos=permitir_multiples_vehiculos,
         )
 
         return jsonify({
@@ -240,15 +243,29 @@ def generar_action():
         }), 500
 
 
+@itinerarios_bp.route('/turista/buscar', methods=['GET'])
+@login_required
+def buscar_turista():
+    """
+    Busca si un turista ya existe por su documento para autocompletar el formulario.
+    """
+    documento = request.args.get('documento', '')
+    resultado = itinerario_service.buscar_turista_por_documento(documento)
+    return jsonify(resultado), 200
+
+
 @itinerarios_bp.route('/guardar', methods=['POST'])
 @login_required
 def guardar():
     """
     Guarda en base de datos un itinerario seleccionado de la consulta actual.
+    Valida viabilidad, gestiona duplicados por rol y asocia al turista titular.
     """
     payload = request.get_json(silent=True) or {}
     id_generacion = payload.get('id_generacion')
     numero_solucion = payload.get('numero_solucion')
+    turista_data = payload.get('turista')
+    forzar_nuevo = bool(payload.get('forzar_nuevo', False))
 
     if not id_generacion or numero_solucion is None:
         return jsonify({
@@ -260,12 +277,23 @@ def guardar():
         res = itinerario_service.guardar_itinerario(
             id_generacion=int(id_generacion),
             numero_solucion=int(numero_solucion),
-            id_usuario=current_user.id_usuario
+            id_usuario=current_user.id_usuario,
+            turista_data=turista_data,
+            forzar_nuevo=forzar_nuevo
         )
+
+        if res.get("duplicado_admin"):
+            return jsonify({
+                "success": False,
+                "duplicado_admin": True,
+                "mensaje": res.get("mensaje", "Este itinerario ya fue guardado antes. ¿Deseas crear una nueva reserva para un nuevo grupo?")
+            }), 200
+
         return jsonify({
             "success": True,
             "id_itinerario": res['id_itinerario'],
-            "ya_guardado": res.get("ya_guardado", False)
+            "codigo_confirmacion": res.get("codigo_confirmacion"),
+            "advertencia_acompanantes": res.get("advertencia_acompanantes")
         }), 200
     except ValueError as ve:
         return jsonify({"success": False, "error": str(ve)}), 400

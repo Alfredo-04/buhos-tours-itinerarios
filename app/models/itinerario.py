@@ -26,7 +26,9 @@ class Itinerario(db.Model):
     fecha_inicio = db.Column(db.Date, nullable=True)
     fecha_fin = db.Column(db.Date, nullable=True)
     dias_totales = db.Column(db.Integer, nullable=True, default=1)
+    num_personas = db.Column(db.Integer, nullable=False, default=1, server_default='1')
     es_viable = db.Column(db.Boolean, nullable=False, default=True)
+    snapshot_json = db.Column(db.Text, nullable=True)
 
     # Relación con GENERACION
     generacion = db.relationship('Generacion', backref='itinerarios', lazy=True)
