@@ -87,7 +87,7 @@ def create_app(config_class=Config):
     from app.controllers.turista_controller import turista_bp
     from app.controllers.usuario_controller import usuario_bp
     from app.controllers.catalogo_controller import catalogo_bp
-    from app.controllers.itinerario_controller import itinerarios_bp
+    from app.controllers.itinerario_controller import itinerarios_bp, turistas_api_bp
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
@@ -96,6 +96,7 @@ def create_app(config_class=Config):
     app.register_blueprint(usuario_bp)
     app.register_blueprint(catalogo_bp)
     app.register_blueprint(itinerarios_bp)
+    app.register_blueprint(turistas_api_bp)
 
     # Middleware de seguridad global
     @app.before_request
@@ -106,6 +107,17 @@ def create_app(config_class=Config):
             try:
                 db.session.execute(db.text("ALTER TABLE itinerario ADD COLUMN IF NOT EXISTS snapshot_json TEXT;"))
                 db.session.execute(db.text("ALTER TABLE itinerario ADD COLUMN IF NOT EXISTS num_personas INTEGER NOT NULL DEFAULT 1;"))
+                db.session.execute(db.text("""
+                    ALTER TABLE viaje_turista ADD COLUMN IF NOT EXISTS id_viaje_turista SERIAL;
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_constraint WHERE conname = 'uq_viaje_turista_itinerario_turista'
+                        ) THEN
+                            ALTER TABLE viaje_turista ADD CONSTRAINT uq_viaje_turista_itinerario_turista UNIQUE (id_itinerario, id_turista);
+                        END IF;
+                    END $$;
+                """))
                 db.session.commit()
             except Exception:
                 db.session.rollback()

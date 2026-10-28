@@ -303,6 +303,10 @@
       </div>
       <form id="formTurista" novalidate>
         <div class="modal-body p-4">
+          <div id="errTuristaGlobal" class="alert alert-danger d-none py-2 px-3 small mb-3"></div>
+          <div id="sucTuristaGlobal" class="alert alert-info d-none py-2 px-3 small mb-3">
+            <i class="bi bi-info-circle me-1"></i>Datos autocompletados desde un turista existente.
+          </div>
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label small fw-bold">Nombres *</label>
@@ -320,8 +324,9 @@
               <span class="text-danger small d-none" id="errDocumento">Solo letras, números y guiones.</span>
             </div>
             <div class="col-md-6">
-              <label class="form-label small fw-bold">Procedencia</label>
-              <input type="text" class="form-control" name="procedencia" id="inpProcedencia">
+              <label class="form-label small fw-bold">Procedencia *</label>
+              <input type="text" class="form-control" name="procedencia" id="inpProcedencia" required maxlength="50">
+              <span class="text-danger small d-none" id="errProcedencia">La procedencia es obligatoria.</span>
             </div>
             <div class="col-md-6">
               <label class="form-label small fw-bold">Email</label>
@@ -1161,31 +1166,55 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Autocompletado si el turista ya existe en la BD por Nro. Documento
+  // Autocompletado si el turista ya existe en la BD por Nro. Documento + Procedencia
   const inpDocTurista = document.getElementById('inpDocumento');
-  if (inpDocTurista) {
-    let timerDocAuto = null;
-    inpDocTurista.addEventListener('input', function() {
-      clearTimeout(timerDocAuto);
-      const valDoc = inpDocTurista.value.trim();
-      if (valDoc.length >= 3) {
-        timerDocAuto = setTimeout(async () => {
-          try {
-            const resp = await fetch(`/itinerarios/turista/buscar?documento=${encodeURIComponent(valDoc)}`);
-            const dat = await resp.json();
-            if (dat.encontrado && dat.turista) {
-              const t = dat.turista;
-              if (t.nombres) document.getElementById('inpNombres').value = t.nombres;
-              if (t.apellidos) document.getElementById('inpApellidos').value = t.apellidos;
-              if (t.procedencia) document.getElementById('inpProcedencia').value = t.procedencia;
-              if (t.email) document.getElementById('inpEmail').value = t.email;
-              if (t.telefono) document.getElementById('inpTelefono').value = t.telefono;
-            }
-          } catch (e) {}
-        }, 400);
+  const inpProcTurista = document.getElementById('inpProcedencia');
+  const errTuristaGlobal = document.getElementById('errTuristaGlobal');
+  const sucTuristaGlobal = document.getElementById('sucTuristaGlobal');
+
+  let conflictoProcedenciaActivo = false;
+
+  async function consultarTuristaGenerador() {
+    if (!inpDocTurista || !inpProcTurista) return;
+    const valDoc = inpDocTurista.value.trim();
+    const valProc = inpProcTurista.value.trim();
+
+    if (errTuristaGlobal) {
+      errTuristaGlobal.textContent = '';
+      errTuristaGlobal.classList.add('d-none');
+    }
+    if (sucTuristaGlobal) {
+      sucTuristaGlobal.classList.add('d-none');
+    }
+    conflictoProcedenciaActivo = false;
+
+    // Solo buscar si ambos campos tienen valor
+    if (valDoc && valProc) {
+      try {
+        const resp = await fetch(`/turistas/buscar?nro_documento=${encodeURIComponent(valDoc)}&procedencia=${encodeURIComponent(valProc)}`);
+        const dat = await resp.json();
+        if (dat.encontrado && dat.turista) {
+          const t = dat.turista;
+          if (t.nombres) document.getElementById('inpNombres').value = t.nombres;
+          if (t.apellidos) document.getElementById('inpApellidos').value = t.apellidos;
+          if (t.email) document.getElementById('inpEmail').value = t.email;
+          if (t.telefono) document.getElementById('inpTelefono').value = t.telefono;
+          if (sucTuristaGlobal) sucTuristaGlobal.classList.remove('d-none');
+        } else if (dat.motivo === 'conflicto_procedencia') {
+          conflictoProcedenciaActivo = true;
+          if (errTuristaGlobal) {
+            errTuristaGlobal.textContent = `El documento ${valDoc} ya está registrado con procedencia '${dat.procedencia_registrada}'. Verifica el país o usa otro documento.`;
+            errTuristaGlobal.classList.remove('d-none');
+          }
+        }
+      } catch (e) {
+        console.warn('Error al consultar turista en generador:', e);
       }
-    });
+    }
   }
+
+  if (inpDocTurista) inpDocTurista.addEventListener('blur', consultarTuristaGenerador);
+  if (inpProcTurista) inpProcTurista.addEventListener('blur', consultarTuristaGenerador);
 
   // 2. Validaciones visuales y envío del formulario
   const formTurista = document.getElementById('formTurista');
@@ -1193,6 +1222,11 @@ document.addEventListener('DOMContentLoaded', function () {
     formTurista.addEventListener('submit', function(e) {
       e.preventDefault();
       
+      if (conflictoProcedenciaActivo) {
+        if (errTuristaGlobal) errTuristaGlobal.classList.remove('d-none');
+        return;
+      }
+
       // Validaciones manuales (además de las de HTML5)
       let isValid = true;
       const regexTexto = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
@@ -1202,11 +1236,12 @@ document.addEventListener('DOMContentLoaded', function () {
       const nombres = document.getElementById('inpNombres');
       const apellidos = document.getElementById('inpApellidos');
       const doc = document.getElementById('inpDocumento');
+      const procedencia = document.getElementById('inpProcedencia');
       const email = document.getElementById('inpEmail');
       const tel = document.getElementById('inpTelefono');
 
       // Resetear errores
-      ['errNombres','errApellidos','errDocumento','errEmail','errTelefono'].forEach(id => {
+      ['errNombres','errApellidos','errDocumento','errProcedencia','errEmail','errTelefono'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('d-none');
       });
@@ -1214,6 +1249,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!regexTexto.test(nombres.value.trim())) { document.getElementById('errNombres').classList.remove('d-none'); isValid = false; }
       if (!regexTexto.test(apellidos.value.trim())) { document.getElementById('errApellidos').classList.remove('d-none'); isValid = false; }
       if (!regexDoc.test(doc.value.trim())) { document.getElementById('errDocumento').classList.remove('d-none'); isValid = false; }
+      if (!procedencia.value.trim()) { document.getElementById('errProcedencia').classList.remove('d-none'); isValid = false; }
       
       if (email.value.trim() && !email.checkValidity()) { document.getElementById('errEmail').classList.remove('d-none'); isValid = false; }
       if (tel.value.trim() && !regexTel.test(tel.value.trim())) { document.getElementById('errTelefono').classList.remove('d-none'); isValid = false; }

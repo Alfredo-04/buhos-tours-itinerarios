@@ -102,6 +102,38 @@
     </div>
   </div>
 
+  <!-- Banners de Cupos de Turistas -->
+  <div id="contenedorBannersTuristas" class="mb-3">
+    {% if conteo and not conteo.completo %}
+    <div class="alert alert-warning border-warning-subtle shadow-sm d-flex align-items-center gap-2 mb-0" id="bannerFaltantes">
+      <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+      <div>
+        Faltan <strong id="txtFaltantesNum">{{ conteo.faltantes }}</strong> persona{{ 's' if conteo.faltantes > 1 else '' }} por registrar (<span id="txtRegistradosNum">{{ conteo.total_registrados }}</span>/{{ conteo.esperado }}).
+      </div>
+    </div>
+    {% endif %}
+    {% if conteo and conteo.completo %}
+    <div class="alert alert-success border-success-subtle shadow-sm d-flex align-items-center gap-2 mb-0" id="bannerCompleto">
+      <i class="bi bi-check-circle-fill fs-5"></i>
+      <div>
+        Grupo completo: <span id="txtRegistradosNum">{{ conteo.total_registrados }}</span>/{{ conteo.esperado }} personas registradas.
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Barra de acciones de Acompañantes y Turistas -->
+  <div class="d-flex flex-wrap gap-2 mb-4">
+    <button type="button" class="btn btn-primary shadow-sm" id="btnAbrirModalAcompanante" data-id-itinerario="{{ itinerario.id_itinerario }}" {% if not conteo or conteo.completo or itinerario.estado != 'Borrador' %}disabled{% endif %}>
+      <i class="bi bi-person-plus-fill me-1"></i>
+      Añadir acompañante (<span id="txtBtnAcompConteo">{{ conteo.total_registrados if conteo else 0 }}/{{ conteo.esperado if conteo else itinerario.num_personas }}</span>)
+    </button>
+    <button type="button" class="btn btn-outline-secondary shadow-sm" id="btnAbrirModalTuristas" data-id-itinerario="{{ itinerario.id_itinerario }}">
+      <i class="bi bi-people-fill me-1"></i>
+      Ver turistas del itinerario (<span id="txtBtnTuristasConteo">{{ conteo.total_registrados if conteo else 1 }}/{{ conteo.esperado if conteo else itinerario.num_personas }}</span>)
+    </button>
+  </div>
+
   <!-- Tarjeta de Contacto Principal si existe -->
   {% if itinerario.turista_contacto %}
   {% set tc_tur = itinerario.turista_contacto %}
@@ -271,6 +303,76 @@
     </div>
   </div>
 
+  <!-- Modal Añadir Acompañante -->
+  <div class="modal fade" id="modalAcompanante" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header bg-primary text-white border-0">
+          <h5 class="modal-title fw-bold"><i class="bi bi-person-plus-fill me-2"></i>Añadir acompañante</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <form id="formAcompanante" novalidate>
+          <div class="modal-body p-4">
+            <div id="formAcompananteError" class="alert alert-danger d-none"></div>
+            <div id="formAcompananteSuccess" class="alert alert-info py-2 d-none small">
+              <i class="bi bi-info-circle me-1"></i>Datos autocompletados desde un turista existente.
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-bold">Nro. Documento (opcional)</label>
+              <input type="text" class="form-control" id="acomp_documento" name="nro_documento" maxlength="20" placeholder="Ej. 12345678">
+              
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-bold">Procedencia *</label>
+              <input type="text" class="form-control" id="acomp_procedencia" name="procedencia" maxlength="50" required placeholder="Ej. Bolivia, Argentina, etc.">
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-bold">Nombres *</label>
+              <input type="text" class="form-control" id="acomp_nombres" name="nombres" maxlength="80" required placeholder="Ej. Ana">
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-bold">Apellidos *</label>
+              <input type="text" class="form-control" id="acomp_apellidos" name="apellidos" maxlength="80" required placeholder="Ej. Pérez">
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-bold">Email (opcional)</label>
+              <input type="email" class="form-control" id="acomp_email" name="email" maxlength="100" placeholder="correo@ejemplo.com">
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-bold">Teléfono (opcional)</label>
+              <input type="text" class="form-control" id="acomp_telefono" name="telefono" maxlength="20" placeholder="+591 70000000">
+            </div>
+          </div>
+          <div class="modal-footer border-0 bg-light">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary fw-bold" id="btnGuardarAcompanante">Guardar acompañante</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ver Turistas del Itinerario -->
+  <div class="modal fade" id="modalVerTuristas" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header bg-dark text-white border-0">
+          <h5 class="modal-title fw-bold"><i class="bi bi-people-fill me-2"></i>Turistas del itinerario</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div id="modalTuristasHeader" class="mb-3"></div>
+          <div id="modalTuristasContenido">
+            <p class="text-muted">Cargando...</p>
+          </div>
+        </div>
+        <div class="modal-footer border-0 bg-light">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 {% endblock %}
 
@@ -278,6 +380,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
 <script src="https://unpkg.com/leaflet-polylineoffset@1.1.1/leaflet.polylineoffset.js"></script>
+<script src="{{ url_for('static', filename='js/itinerario_acompanantes.js') }}"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {

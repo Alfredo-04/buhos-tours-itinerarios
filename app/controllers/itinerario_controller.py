@@ -9,6 +9,7 @@ from app.services.itinerario_service import generar_itinerarios
 from app.services.exchange_service import obtener_tc_oficial
 
 itinerarios_bp = Blueprint('itinerarios', __name__, url_prefix='/itinerarios')
+turistas_api_bp = Blueprint('turistas_api', __name__, url_prefix='/turistas')
 
 
 @itinerarios_bp.route('/generar', methods=['GET'])
@@ -243,14 +244,21 @@ def generar_action():
         }), 500
 
 
+@turistas_api_bp.route('/buscar', methods=['GET'])
+@itinerarios_bp.route('/turistas/buscar', methods=['GET'])
 @itinerarios_bp.route('/turista/buscar', methods=['GET'])
 @login_required
-def buscar_turista():
+def buscar_turista_endpoint():
     """
-    Busca si un turista ya existe por su documento para autocompletar el formulario.
+    Busca si un turista ya existe por su documento y procedencia para autocompletar el formulario.
+    Soporta nro_documento + procedencia, o documento solo por compatibilidad retroactiva.
     """
-    documento = request.args.get('documento', '')
-    resultado = itinerario_service.buscar_turista_por_documento(documento)
+    documento = request.args.get('nro_documento') or request.args.get('documento', '')
+    procedencia = request.args.get('procedencia')
+    if procedencia is not None:
+        resultado = itinerario_service.buscar_turista(documento, procedencia)
+    else:
+        resultado = itinerario_service.buscar_turista_por_documento(documento)
     return jsonify(resultado), 200
 
 
@@ -301,6 +309,53 @@ def guardar():
         return jsonify({"success": False, "error": f"Error al guardar itinerario: {str(e)}"}), 500
 
 
+@itinerarios_bp.route('/<int:id_itinerario>/acompanantes', methods=['POST'])
+@login_required
+def agregar_acompanante_endpoint(id_itinerario):
+    """
+    Añade un acompañante a un itinerario en estado Borrador.
+    """
+    payload = request.get_json(silent=True) or {}
+    try:
+        resultado = itinerario_service.agregar_acompanante(
+            id_itinerario=id_itinerario,
+            datos=payload,
+            id_usuario_actual=current_user.id_usuario
+        )
+        return jsonify(resultado), 201
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 400
+    except Exception as e:
+        return jsonify({"error": f"Error interno: {str(e)}"}), 500
+
+
+@itinerarios_bp.route('/<int:id_itinerario>/turistas', methods=['GET'])
+@login_required
+def listar_turistas_endpoint(id_itinerario):
+    """
+    Retorna la lista de turistas vinculados a un itinerario y su conteo de cupos.
+    """
+    try:
+        it = itinerario_service.Itinerario.query.get(id_itinerario)
+        if not it or it.is_deleted:
+            abort(404)
+        turistas = itinerario_service.listar_turistas_itinerario(id_itinerario)
+        conteo = itinerario_service.calcular_faltantes(id_itinerario)
+        return jsonify({
+            "itinerario": {
+                "id": it.id_itinerario,
+                "num_personas": it.num_personas,
+                "estado": it.estado
+            },
+            "turistas": turistas,
+            "conteo": conteo
+        }), 200
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 400
+    except Exception as e:
+        return jsonify({"error": f"Error interno: {str(e)}"}), 500
+
+
 @itinerarios_bp.route('/lista', methods=['GET'])
 @login_required
 def lista():
@@ -324,5 +379,13 @@ def detalle(id_itinerario):
     if not data:
         abort(404)
     tc = obtener_tc_oficial()
-    return render_template('itinerarios/detalle.html', itinerario=data, tc_oficial=tc)
+    conteo = itinerario_service.calcular_faltantes(id_itinerario)
+    listado_turistas = itinerario_service.listar_turistas_itinerario(id_itinerario)
+    return render_template(
+        'itinerarios/detalle.html',
+        itinerario=data,
+        conteo=conteo,
+        listado_turistas=listado_turistas,
+        tc_oficial=tc
+    )
 

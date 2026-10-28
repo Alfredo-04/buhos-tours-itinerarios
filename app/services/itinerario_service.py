@@ -2,6 +2,7 @@ from typing import Any
 from datetime import datetime, timedelta
 import hashlib
 import json
+import re
 from app.models.atractivo import Atractivo
 from app.models.subcategoria import Subcategoria
 from app.models.transporte import Transporte
@@ -417,11 +418,56 @@ def generar_itinerarios(
     return resultado
 
 
+def buscar_turista(nro_documento: str | None, procedencia: str | None) -> dict:
+    """
+    Busca un turista existente por combinación de documento y procedencia.
+    - Si nro_documento está vacío o es None: {"encontrado": False, "motivo": "sin_documento"}.
+    - Si procedencia está vacío o es None: {"encontrado": False, "motivo": "sin_procedencia"}.
+    - Si no existe: {"encontrado": False, "motivo": "no_existe"}.
+    - Si existe y la procedencia coincide (normalizada): {"encontrado": True, "turista": {...}}.
+    - Si existe pero la procedencia difiere: {"encontrado": False, "motivo": "conflicto_procedencia", "procedencia_registrada": ..., "id_turista": ...}.
+    """
+    if not nro_documento or not str(nro_documento).strip():
+        return {"encontrado": False, "motivo": "sin_documento"}
+
+    if not procedencia or not str(procedencia).strip():
+        return {"encontrado": False, "motivo": "sin_procedencia"}
+
+    doc = str(nro_documento).strip()
+    proc_buscada = str(procedencia).strip().lower()
+
+    turista = Turista.query.filter_by(nro_documento=doc).first()
+    if not turista:
+        return {"encontrado": False, "motivo": "no_existe"}
+
+    proc_existente = (turista.procedencia or "").strip().lower()
+    if proc_existente == proc_buscada:
+        return {
+            "encontrado": True,
+            "turista": {
+                "id_turista": turista.id_turista,
+                "nombres": turista.nombres,
+                "apellidos": turista.apellidos,
+                "nro_documento": turista.nro_documento,
+                "procedencia": turista.procedencia or "",
+                "email": turista.email or "",
+                "telefono": turista.telefono or ""
+            }
+        }
+    else:
+        return {
+            "encontrado": False,
+            "motivo": "conflicto_procedencia",
+            "procedencia_registrada": turista.procedencia or "",
+            "id_turista": turista.id_turista
+        }
+
+
 def buscar_turista_por_documento(nro_documento: str) -> dict:
-    """Busca un turista existente por su número de documento o pasaporte."""
-    if not nro_documento or not nro_documento.strip():
+    """Wrapper de compatibilidad retroactiva."""
+    if not nro_documento or not str(nro_documento).strip():
         return {"encontrado": False}
-    doc = nro_documento.strip()
+    doc = str(nro_documento).strip()
     turista = Turista.query.filter_by(nro_documento=doc).first()
     if not turista:
         return {"encontrado": False}
@@ -513,44 +559,51 @@ def guardar_itinerario(
     if not es_viable:
         raise ValueError("No se pueden guardar itinerarios no viables.")
 
-    # BLOQUE 2: Buscar o crear Turista (usando nro_documento como clave única)
+    # BLOQUE 2: Buscar o crear Turista (validación estricta de procedencia y doc)
     turista = None
     if turista_data and isinstance(turista_data, dict):
-        doc = str(turista_data.get('nro_documento') or '').strip()
-        if doc:
-            turista = Turista.query.filter_by(nro_documento=doc).first()
+        procedencia = str(turista_data.get('procedencia') or '').strip()
+        if not procedencia:
+            raise ValueError("La procedencia es obligatoria.")
 
         nombres = str(turista_data.get('nombres') or '').strip()
         apellidos = str(turista_data.get('apellidos') or '').strip()
         if not nombres or not apellidos:
             raise ValueError("Nombres y Apellidos del turista son campos obligatorios.")
 
+        doc = str(turista_data.get('nro_documento') or '').strip()
+        if doc:
+            resultado_busqueda = buscar_turista(doc, procedencia)
+            if resultado_busqueda.get("motivo") == "conflicto_procedencia":
+                raise ValueError(
+                    f"El documento {doc} ya está registrado con procedencia '{resultado_busqueda.get('procedencia_registrada')}'. "
+                    f"Verifica el país o usa otro documento."
+                )
+            if resultado_busqueda.get("encontrado"):
+                turista = Turista.query.get(resultado_busqueda["turista"]["id_turista"])
+                if nombres:
+                    turista.nombres = nombres
+                if apellidos:
+                    turista.apellidos = apellidos
+                if turista_data.get('email'):
+                    turista.email = turista_data.get('email')
+                if turista_data.get('telefono'):
+                    turista.telefono = turista_data.get('telefono')
+                if rol_nombre == 'turista' and not turista.id_usuario:
+                    turista.id_usuario = id_usuario
+                db.session.flush()
+
         if not turista:
             turista = Turista(
                 nombres=nombres,
                 apellidos=apellidos,
                 nro_documento=doc or None,
-                procedencia=turista_data.get('procedencia') or None,
+                procedencia=procedencia,
                 email=turista_data.get('email') or None,
                 telefono=turista_data.get('telefono') or None,
                 id_usuario=id_usuario if rol_nombre == 'turista' else None
             )
             db.session.add(turista)
-            db.session.flush()
-        else:
-            # Actualizar datos si estaban vacíos o cambiaron
-            if nombres:
-                turista.nombres = nombres
-            if apellidos:
-                turista.apellidos = apellidos
-            if turista_data.get('procedencia'):
-                turista.procedencia = turista_data.get('procedencia')
-            if turista_data.get('email'):
-                turista.email = turista_data.get('email')
-            if turista_data.get('telefono'):
-                turista.telefono = turista_data.get('telefono')
-            if rol_nombre == 'turista' and not turista.id_usuario:
-                turista.id_usuario = id_usuario
             db.session.flush()
     else:
         # Fallback si no vinieron datos de modal
@@ -849,4 +902,186 @@ def obtener_detalle_itinerario(id_itinerario: int) -> dict | None:
         "transporte_asignado": {"nombre": "Vehículo / Estándar", "es_mixto": False},
         "codigo_confirmacion": str(itinerario.codigo_confirmacion) if itinerario.codigo_confirmacion else None,
         "voucher_generado": itinerario.voucher_generado
+    }
+
+
+def obtener_titular(id_itinerario: int) -> Turista | None:
+    """Retorna el turista titular del itinerario (el de menor id_viaje_turista)."""
+    return Turista.query.join(
+        ViajeTurista, ViajeTurista.id_turista == Turista.id_turista
+    ).filter(
+        ViajeTurista.id_itinerario == id_itinerario
+    ).order_by(ViajeTurista.id_viaje_turista.asc()).first()
+
+
+def contar_turistas_itinerario(id_itinerario: int) -> int:
+    """Cuenta el número de turistas vinculados a un itinerario."""
+    return ViajeTurista.query.filter_by(id_itinerario=id_itinerario).count()
+
+
+def calcular_faltantes(id_itinerario: int) -> dict:
+    """Calcula cuántos turistas faltan por registrar según el num_personas declarado."""
+    itin = Itinerario.query.get(id_itinerario)
+    if not itin:
+        raise ValueError("Itinerario no encontrado.")
+    total = contar_turistas_itinerario(id_itinerario)
+    esperado = int(itin.num_personas or 1)
+    return {
+        "total_registrados": total,
+        "esperado": esperado,
+        "faltantes": max(0, esperado - total),
+        "completo": total >= esperado,
+    }
+
+
+def listar_turistas_itinerario(id_itinerario: int) -> list[dict]:
+    """Lista todos los turistas vinculados (titular primero, luego acompañantes)."""
+    itin = Itinerario.query.get(id_itinerario)
+    if not itin:
+        raise ValueError("Itinerario no encontrado.")
+
+    viajes = ViajeTurista.query.filter_by(
+        id_itinerario=id_itinerario
+    ).order_by(ViajeTurista.id_viaje_turista.asc()).all()
+
+    lista = []
+    for idx, vt in enumerate(viajes):
+        t = vt.turista
+        if not t:
+            continue
+        lista.append({
+            "id_turista": t.id_turista,
+            "nombres": t.nombres,
+            "apellidos": t.apellidos,
+            "nro_documento": t.nro_documento,
+            "procedencia": t.procedencia,
+            "email": t.email,
+            "telefono": t.telefono,
+            "rol": "titular" if idx == 0 else "acompanante",
+            "id_viaje_turista": vt.id_viaje_turista,
+        })
+    return lista
+
+
+def agregar_acompanante(
+    id_itinerario: int,
+    datos: dict,
+    id_usuario_actual: int | None = None
+) -> dict:
+    """
+    Registra un acompañante a un itinerario en estado Borrador respetando el cupo num_personas.
+    """
+    # 7.1. Validar que el itinerario existe
+    itinerario = Itinerario.query.get(id_itinerario)
+    if not itinerario:
+        raise ValueError("Itinerario no encontrado.")
+
+    # 7.2. Validar que no está eliminado
+    if itinerario.is_deleted:
+        raise ValueError("El itinerario no está disponible.")
+
+    # 7.3. Validar estado Borrador
+    if itinerario.estado != 'Borrador':
+        raise ValueError("Solo se pueden añadir acompañantes a itinerarios en estado Borrador.")
+
+    # 7.4. Validar espacio
+    conteo = contar_turistas_itinerario(id_itinerario)
+    esperado = int(itinerario.num_personas or 1)
+    if conteo >= esperado:
+        raise ValueError(f"El itinerario ya tiene registradas {conteo} personas (máximo {itinerario.num_personas}). No se pueden añadir más.")
+
+    # 7.5. Validar datos de entrada
+    nombres = str(datos.get('nombres') or '').strip()
+    apellidos = str(datos.get('apellidos') or '').strip()
+    procedencia = str(datos.get('procedencia') or '').strip()
+    doc = str(datos.get('nro_documento') or '').strip() or None
+    email = str(datos.get('email') or '').strip() or None
+    telefono = str(datos.get('telefono') or '').strip() or None
+
+    if not nombres or not apellidos:
+        raise ValueError("Nombres y apellidos son obligatorios.")
+    if not procedencia:
+        raise ValueError("La procedencia es obligatoria.")
+    if any(c.isdigit() for c in nombres + apellidos):
+        raise ValueError("Los nombres y apellidos no pueden contener números.")
+    if doc and not re.match(r'^[A-Za-z0-9-]+$', doc):
+        raise ValueError("El documento solo admite letras, números y guiones.")
+
+    # 7.6. Resolver el Turista
+    if doc:
+        resultado_busqueda = buscar_turista(doc, procedencia)
+        if resultado_busqueda.get("motivo") == "conflicto_procedencia":
+            raise ValueError(
+                f"El documento {doc} ya está registrado con procedencia "
+                f"'{resultado_busqueda.get('procedencia_registrada')}'. "
+                f"Verifica el país o usa otro documento."
+            )
+        if resultado_busqueda.get("encontrado"):
+            turista = Turista.query.get(resultado_busqueda["turista"]["id_turista"])
+        else:
+            turista = Turista(
+                nombres=nombres,
+                apellidos=apellidos,
+                nro_documento=doc,
+                procedencia=procedencia,
+                email=email,
+                telefono=telefono,
+                id_usuario=None  # los acompañantes no se ligan a Usuario
+            )
+            db.session.add(turista)
+            db.session.flush()
+    else:
+        turista = Turista(
+            nombres=nombres,
+            apellidos=apellidos,
+            nro_documento=None,
+            procedencia=procedencia,
+            email=email,
+            telefono=telefono,
+            id_usuario=None
+        )
+        db.session.add(turista)
+        db.session.flush()
+
+    # 7.7. Validar que el turista no esté ya en este itinerario
+    existe = ViajeTurista.query.filter_by(
+        id_itinerario=id_itinerario,
+        id_turista=turista.id_turista
+    ).first()
+    if existe:
+        raise ValueError("Esta persona ya está registrada en este itinerario.")
+
+    # 7.8. Crear ViajeTurista
+    nuevo_viaje = ViajeTurista(
+        id_itinerario=id_itinerario,
+        id_turista=turista.id_turista
+    )
+    db.session.add(nuevo_viaje)
+
+    # TODO: cuando se implemente el cambio de estado a 'Confirmado',
+    # validar calcular_faltantes(id_itinerario).get("completo") == True antes de permitirlo.
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        raise ValueError(f"Error al guardar acompañante: {str(e)}")
+
+    # 7.9. Retornar resumen actualizado
+    datos_finales = calcular_faltantes(id_itinerario)
+    return {
+        "success": True,
+        "turista": {
+            "id_turista": turista.id_turista,
+            "nombres": turista.nombres,
+            "apellidos": turista.apellidos,
+            "nro_documento": turista.nro_documento,
+            "procedencia": turista.procedencia,
+            "email": turista.email,
+            "telefono": turista.telefono,
+        },
+        "total_registrados": datos_finales["total_registrados"],
+        "esperado": datos_finales["esperado"],
+        "faltantes": datos_finales["faltantes"],
+        "completo": datos_finales["completo"],
     }
