@@ -333,6 +333,7 @@ document.addEventListener('DOMContentLoaded', function () {
   let chartConvergenciaInstance = null;
   let chartDiversidadInstance = null;
   let ultimasSoluciones = [];
+  let ultimoResultadoData = null;
 
   // Configuración de listeners del modal de itinerario (una sola vez al cargar el DOM)
   const modalElDetalle = document.getElementById('modalDetalleItinerario');
@@ -1147,7 +1148,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const secuencia = sol.atractivos_nombres.slice(0, 3).join(' → ') + (sol.atractivos_nombres.length > 3 ? ` ... (+${sol.atractivos_nombres.length - 3} más)` : '');
 
       // Buscar índice correspondiente en ultimasSoluciones
-      const idxGlobal = ultimasSoluciones.indexOf(sol);
+      const idxGlobal = (sol._idxGlobal !== undefined) ? sol._idxGlobal : ultimasSoluciones.indexOf(sol);
       const idxParam = idxGlobal >= 0 ? idxGlobal : i;
 
       tr.innerHTML = `
@@ -1191,7 +1192,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const fechasStr = rangoFechas ? `${diasTxt} (${rangoFechas})` : diasTxt;
       const secuencia = sol.atractivos_nombres.slice(0, 3).join(' → ') + (sol.atractivos_nombres.length > 3 ? ` ... (+${sol.atractivos_nombres.length - 3} más)` : '');
 
-      const idxGlobal = ultimasSoluciones.indexOf(sol);
+      const idxGlobal = (sol._idxGlobal !== undefined) ? sol._idxGlobal : ultimasSoluciones.indexOf(sol);
       const idxParam = idxGlobal >= 0 ? idxGlobal : i;
 
       tr.innerHTML = `
@@ -1696,10 +1697,18 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!sol.cumple_restricciones && sol.mensajes_exceso?.length > 0) {
       const dExc = document.createElement('div');
       dExc.className = 'alert alert-danger border-danger-subtle shadow-sm mb-3 py-2 px-3 small';
+
+      // Unir los mensajes para mostrarlos claramente
+      const listaErrores = sol.mensajes_exceso.map(msg => `<li>${msg}</li>`).join('');
       const sugHtml = (sol.sugerencias_ajuste && sol.sugerencias_ajuste.length > 0)
-        ? `<div class="mt-1 pt-1 border-top border-danger-subtle"><strong>💡 Sugerencia de ajuste:</strong> ${sol.sugerencias_ajuste.join(' ')}</div>`
+        ? `<div class="mt-2 pt-2 border-top border-danger-subtle"><strong>💡 ¿Cómo solucionarlo?</strong><ul class="mb-0 mt-1 ps-3">${sol.sugerencias_ajuste.map(s => `<li>${s}</li>`).join('')}</ul></div>`
         : '';
-      dExc.innerHTML = `<strong>⚠️ Excede Límites:</strong><br>${sol.mensajes_exceso.join('<br>')}${sugHtml}`;
+
+      dExc.innerHTML = `
+        <strong>⚠️ Motivos por los que este itinerario no es viable:</strong>
+        <ul class="mb-0 mt-1 ps-3">${listaErrores}</ul>
+        ${sugHtml}
+      `;
       tl.appendChild(dExc);
     }
 
@@ -1781,7 +1790,7 @@ document.addEventListener('DOMContentLoaded', function () {
           (sol.paradas || []).some(p => {
             const cerrados = (p.dias_cerrado || '').toLowerCase();
             return cerrados.includes(diaSemanaActual);
-          }) || data.aviso_dias_cerrados
+          }) || sol.aviso_dias_cerrados || (ultimoResultadoData && ultimoResultadoData.aviso_dias_cerrados)
         );
 
         let causaTexto = 'Sin actividades programadas este día.';
@@ -1917,10 +1926,12 @@ document.addEventListener('DOMContentLoaded', function () {
   // ==========================================
   function procesarYRenderizarResultados(data, hacerScroll = false) {
     if (!data) return;
+    ultimoResultadoData = data;
 
     const solucionesViables = data.soluciones_viables || (data.hay_viables ? (data.soluciones || []) : []);
     const solucionesNoViables = data.soluciones_no_viables || (!data.hay_viables ? (data.soluciones || []) : []);
     ultimasSoluciones = [...solucionesViables, ...solucionesNoViables];
+    ultimasSoluciones.forEach((s, idx) => { s._idxGlobal = idx; });
 
     if (estadoVacio) estadoVacio.classList.add('d-none');
     if (contenedorResultados) contenedorResultados.classList.remove('d-none');
