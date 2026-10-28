@@ -1,0 +1,532 @@
+{% extends 'base.html' %}
+
+{% block title %}Detalle Itinerario #{{ itinerario.id_itinerario }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  .kpi-card-detail {
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    padding: 1.25rem;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .kpi-card-detail:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+  .timeline-parada-item {
+    border-left: 3px solid #3B82F6;
+    margin-left: 1rem;
+    padding-left: 1.25rem;
+    padding-bottom: 1.25rem;
+    position: relative;
+  }
+  .timeline-parada-item::before {
+    content: '';
+    position: absolute;
+    left: -7px;
+    top: 4px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #3B82F6;
+    border: 2px solid white;
+    box-shadow: 0 0 0 2px #3B82F6;
+  }
+  .badge-tiempo {
+    background-color: #EFF6FF;
+    color: #1D4ED8;
+    border: 1px solid #BFDBFE;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- Header & Breadcrumb -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small text-muted">
+          <li class="breadcrumb-item"><a href="{{ url_for('auth.dashboard') }}" class="text-decoration-none text-muted">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{{ url_for('itinerarios.lista') }}" class="text-decoration-none text-muted">Itinerarios Guardados</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Itinerario #{{ itinerario.id_itinerario }}</li>
+        </ol>
+      </nav>
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <h2 class="fw-bold mb-0 text-dark">Itinerario #{{ itinerario.id_itinerario }}</h2>
+        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-1 rounded-pill">
+          Estado: {{ itinerario.estado or 'Borrador' }}
+        </span>
+        {% if itinerario.cumple_restricciones %}
+        <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill">
+          <i class="bi bi-check-circle-fill me-1"></i>Viable
+        </span>
+        {% else %}
+        <span class="badge bg-danger text-white px-3 py-1 rounded-pill">
+          <i class="bi bi-exclamation-octagon-fill me-1"></i>Excede Restricciones
+        </span>
+        {% endif %}
+      </div>
+      {% if itinerario.codigo_confirmacion %}
+      <small class="text-muted d-block mt-1 font-monospace">
+        Código de confirmación: {{ itinerario.codigo_confirmacion }}
+      </small>
+      {% endif %}
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <a href="{{ url_for('itinerarios.lista') }}" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
+        <i class="bi bi-arrow-left"></i>
+        <span>Volver a la Lista</span>
+      </a>
+      {% if current_user.rol.nombre == 'admin' %}
+      <a href="{{ url_for('itinerarios.generar_view') }}" class="btn btn-primary d-inline-flex align-items-center gap-2">
+        <i class="bi bi-cpu-fill"></i>
+        <span>Generador</span>
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- KPIs de Resumen -->
+  <div class="card card-custom border-0 shadow-sm p-3 mb-4">
+    <div class="row g-3 text-center">
+      <div class="col-6 col-md-3">
+        <div class="kpi-card-detail h-100">
+          <span class="text-muted small d-block mb-1">Afinidad Turística</span>
+          <h3 class="fw-bold text-success mb-0">
+            {{ ((itinerario.afinidad or 0.0) * 100)|round(1) }}%
+          </h3>
+          <small class="text-muted">Preferencia promedio</small>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-3">
+        <div class="kpi-card-detail h-100">
+          <span class="text-muted small d-block mb-1">Tiempo Total</span>
+          {% set h = ((itinerario.tiempo_total_min or 0) // 60)|int %}
+          {% set m = ((itinerario.tiempo_total_min or 0) % 60)|round|int %}
+          <h3 class="fw-bold text-dark mb-0">{{ h }}h {{ m }}m</h3>
+          <small class="text-muted">{{ itinerario.tiempo_total_min|round(1) }} min de recorrido</small>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-3">
+        <div class="kpi-card-detail h-100">
+          <span class="text-muted small d-block mb-1">Costo Estimado</span>
+          {% set tc = tc_oficial or 6.96 %}
+          {% set c_bob = itinerario.costo_total_bob or 0.0 %}
+          {% set c_usd = (c_bob / tc)|round(2) %}
+          <h3 class="fw-bold text-primary mb-0">Bs. {{ "%.2f"|format(c_bob) }}</h3>
+          <small class="text-muted">${{ "%.2f"|format(c_usd) }} USD</small>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-3">
+        <div class="kpi-card-detail h-100">
+          <span class="text-muted small d-block mb-1">Atractivos Programados</span>
+          <h3 class="fw-bold text-info mb-0">{{ itinerario.num_atractivos or itinerario.paradas|length }}</h3>
+          <small class="text-muted">{{ itinerario.dias_totales or 1 }} {{ 'día de viaje' if itinerario.dias_totales == 1 else 'días de viaje' }}</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Barra de Metadatos -->
+    <hr class="my-3 opacity-25">
+    <div class="d-flex flex-wrap justify-content-center gap-4 text-muted small">
+      <div>
+        <i class="bi bi-calendar-event text-primary me-1"></i>
+        <strong>Fechas:</strong> 
+        {% if itinerario.fecha_inicio and itinerario.fecha_fin %}
+          {{ itinerario.fecha_inicio }} al {{ itinerario.fecha_fin }}
+        {% else %}
+          Por definir
+        {% endif %}
+      </div>
+      <div>
+        <i class="bi bi-calendar3 text-primary me-1"></i>
+        <strong>Duración:</strong> {{ itinerario.dias_totales or 1 }} {{ 'día' if itinerario.dias_totales == 1 else 'días' }}
+      </div>
+      <div>
+        <i class="bi bi-truck-front text-primary me-1"></i>
+        <strong>Transporte:</strong> {{ itinerario.transporte_asignado.nombre if itinerario.transporte_asignado else 'Vehículo / Estándar' }}
+      </div>
+      {% if itinerario.distancia_total_km %}
+      <div>
+        <i class="bi bi-signpost-2 text-primary me-1"></i>
+        <strong>Distancia:</strong> {{ itinerario.distancia_total_km }} km
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Panel de Pronóstico de Clima por Día (si existe) -->
+  <div id="panelClimaDias" class="card card-custom border-0 shadow-sm p-4 mb-4 d-none">
+    <h6 class="fw-bold mb-3 text-dark">
+      <i class="bi bi-cloud-sun-fill text-primary me-2"></i>Pronóstico Climático por Día
+    </h6>
+    <ul class="nav nav-pills nav-pills-sm d-flex flex-wrap gap-2 mb-3" id="tabsClimaDias" role="tablist"></ul>
+    <div class="tab-content" id="tabsClimaContenido"></div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Columna Izquierda: Mapa Interactivo -->
+    <div class="col-12 col-xl-7">
+      <div class="card card-custom border-0 shadow-sm p-4 h-100">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <div>
+            <h5 class="fw-bold mb-0">Ruta y Mapa del Itinerario</h5>
+            <small class="text-muted">Paradas georreferenciadas y tramos de desplazamiento</small>
+          </div>
+          <span class="badge bg-light text-dark border">
+            <i class="bi bi-geo-alt-fill text-primary me-1"></i>{{ itinerario.paradas|length }} paradas
+          </span>
+        </div>
+
+        <div id="contenedorMapaItinerario" style="height: 540px; width: 100%; border-radius: 10px; border: 1px solid #E2E8F0;"></div>
+        <div id="leyendaMapa" class="mt-3 small text-muted d-flex flex-wrap gap-3"></div>
+      </div>
+    </div>
+
+    <!-- Columna Derecha: Timeline Secuencial Paso a Paso -->
+    <div class="col-12 col-xl-5">
+      <div class="card card-custom border-0 shadow-sm p-4 h-100" style="max-height: 640px; overflow-y: auto;">
+        <h5 class="fw-bold mb-1">
+          <i class="bi bi-signpost-split-fill text-primary me-2"></i>Recorrido Paso a Paso
+        </h5>
+        <small class="text-muted d-block mb-3">Horarios estimados de visita y desplazamientos</small>
+
+        <div id="timelineContenido" class="ps-1">
+          <!-- Generado vía JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
+<script src="https://unpkg.com/leaflet-polylineoffset@1.1.1/leaflet.polylineoffset.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const sol = {{ itinerario|tojson }};
+  if (!sol) return;
+
+  const PALETAS_DIA = {
+    1: { base: '#0056b3', claro: '#00d2ff', oscuro: '#002855' },
+    2: { base: '#1e7e34', claro: '#00ff66', oscuro: '#0d3819' },
+    3: { base: '#d35400', claro: '#ffa500', oscuro: '#78281f' },
+    4: { base: '#512e5f', claro: '#af7ac5', oscuro: '#2a1a38' },
+    5: { base: '#c0392b', claro: '#ff6b6b', oscuro: '#641e16' },
+    6: { base: '#c71585', claro: '#ff69b4', oscuro: '#8b008b' },
+    7: { base: '#008b8b', claro: '#00ffff', oscuro: '#004848' },
+  };
+
+  function obtenerColorDia(dia, nivel = 'base') {
+    const paleta = PALETAS_DIA[((dia - 1) % 7) + 1] || PALETAS_DIA[1];
+    return paleta[nivel] || paleta.base;
+  }
+
+  function traducirNivelTraficoJS(color, factor) {
+    const f = parseFloat(factor || 1.0);
+    const c = (color || '').toLowerCase();
+    if (c === 'verde' || f < 1.15) return 'Tráfico fluido';
+    if (c === 'amarillo' || f < 1.40) return 'Tráfico moderado';
+    if (c === 'naranja' || f < 1.70) return 'Tráfico intenso';
+    return 'Tráfico muy congestionado';
+  }
+
+  // ==========================================
+  // 1. RENDERIZADO DEL TIMELINE
+  // ==========================================
+  const tl = document.getElementById('timelineContenido');
+  if (tl) {
+    tl.innerHTML = '';
+
+    function obtenerInfoDia(fechaInicioStr, diaNumero) {
+      if (!fechaInicioStr) return { fechaFormateada: '', diaSemana: '' };
+      try {
+        const [y, m, d] = fechaInicioStr.split('-').map(Number);
+        const dt = new Date(y, m - 1, d + (diaNumero - 1));
+        const diasSem = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        const diaSemana = diasSem[dt.getDay()];
+        const dd = String(dt.getDate()).padStart(2, '0');
+        const mm = String(dt.getMonth() + 1).padStart(2, '0');
+        const yy = dt.getFullYear();
+        return {
+          fechaFormateada: `${dd}/${mm}/${yy}`,
+          diaSemana: diaSemana
+        };
+      } catch (e) {
+        return { fechaFormateada: '', diaSemana: '' };
+      }
+    }
+
+    const totalDiasItinerario = sol.dias_totales || 1;
+    const paradasPorDia = {};
+    for (let d = 1; d <= totalDiasItinerario; d++) {
+      paradasPorDia[d] = [];
+    }
+    (sol.paradas || []).forEach(p => {
+      const d = p.dia || 1;
+      if (!paradasPorDia[d]) paradasPorDia[d] = [];
+      paradasPorDia[d].push(p);
+    });
+
+    for (let d = 1; d <= totalDiasItinerario; d++) {
+      const paradasDelDia = paradasPorDia[d] || [];
+      const infoDia = obtenerInfoDia(sol.fecha_inicio, d);
+      const diaCap = infoDia.diaSemana || (paradasDelDia[0]?.dia_semana ? paradasDelDia[0].dia_semana.charAt(0).toUpperCase() + paradasDelDia[0].dia_semana.slice(1).toLowerCase() : '');
+      const fechaFormateada = infoDia.fechaFormateada || (paradasDelDia[0]?.fecha ? paradasDelDia[0].fecha : '');
+
+      const climaDia = sol.clima_por_dia ? sol.clima_por_dia[d] : null;
+      let badgeClimaHTML = '';
+      if (climaDia) {
+        let colorClase = 'bg-success-subtle text-success border-success-subtle';
+        if (climaDia.estado === 'moderado' || (!climaDia.estado && climaDia.precipitacion_mm > 0.1)) {
+          colorClase = 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
+        } else if (climaDia.estado === 'adverso' || (!climaDia.estado && climaDia.es_adversa)) {
+          colorClase = 'bg-danger-subtle text-danger border-danger-subtle';
+        }
+        const tempStr = climaDia.temperatura != null ? `${Math.round(climaDia.temperatura)}°C` : '';
+        const icono = climaDia.icono || 'bi-cloud-fill';
+        const desc = climaDia.descripcion || '';
+
+        badgeClimaHTML = `
+          <span class="badge ${colorClase} border d-inline-flex align-items-center gap-1 ms-auto py-1 px-2 fw-normal" style="font-size: 0.75rem;">
+            <i class="bi ${icono}"></i>
+            <span>${desc}</span>
+            ${tempStr ? `<span class="opacity-75">· ${tempStr}</span>` : ''}
+          </span>
+        `;
+      }
+
+      // Encabezado del día
+      const divDia = document.createElement('div');
+      divDia.className = 'd-flex align-items-center justify-content-between p-2 px-3 rounded-3 bg-primary text-white fw-bold my-3 small shadow-sm flex-wrap gap-2';
+      divDia.innerHTML = `
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-calendar2-week fs-6"></i>
+          <span>DÍA ${d}${diaCap ? ` — ${diaCap}` : ''}${fechaFormateada ? ` ${fechaFormateada}` : ''}</span>
+        </div>
+        ${badgeClimaHTML}
+      `;
+      tl.appendChild(divDia);
+
+      if (paradasDelDia.length === 0) {
+        const divVacio = document.createElement('div');
+        divVacio.className = 'p-3 my-2 rounded-3 text-muted text-center border border-dashed bg-light small';
+        divVacio.textContent = 'Sin paradas programadas para esta jornada.';
+        tl.appendChild(divVacio);
+      } else {
+        paradasDelDia.forEach((parada, idxParada) => {
+          const divParada = document.createElement('div');
+          divParada.className = 'timeline-parada-item';
+
+          let badgesInfo = '';
+          if (parada.categoria) {
+            badgesInfo += `<span class="badge bg-secondary-subtle text-secondary me-1">${parada.categoria}</span>`;
+          }
+          if (parada.costo_entrada_bob != null && parada.costo_entrada_bob > 0) {
+            badgesInfo += `<span class="badge bg-light text-dark border me-1">Entrada: Bs. ${parada.costo_entrada_bob.toFixed(2)}</span>`;
+          } else {
+            badgesInfo += `<span class="badge bg-light text-success border me-1">Gratis</span>`;
+          }
+
+          let climaParadaHTML = '';
+          if (parada.clima) {
+            const cp = parada.clima;
+            let iconClima = cp.icono || 'bi-cloud-sun';
+            let colorClima = 'text-muted';
+            if (cp.es_adverso || cp.estado === 'adverso') colorClima = 'text-danger fw-bold';
+            else if (cp.estado === 'moderado') colorClima = 'text-warning';
+
+            climaParadaHTML = `
+              <div class="small ${colorClima} mt-1">
+                <i class="bi ${iconClima} me-1"></i>${cp.descripcion || ''} 
+                ${cp.temperatura != null ? `(${Math.round(cp.temperatura)}°C)` : ''}
+              </div>
+            `;
+          }
+
+          divParada.innerHTML = `
+            <div class="d-flex align-items-start justify-content-between gap-2">
+              <div>
+                <strong class="text-dark fs-6">#${parada.numero}. ${parada.nombre}</strong>
+                <div class="mt-1">${badgesInfo}</div>
+                ${climaParadaHTML}
+              </div>
+              <div class="text-end">
+                <span class="badge-tiempo fw-bold">${parada.hora_llegada} - ${parada.hora_salida}</span>
+                <small class="d-block text-muted mt-1">${parada.tiempo_visita_min} min de visita</small>
+              </div>
+            </div>
+          `;
+          tl.appendChild(divParada);
+
+          // Si hay tramo hacia la siguiente parada dentro del mismo día
+          if (idxParada < paradasDelDia.length - 1 && sol.tramos) {
+            const tramo = sol.tramos.find(t => t.dia === d && (t.origen_id === parada.id || t.origen_nombre === parada.nombre));
+            if (tramo) {
+              const divTramo = document.createElement('div');
+              divTramo.className = 'my-2 ps-4 py-2 border-start border-2 border-secondary-subtle small text-muted bg-light rounded-end';
+              divTramo.innerHTML = `
+                <div class="d-flex align-items-center gap-2">
+                  <i class="bi bi-arrow-down-short fs-5 text-primary"></i>
+                  <span><strong>${tramo.transporte_usado || 'Traslado'}:</strong> ${tramo.distancia_km} km &bull; ${tramo.tiempo_traslado_min} min</span>
+                </div>
+              `;
+              tl.appendChild(divTramo);
+            }
+          }
+        });
+      }
+    }
+  }
+
+  // ==========================================
+  // 2. TABS DE CLIMA POR DÍA
+  // ==========================================
+  const panelClima = document.getElementById('panelClimaDias');
+  const tabsClima = document.getElementById('tabsClimaDias');
+  const contenidoClima = document.getElementById('tabsClimaContenido');
+
+  if (sol.clima_por_dia && Object.keys(sol.clima_por_dia).length > 0 && panelClima && tabsClima && contenidoClima) {
+    panelClima.classList.remove('d-none');
+    tabsClima.innerHTML = '';
+    contenidoClima.innerHTML = '';
+
+    Object.entries(sol.clima_por_dia).forEach(([diaNum, c], i) => {
+      const activeClass = i === 0 ? 'active' : '';
+      const tabId = `clima-dia-${diaNum}`;
+
+      const li = document.createElement('li');
+      li.className = 'nav-item';
+      li.innerHTML = `
+        <button class="nav-link ${activeClass} btn-sm" id="btn-${tabId}" data-bs-toggle="pill" data-bs-target="#${tabId}" type="button" role="tab">
+          Día ${diaNum}
+        </button>
+      `;
+      tabsClima.appendChild(li);
+
+      const pane = document.createElement('div');
+      pane.className = `tab-pane fade ${i === 0 ? 'show active' : ''}`;
+      pane.id = tabId;
+      pane.innerHTML = `
+        <div class="d-flex align-items-center gap-3 p-3 bg-light rounded-3">
+          <i class="bi ${c.icono || 'bi-cloud-fill'} fs-1 text-primary"></i>
+          <div>
+            <h6 class="mb-1 fw-bold">${c.descripcion || 'Condiciones estables'}</h6>
+            <div class="text-muted small">
+              ${c.temperatura != null ? `Temperatura: <strong>${Math.round(c.temperatura)}°C</strong> &bull; ` : ''}
+              ${c.precipitacion_mm != null ? `Lluvia: <strong>${c.precipitacion_mm} mm</strong> &bull; ` : ''}
+              ${c.viento_kmh != null ? `Viento: <strong>${Math.round(c.viento_kmh)} km/h</strong>` : ''}
+            </div>
+            ${c.razon ? `<div class="text-warning small mt-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>${c.razon}</div>` : ''}
+          </div>
+        </div>
+      `;
+      contenidoClima.appendChild(pane);
+    });
+  }
+
+  // ==========================================
+  // 3. MAPA LEAFLET
+  // ==========================================
+  const mapContainer = document.getElementById('contenedorMapaItinerario');
+  if (mapContainer && typeof L !== 'undefined') {
+    const mapa = L.map(mapContainer).setView([-16.5000, -68.1500], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(mapa);
+
+    const bounds = [];
+    const leyenda = document.getElementById('leyendaMapa');
+    if (leyenda) leyenda.innerHTML = '';
+
+    const diasTot = sol.dias_totales || 1;
+    for (let d = 1; d <= diasTot; d++) {
+      if (leyenda) {
+        const color = obtenerColorDia(d);
+        const span = document.createElement('span');
+        span.className = 'd-inline-flex align-items-center gap-1';
+        span.innerHTML = `<span style="width: 12px; height: 12px; border-radius: 50%; background: ${color};"></span> Día ${d}`;
+        leyenda.appendChild(span);
+      }
+    }
+
+    (sol.paradas || []).forEach(p => {
+      if (p.lat && p.lon) {
+        bounds.push([p.lat, p.lon]);
+        const color = obtenerColorDia(p.dia || 1);
+        const marker = L.circleMarker([p.lat, p.lon], {
+          radius: 10,
+          fillColor: color,
+          color: '#ffffff',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.9
+        }).addTo(mapa);
+
+        marker.bindPopup(`
+          <div class="p-1">
+            <strong>#${p.numero}. ${p.nombre}</strong><br>
+            <span class="text-muted small">Día ${p.dia || 1} &bull; ${p.hora_llegada} a ${p.hora_salida}</span>
+          </div>
+        `);
+      }
+    });
+
+    // Dibujar tramos si tienen polyline_coords
+    (sol.tramos || []).forEach(t => {
+      if (t.polyline_coords && t.polyline_coords.length > 0) {
+        const color = obtenerColorDia(t.dia || 1);
+        const poly = L.polyline(t.polyline_coords, {
+          color: color,
+          weight: 4,
+          opacity: 0.8
+        }).addTo(mapa);
+
+        t.polyline_coords.forEach(coord => bounds.push(coord));
+
+        // Flechas decoradoras si el plugin está disponible
+        if (typeof L.polylineDecorator !== 'undefined') {
+          try {
+            L.polylineDecorator(poly, {
+              patterns: [
+                {
+                  offset: '25px',
+                  repeat: '100px',
+                  symbol: L.Symbol.arrowHead({
+                    pixelSize: 8,
+                    polygon: false,
+                    pathOptions: { stroke: true, color: color, weight: 2 }
+                  })
+                }
+              ]
+            }).addTo(mapa);
+          } catch (e) {}
+        }
+      }
+    });
+
+    if (bounds.length > 0) {
+      mapa.fitBounds(bounds, { padding: [40, 40] });
+    }
+    setTimeout(() => { mapa.invalidateSize(); }, 300);
+  }
+});
+</script>
+{% endblock %}

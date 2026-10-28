@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+
+{% block title %}Itinerarios Guardados{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- Header de Página -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1 small text-muted">
+          <li class="breadcrumb-item"><a href="{{ url_for('auth.dashboard') }}" class="text-decoration-none text-muted">Inicio</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Itinerarios</li>
+        </ol>
+      </nav>
+      <div class="d-flex align-items-center gap-3">
+        <h2 class="fw-bold mb-0 text-dark">Itinerarios Guardados</h2>
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 rounded-pill fw-semibold">
+          {{ itinerarios|length }} {{ 'guardado' if itinerarios|length == 1 else 'guardados' }}
+        </span>
+      </div>
+      <p class="text-muted small mb-0 mt-1">
+        Consulta y gestiona los planes de viaje optimizados guardados en el sistema.
+      </p>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      {% if current_user.rol.nombre == 'admin' %}
+      <a href="{{ url_for('itinerarios.generar_view') }}" class="btn btn-primary d-inline-flex align-items-center gap-2 shadow-sm">
+        <i class="bi bi-cpu-fill"></i>
+        <span>Generar Nuevo Itinerario</span>
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Contenido Principal -->
+  {% if itinerarios and itinerarios|length > 0 %}
+  <div class="card card-custom border-0 shadow-sm">
+    <div class="card-header bg-transparent border-0 pt-4 px-4 pb-2 d-flex align-items-center justify-content-between">
+      <div>
+        <h5 class="mb-0 fw-bold">Listado General</h5>
+        <small class="text-muted">Itinerarios ordenados por fecha de creación</small>
+      </div>
+    </div>
+
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="tablaItinerariosGuardados">
+          <thead class="bg-light text-muted small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">
+            <tr>
+              <th class="ps-4" style="width: 70px;">ID</th>
+              <th>Fecha y Duración</th>
+              <th>Afinidad</th>
+              <th>Costo Total</th>
+              <th>Atractivos (Paradas)</th>
+              <th>Estado</th>
+              <th class="pe-4 text-end">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for it in itinerarios %}
+            {% set tc = tc_oficial or 6.96 %}
+            {% set costo_bob = it.costo_total_bob or 0.0 %}
+            {% set costo_usd = (costo_bob|float / tc)|round(2) %}
+            {% set af_pct = ((it.afinidad or 0.0) * 100)|round(1) %}
+            <tr>
+              <td class="ps-4 fw-bold text-muted">
+                #{{ it.id_itinerario }}
+              </td>
+
+              <td>
+                <div class="fw-semibold text-dark">
+                  {% if it.fecha_inicio and it.fecha_fin %}
+                    {{ it.fecha_inicio.strftime('%d/%m/%Y') }} — {{ it.fecha_fin.strftime('%d/%m/%Y') }}
+                  {% elif it.fecha_inicio %}
+                    {{ it.fecha_inicio.strftime('%d/%m/%Y') }}
+                  {% else %}
+                    <span class="text-muted">Sin fecha asignada</span>
+                  {% endif %}
+                </div>
+                <small class="text-muted d-block">
+                  <i class="bi bi-calendar3 me-1 text-primary"></i>
+                  {{ it.dias_totales or 1 }} {{ 'día' if it.dias_totales == 1 else 'días' }}
+                  {% if it.tiempo_total_estimado %}
+                    &bull; {{ (it.tiempo_total_estimado // 60)|int }}h {{ (it.tiempo_total_estimado % 60)|round|int }}m
+                  {% endif %}
+                </small>
+              </td>
+
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="progress flex-grow-1" style="height: 6px; width: 60px; background-color: #E2E8F0;">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ af_pct }}%;" aria-valuenow="{{ af_pct }}" aria-valuemin="0" aria-valuemax="100"></div>
+                  </div>
+                  <strong class="text-success small">{{ af_pct }}%</strong>
+                </div>
+              </td>
+
+              <td>
+                <div class="fw-bold text-dark">Bs. {{ "%.2f"|format(costo_bob) }}</div>
+                <small class="text-muted" style="font-size: 0.75rem;">${{ "%.2f"|format(costo_usd) }} USD</small>
+              </td>
+
+              <td>
+                {% set num_p = it.detalles|length %}
+                <span class="badge bg-light text-dark border me-1">
+                  <i class="bi bi-geo-alt-fill text-danger me-1"></i>{{ num_p }} paradas
+                </span>
+                {% if it.distancia_total_km %}
+                <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
+                  <i class="bi bi-signpost-2 me-1"></i>{{ "%.1f"|format(it.distancia_total_km) }} km aprox.
+                </small>
+                {% endif %}
+              </td>
+
+              <td>
+                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
+                  {{ it.estado or 'Borrador' }}
+                </span>
+                {% if not it.es_viable %}
+                <span class="badge bg-danger text-white ms-1" title="Excede alguna restricción">
+                  Excede
+                </span>
+                {% endif %}
+              </td>
+
+              <td class="pe-4 text-end">
+                <a href="{{ url_for('itinerarios.detalle', id_itinerario=it.id_itinerario) }}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
+                  <i class="bi bi-eye"></i>
+                  <span>Ver Itinerario</span>
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {% else %}
+  <!-- Estado Vacío -->
+  <div class="card card-custom border-0 shadow-sm text-center py-5 px-4">
+    <div class="py-5">
+      <div class="rounded-circle d-inline-flex align-items-center justify-content-center p-4 mb-3" style="background: #F1F5F9; color: #64748B; width: 90px; height: 90px;">
+        <i class="bi bi-journal-x" style="font-size: 2.75rem;"></i>
+      </div>
+      <h4 class="fw-bold mb-2">No Tienes Itinerarios Guardados</h4>
+      <p class="text-muted mx-auto mb-4" style="max-width: 480px;">
+        Genera combinaciones óptimas con nuestro motor multiobjetivo NSGA-II y haz clic en <strong>"Guardar"</strong> para preservarlas y consultarlas en cualquier momento.
+      </p>
+      {% if current_user.rol.nombre == 'admin' %}
+      <a href="{{ url_for('itinerarios.generar_view') }}" class="btn btn-primary px-4 py-2 shadow-sm">
+        <i class="bi bi-cpu-fill me-2"></i>Ir al Generador de Itinerarios
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -1,9 +1,10 @@
-from flask import Blueprint, render_template, request, jsonify, flash
+from flask import Blueprint, render_template, request, jsonify, flash, abort
 from flask_login import login_required, current_user
 from app.utils.decorators import role_required
 from app.models.atractivo import Atractivo
 from app.models.transporte import Transporte
 from app.models.categoria import Categoria
+from app.services import itinerario_service
 from app.services.itinerario_service import generar_itinerarios
 from app.services.exchange_service import obtener_tc_oficial
 
@@ -237,3 +238,63 @@ def generar_action():
             "success": False,
             "error": f"Error interno en la ejecución de la optimización: {str(e)}"
         }), 500
+
+
+@itinerarios_bp.route('/guardar', methods=['POST'])
+@login_required
+def guardar():
+    """
+    Guarda en base de datos un itinerario seleccionado de la consulta actual.
+    """
+    payload = request.get_json(silent=True) or {}
+    id_generacion = payload.get('id_generacion')
+    numero_solucion = payload.get('numero_solucion')
+
+    if not id_generacion or numero_solucion is None:
+        return jsonify({
+            "success": False,
+            "error": "Parámetros insuficientes: 'id_generacion' y 'numero_solucion' son obligatorios."
+        }), 400
+
+    try:
+        res = itinerario_service.guardar_itinerario(
+            id_generacion=int(id_generacion),
+            numero_solucion=int(numero_solucion),
+            id_usuario=current_user.id_usuario
+        )
+        return jsonify({
+            "success": True,
+            "id_itinerario": res['id_itinerario'],
+            "ya_guardado": res.get("ya_guardado", False)
+        }), 200
+    except ValueError as ve:
+        return jsonify({"success": False, "error": str(ve)}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error al guardar itinerario: {str(e)}"}), 500
+
+
+@itinerarios_bp.route('/lista', methods=['GET'])
+@login_required
+def lista():
+    """
+    Vista de lista de itinerarios guardados.
+    Admin y Agente ven todos los itinerarios; Turista ve únicamente los propios.
+    """
+    itinerarios = itinerario_service.listar_itinerarios_guardados(current_user)
+    tc = obtener_tc_oficial()
+    return render_template('itinerarios/lista.html', itinerarios=itinerarios, tc_oficial=tc)
+
+
+@itinerarios_bp.route('/<int:id_itinerario>', methods=['GET'])
+@login_required
+def detalle(id_itinerario):
+    """
+    Vista detallada de un itinerario guardado con visualización idéntica al generador
+    (mapa interactivo, desglose secuencial, pronóstico de clima, transporte y KPIs).
+    """
+    data = itinerario_service.obtener_detalle_itinerario(id_itinerario)
+    if not data:
+        abort(404)
+    tc = obtener_tc_oficial()
+    return render_template('itinerarios/detalle.html', itinerario=data, tc_oficial=tc)
+

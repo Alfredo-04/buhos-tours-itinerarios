@@ -88,9 +88,14 @@
 
             <div class="sidebar-category-header text-uppercase small px-3 mt-3 mb-1 text-muted" style="font-size: 0.72rem; letter-spacing: 0.08em;">Motor de Optimización</div>
 
-            <a href="{{ url_for('itinerarios.generar_view') }}" class="nav-link-custom {% if 'itinerarios' in request.endpoint %}active{% endif %}">
+            <a href="{{ url_for('itinerarios.generar_view') }}" class="nav-link-custom {% if request.endpoint == 'itinerarios.generar_view' %}active{% endif %}">
               <i class="bi bi-cpu-fill text-info"></i>
               <span>Generar Itinerarios</span>
+            </a>
+
+            <a href="{{ url_for('itinerarios.lista') }}" class="nav-link-custom {% if request.endpoint in ['itinerarios.lista', 'itinerarios.detalle'] %}active{% endif %}">
+              <i class="bi bi-journal-bookmark-fill text-warning"></i>
+              <span>Itinerarios Guardados</span>
             </a>
 
             <div class="sidebar-category-header text-uppercase small px-3 mt-3 mb-1 text-muted" style="font-size: 0.72rem; letter-spacing: 0.08em;">Vistas Públicas</div>
@@ -112,6 +117,13 @@
             <a href="{{ url_for('agente.dashboard') }}" class="nav-link-custom {% if request.endpoint == 'agente.dashboard' %}active{% endif %}">
               <i class="bi bi-grid-fill"></i>
               <span>Panel Principal</span>
+            </a>
+
+            <div class="sidebar-category-header text-uppercase small px-3 mt-3 mb-1 text-muted" style="font-size: 0.72rem; letter-spacing: 0.08em;">Itinerarios</div>
+
+            <a href="{{ url_for('itinerarios.lista') }}" class="nav-link-custom {% if request.endpoint in ['itinerarios.lista', 'itinerarios.detalle'] %}active{% endif %}">
+              <i class="bi bi-journal-bookmark-fill text-warning"></i>
+              <span>Itinerarios Guardados</span>
             </a>
 
             <div class="sidebar-category-header text-uppercase small px-3 mt-3 mb-1 text-muted" style="font-size: 0.72rem; letter-spacing: 0.08em;">Catálogo Operativo</div>
@@ -140,6 +152,11 @@
             <a href="{{ url_for('turista.dashboard') }}" class="nav-link-custom {% if request.endpoint == 'turista.dashboard' %}active{% endif %}">
               <i class="bi bi-grid-fill"></i>
               <span>Mi Panel</span>
+            </a>
+
+            <a href="{{ url_for('itinerarios.lista') }}" class="nav-link-custom {% if request.endpoint in ['itinerarios.lista', 'itinerarios.detalle'] %}active{% endif %}">
+              <i class="bi bi-journal-bookmark-fill text-warning"></i>
+              <span>Mis Itinerarios</span>
             </a>
 
             <a href="{{ url_for('catalogo.atractivos_list') }}" class="nav-link-custom {% if 'catalogo.atractivo' in request.endpoint %}active{% endif %}">

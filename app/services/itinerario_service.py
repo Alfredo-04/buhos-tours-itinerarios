@@ -8,6 +8,9 @@ from app.models.transporte import Transporte
 from app.models.categoria import Categoria
 from app.models.generacion import Generacion
 from app.models.consulta_nsga2 import ConsultaNSGA2
+from app.models.itinerario import Itinerario
+from app.models.itinerario_detalle import ItinerarioDetalle
+from app.models.itinerario_detalle_trafico import ItinerarioDetalleTrafico
 from app.services.nsga2_service import ejecutar_nsga2
 from app import db
 
@@ -406,3 +409,230 @@ def generar_itinerarios(
             # No lanzar la excepción. El usuario igual recibe sus itinerarios.
 
     return resultado
+
+
+def guardar_itinerario(id_generacion: int, numero_solucion: int, id_usuario: int) -> dict:
+    """
+    Toma una solución del JSON de caché y la guarda en las tablas definitivas de itinerario.
+    """
+    # 1. Buscar la generación y su consulta (caché JSON)
+    generacion = Generacion.query.get(id_generacion)
+    if not generacion:
+        raise ValueError("Generación no encontrada.")
+
+    consulta = ConsultaNSGA2.query.filter_by(id_generacion=id_generacion).first()
+    if not consulta or not consulta.resultados_json:
+        raise ValueError("No se encontraron los resultados en caché para guardar.")
+
+    # Verificar si ya fue guardado previamente para evitar duplicados
+    existente = Itinerario.query.filter_by(
+        id_generacion=id_generacion,
+        numero_solucion=int(numero_solucion),
+        deleted_at=None
+    ).first()
+    if existente:
+        return {"id_itinerario": existente.id_itinerario, "ya_guardado": True}
+
+    resultados = json.loads(consulta.resultados_json)
+
+    # Buscar la solución específica
+    soluciones = resultados.get('soluciones_viables', []) + resultados.get('soluciones_no_viables', [])
+    if not soluciones:
+        soluciones = resultados.get('soluciones', [])
+
+    sol = next((s for s in soluciones if s.get('numero') == int(numero_solucion) or s.get('numero_solucion') == int(numero_solucion)), None)
+    # Si no encuentra por 'numero', usa el índice
+    if not sol:
+        try:
+            sol = soluciones[int(numero_solucion) - 1]
+        except (IndexError, ValueError):
+            raise ValueError("Número de solución no válido.")
+
+    # Resolver fechas
+    f_inicio_raw = sol.get('fecha_inicio') or generacion.fecha_inicio_viaje
+    f_fin_raw = sol.get('fecha_fin') or generacion.fecha_fin_viaje
+
+    f_inicio = datetime.strptime(f_inicio_raw, '%Y-%m-%d').date() if isinstance(f_inicio_raw, str) else f_inicio_raw
+    f_fin = datetime.strptime(f_fin_raw, '%Y-%m-%d').date() if isinstance(f_fin_raw, str) else f_fin_raw
+
+    # 2. Crear el Itinerario
+    nuevo_itinerario = Itinerario(
+        id_generacion=id_generacion,
+        numero_solucion=int(numero_solucion),
+        estado='Borrador',
+        afinidad=sol.get('afinidad'),
+        costo_total_bob=sol.get('costo_total_bob'),
+        costo_entradas_bob=sol.get('costo_entradas_bob'),
+        costo_transporte_bob=sol.get('costo_traslados_bob'),
+        distancia_total_km=sol.get('distancia_total_km'),
+        fecha_inicio=f_inicio,
+        fecha_fin=f_fin,
+        dias_totales=sol.get('dias_totales', 1),
+        tiempo_total_estimado=sol.get('tiempo_total_min'),
+        es_viable=sol.get('cumple_restricciones', True)
+    )
+    db.session.add(nuevo_itinerario)
+    db.session.flush()  # Para obtener el id_itinerario
+
+    # 3. Guardar los Detalles
+    for parada in sol.get('paradas', []):
+        h_lleg_raw = parada.get('hora_llegada')
+        h_sal_raw = parada.get('hora_salida')
+
+        h_llegada = None
+        h_salida = None
+        if h_lleg_raw:
+            try:
+                h_llegada = datetime.strptime(str(h_lleg_raw).strip()[:5], '%H:%M').time()
+            except ValueError:
+                pass
+        if h_sal_raw:
+            try:
+                h_salida = datetime.strptime(str(h_sal_raw).strip()[:5], '%H:%M').time()
+            except ValueError:
+                pass
+
+        clima_data = parada.get('clima') or {}
+
+        detalle = ItinerarioDetalle(
+            id_itinerario=nuevo_itinerario.id_itinerario,
+            id_atractivo=parada['id'],
+            dia=parada['dia'],
+            orden=parada.get('numero', 1),
+            hora_llegada_estimada=h_llegada,
+            hora_salida_estimada=h_salida,
+            tiempo_traslado_desde_anterior=0,
+            costo_entrada_bob=parada.get('costo_entrada_bob'),
+            clima_temperatura=clima_data.get('temperatura'),
+            clima_lluvia_mm=clima_data.get('precipitacion_mm'),
+            clima_descripcion=clima_data.get('descripcion')
+        )
+        db.session.add(detalle)
+        db.session.flush()
+
+        # 4. Guardar Tráfico (si hay avisos en la parada)
+        for aviso in parada.get('avisos_trafico', []):
+            id_patron = aviso.get('id_patron')
+            if id_patron:
+                try:
+                    trafico = ItinerarioDetalleTrafico(
+                        id_detalle=detalle.id_detalle,
+                        id_patron=int(id_patron)
+                    )
+                    db.session.add(trafico)
+                except Exception:
+                    pass
+
+    db.session.commit()
+    return {"id_itinerario": nuevo_itinerario.id_itinerario}
+
+
+def listar_itinerarios_guardados(usuario_actual):
+    """
+    Lista los itinerarios guardados. Preparado para separación de roles.
+    Admin y Agente ven todos los itinerarios no eliminados.
+    Turista ve únicamente los vinculados a sus generaciones.
+    """
+    rol_nombre = (usuario_actual.rol.nombre if usuario_actual.rol else '').lower()
+    if rol_nombre in ['admin', 'agente']:
+        return Itinerario.query.filter(
+            Itinerario.deleted_at.is_(None)
+        ).order_by(Itinerario.id_itinerario.desc()).all()
+    else:
+        return Itinerario.query.join(Generacion).filter(
+            Generacion.id_usuario == usuario_actual.id_usuario,
+            Itinerario.deleted_at.is_(None)
+        ).order_by(Itinerario.id_itinerario.desc()).all()
+
+
+def obtener_detalle_itinerario(id_itinerario: int) -> dict | None:
+    """
+    Reconstruye el JSON completo de un itinerario guardado para mostrarlo con el mismo
+    nivel de detalle (mapas, timeline, clima, transportes) que en el generador.
+    """
+    itinerario = Itinerario.query.get(id_itinerario)
+    if not itinerario or itinerario.is_deleted:
+        return None
+
+    # 1. Intentar cargar desde el JSON en ConsultaNSGA2 (máxima fidelidad de polilíneas, tráfico y tramos)
+    consulta = ConsultaNSGA2.query.filter_by(id_generacion=itinerario.id_generacion).first()
+    if consulta and consulta.resultados_json:
+        try:
+            resultados = json.loads(consulta.resultados_json)
+            soluciones = resultados.get('soluciones_viables', []) + resultados.get('soluciones_no_viables', [])
+            if not soluciones:
+                soluciones = resultados.get('soluciones', [])
+
+            sol = next((s for s in soluciones if s.get('numero') == itinerario.numero_solucion or s.get('numero_solucion') == itinerario.numero_solucion), None)
+            if not sol and 0 < itinerario.numero_solucion <= len(soluciones):
+                sol = soluciones[itinerario.numero_solucion - 1]
+
+            if sol:
+                sol_dict = dict(sol)
+                sol_dict['id_itinerario'] = itinerario.id_itinerario
+                sol_dict['id_generacion'] = itinerario.id_generacion
+                sol_dict['estado'] = itinerario.estado
+                sol_dict['codigo_confirmacion'] = str(itinerario.codigo_confirmacion) if itinerario.codigo_confirmacion else None
+                sol_dict['voucher_generado'] = itinerario.voucher_generado
+                return sol_dict
+        except Exception as e:
+            print(f"[WARNING] Error cargando JSON de itinerario desde ConsultaNSGA2: {e}")
+
+    # 2. Reconstrucción manual desde las tablas de la BD si no existe o falló el JSON
+    detalles = ItinerarioDetalle.query.filter_by(
+        id_itinerario=id_itinerario
+    ).order_by(ItinerarioDetalle.dia, ItinerarioDetalle.orden).all()
+
+    paradas = []
+    atractivos_nombres = []
+    for d in detalles:
+        atr = d.atractivo
+        nombre_atr = atr.nombre if atr else f"Atractivo #{d.id_atractivo}"
+        atractivos_nombres.append(nombre_atr)
+        paradas.append({
+            "numero": d.orden,
+            "dia": d.dia,
+            "id": d.id_atractivo,
+            "nombre": nombre_atr,
+            "lat": float(atr.latitud) if atr and atr.latitud is not None else 0.0,
+            "lon": float(atr.longitud) if atr and atr.longitud is not None else 0.0,
+            "categoria": atr.categoria.nombre if atr and atr.categoria else "General",
+            "subcategoria": atr.subcategoria.nombre if atr and atr.subcategoria else "General",
+            "costo_entrada_bob": float(d.costo_entrada_bob or 0.0),
+            "hora_llegada": d.hora_llegada_estimada.strftime("%H:%M") if d.hora_llegada_estimada else "09:00",
+            "hora_salida": d.hora_salida_estimada.strftime("%H:%M") if d.hora_salida_estimada else "10:00",
+            "tiempo_visita_min": int(d.tiempo_traslado_desde_anterior or 60),
+            "clima": {
+                "temperatura": float(d.clima_temperatura) if d.clima_temperatura is not None else None,
+                "precipitacion_mm": float(d.clima_lluvia_mm) if d.clima_lluvia_mm is not None else None,
+                "descripcion": d.clima_descripcion,
+                "icono": "bi-cloud-sun",
+                "estado": "bueno"
+            } if (d.clima_temperatura is not None or d.clima_descripcion) else None
+        })
+
+    return {
+        "id_itinerario": itinerario.id_itinerario,
+        "id_generacion": itinerario.id_generacion,
+        "numero_solucion": itinerario.numero_solucion,
+        "estado": itinerario.estado,
+        "afinidad": float(itinerario.afinidad or 0.0),
+        "costo_total_bob": float(itinerario.costo_total_bob or 0.0),
+        "costo_entradas_bob": float(itinerario.costo_entradas_bob or 0.0),
+        "costo_traslados_bob": float(itinerario.costo_transporte_bob or 0.0),
+        "distancia_total_km": float(itinerario.distancia_total_km or 0.0),
+        "tiempo_total_min": float(itinerario.tiempo_total_estimado or 0.0),
+        "fecha_inicio": itinerario.fecha_inicio.strftime("%Y-%m-%d") if itinerario.fecha_inicio else "",
+        "fecha_fin": itinerario.fecha_fin.strftime("%Y-%m-%d") if itinerario.fecha_fin else "",
+        "dias_totales": itinerario.dias_totales or 1,
+        "cumple_restricciones": itinerario.es_viable,
+        "num_atractivos": len(paradas),
+        "atractivos_nombres": atractivos_nombres,
+        "paradas": paradas,
+        "tramos": [],
+        "clima_por_dia": {},
+        "avisos_trafico": [],
+        "transporte_asignado": {"nombre": "Vehículo / Estándar", "es_mixto": False},
+        "codigo_confirmacion": str(itinerario.codigo_confirmacion) if itinerario.codigo_confirmacion else None,
+        "voucher_generado": itinerario.voucher_generado
+    }
