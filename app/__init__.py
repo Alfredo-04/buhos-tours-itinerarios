@@ -77,7 +77,7 @@ def create_app(config_class=Config):
             proveedor, transporte, atractivo, zona_trafico, patron_trafico,
             generacion, itinerario, itinerario_detalle, viaje_turista,
             itinerario_detalle_trafico, tipo_cambio, consulta_nsga2,
-            distancia_atractivo
+            distancia_atractivo, archivo_pareto
         )
 
     # Registrar blueprints
@@ -88,6 +88,7 @@ def create_app(config_class=Config):
     from app.controllers.usuario_controller import usuario_bp
     from app.controllers.catalogo_controller import catalogo_bp
     from app.controllers.itinerario_controller import itinerarios_bp, turistas_api_bp
+    from app.controllers.reporte_controller import reportes_bp
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
@@ -97,6 +98,7 @@ def create_app(config_class=Config):
     app.register_blueprint(catalogo_bp)
     app.register_blueprint(itinerarios_bp)
     app.register_blueprint(turistas_api_bp)
+    app.register_blueprint(reportes_bp)
 
     # Middleware de seguridad global
     @app.before_request
@@ -117,6 +119,17 @@ def create_app(config_class=Config):
                             ALTER TABLE viaje_turista ADD CONSTRAINT uq_viaje_turista_itinerario_turista UNIQUE (id_itinerario, id_turista);
                         END IF;
                     END $$;
+                """))
+                db.session.execute(db.text("""
+                    CREATE TABLE IF NOT EXISTS archivo_pareto (
+                        id_archivo SERIAL PRIMARY KEY,
+                        hash_problema VARCHAR(64) UNIQUE NOT NULL,
+                        ref_point_json TEXT NOT NULL,
+                        valores_json TEXT NOT NULL,
+                        num_puntos INTEGER NOT NULL DEFAULT 0,
+                        fecha_actualizacion TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW()
+                    );
+                    CREATE INDEX IF NOT EXISTS ix_archivo_pareto_hash_problema ON archivo_pareto (hash_problema);
                 """))
                 db.session.commit()
             except Exception:

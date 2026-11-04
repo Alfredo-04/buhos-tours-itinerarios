@@ -1295,6 +1295,54 @@ def ejecutar_nsga2(
     fin = time.perf_counter()
     tiempo_ejecucion_seg = round(fin - inicio, 4)
 
+    # ===== Metricas de calidad del frente de Pareto (Fase 1, aditivo, NO intrusivo) =====
+    metricas_pareto = {
+        "hipervolumen": None,
+        "gd": None,
+        "spread": None,
+        "num_soluciones_archivo_ref": 0,
+    }
+    try:
+        if res is not None and res.opt is not None and len(res.opt) > 0:
+            F_crudo_metricas = np.array(res.opt.get("F"))
+            if F_crudo_metricas is not None and len(F_crudo_metricas) > 0:
+                from app.services.metricas_pareto_service import (
+                    calcular_hash_problema,
+                    calcular_y_actualizar_metricas_pareto,
+                )
+                contexto_problema = {
+                    "atractivos_ids": sorted([int(a['id']) for a in atractivos_efectivos]),
+                    "transporte_ids": sorted([int(t['id']) for t in transportes]),
+                    "presupuesto_max": float(presupuesto_max),
+                    "num_dias": int(num_dias_disponibles),
+                    "intereses": {str(k): float(v) for k, v in (intereses or {}).items()},
+                    "num_personas": int(num_personas),
+                    "fecha_inicio": fecha_inicio_viaje.strftime("%Y-%m-%d") if hasattr(fecha_inicio_viaje, 'strftime') else str(fecha_inicio_viaje),
+                    "hora_inicio_dia": hora_inicio_dia.strftime("%H:%M") if hasattr(hora_inicio_dia, 'strftime') else str(hora_inicio_dia),
+                    "hora_fin_dia": hora_fin_dia.strftime("%H:%M") if hasattr(hora_fin_dia, 'strftime') else str(hora_fin_dia),
+                    "min_paradas": int(min_paradas_efectivo),
+                    "max_paradas": int(max_paradas_efectivo),
+                }
+                hash_problema = calcular_hash_problema(contexto_problema)
+                metricas_pareto = calcular_y_actualizar_metricas_pareto(
+                    F_crudo=F_crudo_metricas,
+                    hash_problema=hash_problema,
+                )
+                print(f"[METRICAS] HV={metricas_pareto['hipervolumen']} GD={metricas_pareto['gd']} Spread={metricas_pareto['spread']} RefN={metricas_pareto['num_soluciones_archivo_ref']}")
+    except Exception as e_metricas:
+        print(f"[WARN METRICAS] No se pudieron calcular metricas de Pareto: {e_metricas}")
+        try:
+            from app import db as _db_metricas
+            _db_metricas.session.rollback()
+        except Exception:
+            pass
+        metricas_pareto = {
+            "hipervolumen": None,
+            "gd": None,
+            "spread": None,
+            "num_soluciones_archivo_ref": 0,
+        }
+
     # 5. Extracción y decodificación de soluciones con Frente 1, Frente 2 y F3
     candidatos = []
     if res.opt is not None and len(res.opt) > 0:
@@ -2213,4 +2261,8 @@ def ejecutar_nsga2(
             "sampling": "Sampler Diversificado en Rango [k_min, k_max]",
         },
         "tiempo_ejecucion_seg": tiempo_ejecucion_seg,
+        "hipervolumen": metricas_pareto["hipervolumen"],
+        "gd": metricas_pareto["gd"],
+        "spread": metricas_pareto["spread"],
+        "num_soluciones_archivo_ref": metricas_pareto["num_soluciones_archivo_ref"],
     }

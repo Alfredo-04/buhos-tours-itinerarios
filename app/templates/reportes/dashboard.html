@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard de Métricas y Reportes | Búhos Tours{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+
+  <!-- Encabezado Principal y Acciones de Exportación -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4 pb-2 border-bottom">
+    <div>
+      <h2 class="h3 fw-bold text-dark mb-1 d-flex align-items-center gap-2">
+        <i class="bi bi-graph-up-arrow text-primary"></i>
+        <span>Métricas y Reportes del Sistema</span>
+      </h2>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <a href="{{ url_for('reportes.exportar_pdf') }}" class="btn btn-outline-danger shadow-sm d-flex align-items-center gap-2 px-3 py-2">
+        <i class="bi bi-file-earmark-pdf-fill fs-5"></i>
+        <span class="fw-semibold">Exportar PDF</span>
+      </a>
+      <a href="{{ url_for('reportes.exportar_csv') }}" class="btn btn-outline-success shadow-sm d-flex align-items-center gap-2 px-3 py-2">
+        <i class="bi bi-file-earmark-spreadsheet-fill fs-5"></i>
+        <span class="fw-semibold">Exportar CSV</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Fila 1: Tarjetas de Métricas de Negocio -->
+  <div class="row g-3 mb-4">
+    <!-- Total Itinerarios -->
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <span class="text-muted small text-uppercase fw-bold" style="letter-spacing: 0.05em;">Itinerarios Guardados</span>
+            <h3 class="fw-bold mb-0 text-dark mt-1">{{ metricas_negocio.total_itinerarios }}</h3>
+            <span class="badge bg-success-subtle text-success border border-success-subtle mt-2 small">
+              {{ metricas_negocio.porcentaje_viabilidad }}% viabilidad
+            </span>
+          </div>
+          <div class="bg-primary-subtle text-primary p-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 54px; height: 54px;">
+            <i class="bi bi-journal-bookmark-fill fs-3"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Presupuesto Promedio -->
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <span class="text-muted small text-uppercase fw-bold" style="letter-spacing: 0.05em;">Presupuesto Promedio</span>
+            <h3 class="fw-bold mb-0 text-dark mt-1">Bs. {{ "%.2f"|format(metricas_negocio.presupuesto_promedio) }}</h3>
+            <span class="text-muted small d-block mt-2">
+              ≈ ${{ metricas_negocio.presupuesto_promedio|usd }} USD
+            </span>
+          </div>
+          <div class="bg-success-subtle text-success p-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 54px; height: 54px;">
+            <i class="bi bi-cash-stack fs-3"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Duración Promedio -->
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <span class="text-muted small text-uppercase fw-bold" style="letter-spacing: 0.05em;">Duración Promedio</span>
+            <h3 class="fw-bold mb-0 text-dark mt-1">{{ metricas_negocio.duracion_promedio }} <span class="fs-6 fw-normal text-muted">días</span></h3>
+            <span class="text-muted small d-block mt-2">Por itinerario confirmado</span>
+          </div>
+          <div class="bg-warning-subtle text-warning p-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 54px; height: 54px;">
+            <i class="bi bi-calendar-range-fill fs-3"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tiempo Promedio Algoritmo -->
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <span class="text-muted small text-uppercase fw-bold" style="letter-spacing: 0.05em;">Tiempo Algoritmo</span>
+            <h3 class="fw-bold mb-0 text-dark mt-1">{{ metricas_negocio.tiempo_proceso_promedio }} <span class="fs-6 fw-normal text-muted">seg</span></h3>
+            <span class="text-muted small d-block mt-2">Promedio de convergencia</span>
+          </div>
+          <div class="bg-info-subtle text-info p-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 54px; height: 54px;">
+            <i class="bi bi-cpu-fill fs-3"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fila 2: Gráficos Estadísticos (Chart.js) -->
+  <div class="row g-4 mb-4">
+    <!-- Gráfico: Top 10 Atractivos -->
+    <div class="col-12 col-lg-7">
+      <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
+        <div class="card-header bg-transparent border-0 pt-3 px-3 pb-0 d-flex justify-content-between align-items-center">
+          <h5 class="fw-bold text-dark mb-0 fs-6 d-flex align-items-center gap-2">
+            <i class="bi bi-bar-chart-fill text-primary"></i>
+            <span>Top 10 Atractivos más Solicitados</span>
+          </h5>
+          <span class="badge bg-light text-muted border">Frecuencia en Itinerarios</span>
+        </div>
+        <div class="card-body p-3">
+          {% if metricas_negocio.top_atractivos %}
+            <div style="position: relative; height: 280px;">
+              <canvas id="chartTopAtractivos"></canvas>
+            </div>
+          {% else %}
+            <div class="text-center py-5 text-muted">
+              <i class="bi bi-geo-alt fs-1 d-block mb-2 text-secondary opacity-50"></i>
+              <p class="mb-0">Sin itinerarios guardados aún</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Gráfico: Itinerarios por Mes -->
+    <div class="col-12 col-lg-5">
+      <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
+        <div class="card-header bg-transparent border-0 pt-3 px-3 pb-0 d-flex justify-content-between align-items-center">
+          <h5 class="fw-bold text-dark mb-0 fs-6 d-flex align-items-center gap-2">
+            <i class="bi bi-graph-up text-success"></i>
+            <span>Itinerarios por Mes</span>
+          </h5>
+          <span class="badge bg-light text-muted border">Tendencia</span>
+        </div>
+        <div class="card-body p-3">
+          {% if metricas_negocio.itinerarios_por_mes %}
+            <div style="position: relative; height: 280px;">
+              <canvas id="chartItinerariosMes"></canvas>
+            </div>
+          {% else %}
+            <div class="text-center py-5 text-muted">
+              <i class="bi bi-calendar2-week fs-1 d-block mb-2 text-secondary opacity-50"></i>
+              <p class="mb-0">Sin registros mensuales acumulados aún</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fila 3: Tabla de Métricas Académicas (Últimas Ejecuciones NSGA-II) -->
+  <div class="card border-0 shadow-sm rounded-3 bg-white mb-4">
+    <div class="card-header bg-transparent border-0 pt-3 px-3 pb-2 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+      <div>
+        <h5 class="fw-bold text-dark mb-0 fs-6 d-flex align-items-center gap-2">
+          <i class="bi bi-mortarboard-fill text-dark"></i>
+          <span>Métricas del Frente de Pareto (NSGA-II)</span>
+        </h5>
+        
+      </div>
+      <span class="badge bg-secondary-subtle text-secondary border small">Últimas 20 ejecuciones</span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 text-center" style="font-size: 0.88rem;">
+          <thead class="table-light text-muted small text-uppercase">
+            <tr>
+              <th class="text-start ps-3">Fecha y Hora</th>
+              <th>Población</th>
+              <th>Generaciones</th>
+              <th>Tiempo (s)</th>
+              <th>N° Soluciones</th>
+              <th>
+                <span data-bs-toggle="tooltip" title="Hipervolumen (HV): Mayor es mejor. Mide volumen dominado respecto al punto de referencia.">
+                  HV <i class="bi bi-info-circle text-muted"></i>
+                </span>
+              </th>
+              <th>
+                <span data-bs-toggle="tooltip" title="Generational Distance (GD): Menor es mejor. Mide distancia promedio al frente de referencia.">
+                  GD <i class="bi bi-info-circle text-muted"></i>
+                </span>
+              </th>
+              <th>
+                <span data-bs-toggle="tooltip" title="Spread / Spacing: Menor es mejor. Mide uniformidad de la distribución de soluciones.">
+                  Spread <i class="bi bi-info-circle text-muted"></i>
+                </span>
+              </th>
+              <th class="text-end pe-3">Ref. Archivo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if metricas_algoritmo %}
+              {% for row in metricas_algoritmo %}
+                <tr>
+                  <td class="text-start ps-3 fw-medium text-dark">{{ row.fecha }}</td>
+                  <td><span class="badge bg-light text-dark border">{{ row.tamano_poblacion }}</span></td>
+                  <td><span class="badge bg-light text-dark border">{{ row.generaciones }}</span></td>
+                  <td><span class="fw-semibold text-primary">{{ row.tiempo_ejecucion_seg }}s</span></td>
+                  <td><span class="badge bg-info-subtle text-info border border-info-subtle">{{ row.num_soluciones }}</span></td>
+                  <td>
+                    {% if row.hipervolumen != "-" %}
+                      <span class="fw-bold text-success">{{ row.hipervolumen }}</span>
+                    {% else %}
+                      <span class="text-muted">-</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if row.gd != "-" %}
+                      <span class="fw-bold text-dark">{{ row.gd }}</span>
+                    {% else %}
+                      <span class="text-muted">-</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if row.spread != "-" %}
+                      <span class="fw-bold text-secondary">{{ row.spread }}</span>
+                    {% else %}
+                      <span class="text-muted">-</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end pe-3">
+                    {% if row.num_soluciones_archivo_ref > 0 %}
+                      <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                        {{ row.num_soluciones_archivo_ref }} pts
+                      </span>
+                    {% else %}
+                      <span class="badge bg-light text-muted border">1ª corrida</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="9" class="py-4 text-center text-muted">
+                  <i class="bi bi-cpu fs-3 d-block mb-1 text-secondary opacity-50"></i>
+                  No se han registrado ejecuciones de optimización aún.
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Inicialización de tooltips Bootstrap si están disponibles
+  var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  tooltipTriggerList.forEach(function (tooltipTriggerEl) {
+    new bootstrap.Tooltip(tooltipTriggerEl);
+  });
+
+  // Datos para Gráfico Top Atractivos
+  var topAtractivosData = {{ metricas_negocio.top_atractivos | tojson | safe }};
+  if (topAtractivosData && topAtractivosData.length > 0) {
+    var ctxAtractivos = document.getElementById('chartTopAtractivos').getContext('2d');
+    var labelsAtractivos = topAtractivosData.map(function(item) {
+      return item.nombre.length > 25 ? item.nombre.substring(0, 25) + '...' : item.nombre;
+    });
+    var valoresAtractivos = topAtractivosData.map(function(item) { return item.visitas; });
+
+    new Chart(ctxAtractivos, {
+      type: 'bar',
+      data: {
+        labels: labelsAtractivos,
+        datasets: [{
+          label: 'Visitas en Itinerarios',
+          data: valoresAtractivos,
+          backgroundColor: 'rgba(2, 132, 199, 0.85)',
+          hoverBackgroundColor: 'rgba(3, 105, 161, 1)',
+          borderRadius: 6,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#0f172a',
+            padding: 10,
+            cornerRadius: 6
+          }
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            ticks: { precision: 0 },
+            grid: { color: 'rgba(0, 0, 0, 0.05)' }
+          },
+          y: {
+            grid: { display: false }
+          }
+        }
+      }
+    });
+  }
+
+  // Datos para Gráfico Itinerarios por Mes
+  var itinerariosMesData = {{ metricas_negocio.itinerarios_por_mes | tojson | safe }};
+  if (itinerariosMesData && itinerariosMesData.length > 0) {
+    var ctxMes = document.getElementById('chartItinerariosMes').getContext('2d');
+    var labelsMes = itinerariosMesData.map(function(item) { return item.mes; });
+    var valoresMes = itinerariosMesData.map(function(item) { return item.cantidad; });
+
+    new Chart(ctxMes, {
+      type: 'line',
+      data: {
+        labels: labelsMes,
+        datasets: [{
+          label: 'Itinerarios Guardados',
+          data: valoresMes,
+          borderColor: '#0d9488',
+          backgroundColor: 'rgba(13, 148, 136, 0.15)',
+          fill: true,
+          tension: 0.35,
+          borderWidth: 2.5,
+          pointBackgroundColor: '#0d9488',
+          pointRadius: 4,
+          pointHoverRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#0f172a',
+            padding: 10,
+            cornerRadius: 6
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0 },
+            grid: { color: 'rgba(0, 0, 0, 0.05)' }
+          },
+          x: {
+            grid: { display: false }
+          }
+        }
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

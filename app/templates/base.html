@@ -98,6 +98,11 @@
               <span>Itinerarios Guardados</span>
             </a>
 
+            <a href="{{ url_for('reportes.dashboard_view') }}" class="nav-link-custom {% if request.endpoint and 'reportes.' in request.endpoint %}active{% endif %}">
+              <i class="bi bi-graph-up-arrow text-primary"></i>
+              <span>Métricas y Reportes</span>
+            </a>
+
             <div class="sidebar-category-header text-uppercase small px-3 mt-3 mb-1 text-muted" style="font-size: 0.72rem; letter-spacing: 0.08em;">Vistas Públicas</div>
 
             <a href="{{ url_for('catalogo.atractivos_list') }}" class="nav-link-custom {% if 'catalogo.atractivo' in request.endpoint %}active{% endif %}">
