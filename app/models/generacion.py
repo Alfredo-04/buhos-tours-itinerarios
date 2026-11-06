@@ -5,7 +5,7 @@ class Generacion(db.Model):
     __tablename__ = 'generacion'
 
     id_generacion = db.Column(db.Integer, primary_key=True)
-    fecha_generacion = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    fecha_generacion = db.Column(db.DateTime, nullable=False, default=datetime.now)
     id_usuario = db.Column(db.Integer, db.ForeignKey('usuario.id_usuario'), nullable=False)
     fecha_inicio_viaje = db.Column(db.Date, nullable=False)
     fecha_fin_viaje = db.Column(db.Date, nullable=False)

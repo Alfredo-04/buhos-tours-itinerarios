@@ -1,5 +1,5 @@
 from typing import Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import re
@@ -18,6 +18,8 @@ from app.models.usuario import Usuario
 from app.services.nsga2_service import ejecutar_nsga2
 from app import db
 
+
+BOLIVIA_TZ = timezone(timedelta(hours=-4))
 
 def preparar_datos_nsga2(
     atractivos_ids: list[int],
@@ -146,7 +148,7 @@ def generar_itinerarios(
 
     # 1.1 Resolver las fechas reales ANTES de calcular el hash
     # Asumiendo que 'fecha_inicio_viaje' puede venir como None si 'auto_fechas' es True
-    fecha_hoy = datetime.utcnow().date()
+    fecha_hoy = datetime.now(BOLIVIA_TZ).date()
 
     if auto_fechas or not fecha_inicio_viaje:
         # Regla por defecto: empieza mañana
@@ -213,15 +215,13 @@ def generar_itinerarios(
         # Lógica de Caché con Expiración (24 horas)
         if consulta_existente and consulta_existente.resultados_json:
             fecha_consulta = consulta_existente.fecha
-            ahora = datetime.utcnow()
-            if hasattr(fecha_consulta, 'tzinfo') and fecha_consulta.tzinfo is not None:
-                from datetime import timezone
-                ahora = datetime.now(timezone.utc)
+            # Usar hora Bolivia local (naive) para que reste bien con la BD
+            ahora = datetime.now(BOLIVIA_TZ).replace(tzinfo=None)
 
-            tiempo_transcurrido = ahora - fecha_consulta
+            tiempo_transcurrido = (ahora - fecha_consulta).total_seconds()
 
-            # Si pasaron menos de 24 horas, usamos la caché
-            if tiempo_transcurrido.total_seconds() < 86400:
+            # Si pasaron menos de 24 horas (ignorando tiempos negativos de datos viejos)
+            if 0 <= tiempo_transcurrido < 86400:
                 print("[CACHE HIT] Devolviendo resultados guardados sin ejecutar NSGA-II.")
                 try:
                     resultados_cacheados = json.loads(consulta_existente.resultados_json)
@@ -234,17 +234,16 @@ def generar_itinerarios(
                 print("[CACHE EXPIRADO] La consulta tiene más de 24h. Recalculando itinerario...")
 
         # b) Rate Limiting (esperar 3 segundos entre consultas consecutivas cuando es consulta nueva)
+                # b) Rate Limiting (esperar 3 segundos entre consultas consecutivas)
         ultima_gen = Generacion.query.filter_by(id_usuario=id_usuario).order_by(Generacion.fecha_generacion.desc()).first()
 
         if ultima_gen and ultima_gen.fecha_generacion:
-            ahora = datetime.utcnow()
+            # Usar hora Bolivia local (naive)
+            ahora = datetime.now(BOLIVIA_TZ).replace(tzinfo=None)
             fecha_gen = ultima_gen.fecha_generacion
-            if hasattr(fecha_gen, 'tzinfo') and fecha_gen.tzinfo is not None:
-                from datetime import timezone
-                ahora = datetime.now(timezone.utc)
-
             segundos_desde_ultima = (ahora - fecha_gen).total_seconds()
-            if segundos_desde_ultima < 3:
+            # Si el tiempo es positivo y menor a 3 segundos, bloquea
+            if 0 <= segundos_desde_ultima < 3:
                 raise ValueError("Por favor, espera unos segundos antes de volver a generar.")
 
     print("[CACHE MISS] Ejecutando NSGA-II (esto tomará unos segundos)...")
@@ -305,11 +304,11 @@ def generar_itinerarios(
                 try:
                     fecha_ini_date = datetime.strptime(fecha_ini_str, "%Y-%m-%d").date()
                 except ValueError:
-                    fecha_ini_date = datetime.utcnow().date() + timedelta(days=1)
+                    fecha_ini_date = datetime.now(BOLIVIA_TZ).date() + timedelta(days=1)
             elif hasattr(fecha_ini_str, 'year'):
                 fecha_ini_date = fecha_ini_str
             else:
-                fecha_ini_date = datetime.utcnow().date() + timedelta(days=1)
+                fecha_ini_date = datetime.now(BOLIVIA_TZ).date() + timedelta(days=1)
 
             dias_tot = int(resultado.get('parametros_usados', {}).get('num_dias_disponibles', num_dias_disponibles or 1))
             fecha_fin_date = fecha_ini_date + timedelta(days=max(0, dias_tot - 1))

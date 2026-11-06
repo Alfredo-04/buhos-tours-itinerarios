@@ -5,7 +5,7 @@ class ConsultaNSGA2(db.Model):
     __tablename__ = 'consulta_nsga2'
 
     id_consulta = db.Column(db.Integer, primary_key=True)
-    fecha = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    fecha = db.Column(db.DateTime, nullable=False, default=datetime.now)
     id_generacion = db.Column(db.Integer, db.ForeignKey('generacion.id_generacion'), nullable=True)
     num_atractivos = db.Column(db.Integer, nullable=False)
     num_transportes = db.Column(db.Integer, nullable=False)

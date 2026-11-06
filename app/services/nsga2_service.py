@@ -136,10 +136,8 @@ def cargar_zonas_y_patrones_db(fecha_referencia: datetime | None = None) -> list
                 except Exception as e:
                     logger.debug(f"Error parseando WKT para zona {z.nombre}: {e}")
 
-            patrones_zona = [
-                p for p in z.patrones 
-                if not p.is_deleted and (p.dia_semana.lower() == dia_actual or p.dia_semana.lower() == 'todos')
-            ]
+            # Cargar TODOS los patrones activos (el filtro por día se hace al calcular el viaje)
+            patrones_zona = [p for p in z.patrones if not p.is_deleted]
 
             zonas_procesadas.append({
                 'id_zona': z.id_zona,
@@ -175,61 +173,80 @@ def _traducir_nivel_trafico(color_nivel: str | None, factor: float | str | None)
 def detectar_trafico_tramo(
     lat1: float, lon1: float,
     lat2: float, lon2: float,
-    hora_tramo: dtime,
-    zonas_trafico: list[dict[str, Any]]
-) -> tuple[float, list[dict[str, Any]]]:
-    """
-    Verifica qué zonas de tráfico cruza la línea entre (lat1, lon1) y (lat2, lon2).
-    Aplica el factor de congestión más alto y recopila los avisos de tráfico.
-    Retorna: (factor_maximo, lista_avisos_no_verdes)
-    """
+    polyline_coords: list[list[float]],
+    hora_inicio_tramo: dtime,
+    hora_fin_tramo: dtime,
+    zonas_trafico: list[dict[str, Any]],
+    fecha_tramo: Any = None
+) -> tuple[float, list[dict[str, Any]], float]:
+
     factor_maximo = 1.0
     avisos = []
+    minutos_overlap_max = 0.0
 
     if not zonas_trafico:
-        return factor_maximo, avisos
+        return factor_maximo, avisos, minutos_overlap_max
 
     linea_tramo = None
     if SHAPELY_DISPONIBLE:
         try:
+            # VOLVEMOS A LA LÍNEA RECTA PARA GARANTIZAR LA INTERSECCIÓN
             linea_tramo = LineString([(lon1, lat1), (lon2, lat2)])
         except Exception:
             linea_tramo = None
 
+    if linea_tramo is None:
+        return factor_maximo, avisos, minutos_overlap_max
+
+    def time_to_mins(t: dtime) -> float:
+        return t.hour * 60 + t.minute + t.second / 60.0
+
+    inicio_v_m = time_to_mins(hora_inicio_tramo)
+    fin_v_m = time_to_mins(hora_fin_tramo)
+
     for z in zonas_trafico:
         cruza = False
-
         if linea_tramo is not None and z.get('geom_obj') is not None:
             try:
-                geom = z['geom_obj']
-                if linea_tramo.intersects(geom) or geom.contains(linea_tramo):
+                if linea_tramo.intersects(z['geom_obj']) or z['geom_obj'].contains(linea_tramo):
                     cruza = True
             except Exception:
-                cruza = False
+                pass
 
         if cruza:
+            if fecha_tramo:
+                dia_sem = dias_semana[fecha_tramo.weekday()]
+            else:
+                dia_sem = None
+
             for p in z.get('patrones', []):
-                h_ini = p.hora_inicio
-                h_fin = p.hora_fin
-                if h_ini <= hora_tramo <= h_fin:
+                # Validar día (permitiendo 'todos' o el día específico)
+                if dia_sem:
+                    dias_patron = str(p.dia_semana).lower()
+                    if dia_sem not in dias_patron and 'todos' not in dias_patron:
+                        continue
+
+                h_ini_p = time_to_mins(p.hora_inicio)
+                h_fin_p = time_to_mins(p.hora_fin)
+                
+                # Calcular superposición exacta de tiempo
+                overlap = max(0.0, min(fin_v_m, h_fin_p) - max(inicio_v_m, h_ini_p))
+
+                if overlap > 0:
                     f_cong = float(p.factor_congestion or 1.0)
                     if f_cong > factor_maximo:
                         factor_maximo = f_cong
+                        minutos_overlap_max = overlap
 
                     if p.color_nivel != 'verde':
                         avisos.append({
-                            'id_zona': z.get('id_zona'),
-                            'zona_nombre': z['nombre'],
+                            'id_zona': z.get('id_zona'), 'zona_nombre': z['nombre'],
                             'geometria_wkt': z.get('geometria_wkt', ''),
-                            'factor_congestion': f_cong,
-                            'color_nivel': p.color_nivel,
-                            'tipo': p.tipo,
-                            'hora_franja': f"{h_ini.strftime('%H:%M')} - {h_fin.strftime('%H:%M')}",
+                            'factor_congestion': f_cong, 'color_nivel': p.color_nivel,
+                            'tipo': p.tipo, 'hora_franja': f"{p.hora_inicio.strftime('%H:%M')} - {p.hora_fin.strftime('%H:%M')}",
                             'nivel_texto': _traducir_nivel_trafico(p.color_nivel, f_cong)
                         })
-
-    return factor_maximo, avisos
-
+    return factor_maximo, avisos, minutos_overlap_max
 
 def formatear_nombre_transporte(nombre: str, cantidad: int = 1) -> str:
     """
@@ -1236,8 +1253,35 @@ def ejecutar_nsga2(
 
                 vel_transporte = max(1.0, float(t_tramo.get("velocidad_promedio_kmh", 30.0) or 30.0))
                 dur_base_min = round((dist_km / vel_transporte) * 60.0, 2)
-
-                factor_trafico, avisos = detectar_trafico_tramo(lat_i, lon_i, lat_j, lon_j, hora_actual, zonas_trafico)
+                
+                # Calcular hora de fin estimada para el cálculo de overlap
+                dt_inicio = datetime.combine(datetime.today(), hora_actual)
+                dt_fin = dt_inicio + timedelta(minutes=dur_base_min)
+                poly_coords = ruta_real.get("polyline_coords", [])
+                
+                # Nueva llamada con polilínea y rango de tiempo
+                factor_trafico, avisos, overlap_mins = detectar_trafico_tramo(
+                    lat_i, lon_i, lat_j, lon_j,
+                    polyline_coords=poly_coords,
+                    hora_inicio_tramo=hora_actual,
+                    hora_fin_tramo=dt_fin.time(),
+                    zonas_trafico=zonas_trafico,
+                    fecha_tramo=fecha_inicio_viaje
+                )
+                # Aplicar matemática de tráfico real (solo al tiempo de overlap)
+                                # Aplicar matemática de tráfico real (Penalización severa)
+                if overlap_mins > 0 and factor_trafico > 1.0:
+                    # 1. Multiplicamos todo el tiempo base por el factor de congestión
+                    dur_base_min = dur_base_min * factor_trafico
+                    
+                    # 2. Añadimos un tiempo fijo de "parada" (semáforos, embotellamiento)
+                    if factor_trafico >= 1.60:  # Tráfico Intenso (Naranja) o Rojo
+                        dur_base_min += 6.0  # 6 minutos extra de atasco garantizado
+                    elif factor_trafico >= 1.30: # Tráfico Moderado (Amarillo)
+                        dur_base_min += 3.0  # 3 minutos extra
+                        
+                    factor_trafico = 1.0  # Ya lo aplicamos, lo reseteamos para no duplicar
+                
                 if avisos:
                     avisos_trafico_global.extend(avisos)
 
@@ -1531,8 +1575,13 @@ def ejecutar_nsga2(
                     break  # ¡Encontramos un día! Nos quedamos aquí.
 
             # Actualizar variables para el resto del bucle
+            # Actualizar variables para el resto del bucle
             dia_idx = dia_asignado_idx
             fecha_actual = fecha_inicio_viaje + timedelta(days=dia_idx)
+            
+            # GUARDAMOS LA HORA DE SALIDA DEL PUNTO ANTERIOR ANTES DE SOBRESCRIBIRLA
+            hora_salida_anterior = hora_actual_step
+            
             hora_actual_step = mejor_hora_salida if mejor_hora_salida else datetime.combine(fecha_actual, hora_inicio_dia)
             hora_llegada_est = mejor_hora_llegada if mejor_hora_llegada else hora_actual_step
             hora_inicio_vis_est = hora_llegada_est
@@ -1563,10 +1612,14 @@ def ejecutar_nsga2(
                     transportes_en_solucion.append(t_asignado.get("nombre"))
 
                 orig = atractivos_efectivos[idx_previo]
-                _, tramo_avisos = detectar_trafico_tramo(
+                _, tramo_avisos, _ = detectar_trafico_tramo(
                     float(orig["lat"]), float(orig["lon"]),
                     float(atr["lat"]), float(atr["lon"]),
-                    hora_actual_step.time(), zonas_trafico
+                    polyline_coords=matriz_polylines[idx_previo][idx_atr],
+                    hora_inicio_tramo=hora_salida_anterior.time(),
+                    hora_fin_tramo=hora_llegada_est.time(),
+                    zonas_trafico=zonas_trafico,
+                    fecha_tramo=fecha_actual
                 )
                 for av in tramo_avisos:
                     avisos_solucion.append({
@@ -1599,7 +1652,7 @@ def ejecutar_nsga2(
                     "cantidad_vehiculos": t_asignado.get("cantidad_vehiculos", 1) if t_asignado else 1,
                     "advertencia_capacidad": t_asignado.get("advertencia_capacidad") if t_asignado else None,
                     "factor_trafico": round(factor_trafico, 2),
-                    "hora_salida": hora_actual_step.strftime("%H:%M"),
+                    "hora_salida": hora_salida_anterior.strftime("%H:%M"),
                     "hora_llegada": hora_llegada_est.strftime("%H:%M"),
                     "polyline_coords": matriz_polylines[idx_previo][idx_atr],
                     "avisos_trafico": tramo_avisos,
@@ -1699,6 +1752,9 @@ def ejecutar_nsga2(
         mensajes_exceso = []
         excesos = []
         feasible = True
+
+        # Guardamos los cálculos de exceso iniciales pero NO los usamos todavía
+        excesos_temporales = excesos_por_dia.copy()
 
         # 1. Validar Tiempo por Día vs Límite
         for d_num in sorted(excesos_por_dia.keys()):
@@ -2021,21 +2077,32 @@ def ejecutar_nsga2(
                     idx_previo_d = next((i for i, a in enumerate(atractivos_efectivos) if a['id'] == p['id']), None)
 
         # === ORDENAR Y RENUMERAR LAS PARADAS CRONOLÓGICAMENTE ===
-        # Ordenar primero por día, luego por hora de llegada
         paradas_detalle.sort(key=lambda p: (p['dia'], p['hora_llegada']))
-
-        # Renumerar el campo 'numero' de 1 a N para que el usuario vea la secuencia correcta
         for index, p in enumerate(paradas_detalle):
             p['numero'] = index + 1
 
-        # Ordenar también los tramos para que el timeline sea consistente
-        tramos.sort(key=lambda t: (t['dia'], t['hora_salida']))
-
-        # Actualizar el número de tramo
+        # === RECONSTRUIR TRAMOS DESPUÉS DE LA REDISTRIBUCIÓN ===
+        # Esto soluciona que los viajes muestren horas invertidas como 13:06 -> 12:00
+        nuevos_tramos = []
+        for i in range(1, len(paradas_detalle)):
+            p_ant = paradas_detalle[i-1]
+            p_act = paradas_detalle[i]
+            
+            if p_ant['dia'] == p_act['dia']:
+                # Buscar el tramo original para recuperar datos de transporte y mapa
+                tramo_orig = next((t for t in tramos if t['origen_id'] == p_ant['id'] and t['destino_id'] == p_act['id']), None)
+                if tramo_orig:
+                    tramo_orig['hora_salida'] = p_ant['hora_salida']
+                    tramo_orig['hora_llegada'] = p_act['hora_llegada']
+                    tramo_orig['dia'] = p_act['dia']
+                    tramo_orig['fecha'] = p_act['fecha']
+                    nuevos_tramos.append(tramo_orig)
+        
+        tramos = nuevos_tramos
         for index, t in enumerate(tramos):
             t['tramo_numero'] = index + 1
 
-        # Sincronizar listas ordenadas en nueva_solucion
+        # Sincronizar listas ordenadas
         nueva_solucion["paradas"] = paradas_detalle
         nueva_solucion["atractivos_ids"] = [p["id"] for p in paradas_detalle]
         nueva_solucion["atractivos_nombres"] = [p["nombre"] for p in paradas_detalle]
@@ -2047,11 +2114,104 @@ def ejecutar_nsga2(
         nueva_solucion["dias_totales"] = max_dia_usado
         nueva_solucion["fecha_fin"] = (fecha_inicio_viaje + timedelta(days=max_dia_usado - 1)).strftime("%Y-%m-%d")
 
+        # Recalcular tiempos finales reales
+        tiempo_visitas = sum(p['tiempo_visita_min'] for p in paradas_detalle)
+        tiempo_traslados = sum(p.get('tiempo_traslado_desde_anterior', 0) for p in paradas_detalle)
+        nueva_solucion["tiempo_total_min"] = round(tiempo_visitas + tiempo_traslados, 1)
+        
         dias_paradas_post = [p["dia"] for p in paradas_detalle]
         costo_transporte_post = problem.calcular_costo_transporte(ruta, dias_por_parada=dias_paradas_post)
-        costo_total_post = costo_entradas + costo_transporte_post
-        nueva_solucion["costo_total_bob"] = round(costo_total_post, 2)
+        nueva_solucion["costo_total_bob"] = round(costo_entradas + costo_transporte_post, 2)
         nueva_solucion["costo_traslados_bob"] = round(costo_transporte_post, 2)
+
+
+
+        # === RECALCULAR VIABILIDAD FINAL (Esto arregla el error de los avisos) ===
+        # Como las paradas se movieron de día, las horas viejas ya no sirven. Volvemos a evaluar.
+        mensajes_exceso = []
+        excesos = []
+        feasible = True
+
+        # 1. Validar Tiempo por Día vs Límite
+        for d in range(1, max_dia_usado + 1):
+            paradas_d = [p for p in paradas_detalle if p['dia'] == d]
+            if not paradas_d:
+                continue
+            
+            # Tomamos la hora de salida de la ÚLTIMA parada del día
+            ultima_parada = paradas_d[-1]
+            h_fin, m_fin = map(int, ultima_parada['hora_salida'].split(':'))
+            mins_salida = h_fin * 60 + m_fin
+            
+            mins_limite = hora_fin_dia.hour * 60 + hora_fin_dia.minute
+            
+            if mins_salida > mins_limite:
+                exc_m = mins_salida - mins_limite
+                feasible = False
+                mensajes_exceso.append(f"Excede el tiempo del día {d} por {exc_m // 60}h {exc_m % 60}m.")
+                excesos.append("Excede tiempo")
+
+        # 2. Validar Presupuesto
+        g2_exceso = max(0.0, nueva_solucion["costo_total_bob"] - presupuesto_max)
+        if g2_exceso > 1e-3:
+            feasible = False
+            mensajes_exceso.append(f"Excede presupuesto por Bs. {g2_exceso:.2f} (total: Bs. {nueva_solucion['costo_total_bob']:.2f}, límite: Bs. {presupuesto_max:.2f}).")
+            excesos.append("Excede presupuesto")
+
+        # 3. Validar Horarios de Cierre con las nuevas horas
+        for p in paradas_detalle:
+            atr_obj = next((a for a in atractivos_efectivos if a['id'] == p['id']), None)
+            if atr_obj and atr_obj.get('horario_cierre'):
+                raw_ci = atr_obj['horario_cierre']
+                h_cierre = raw_ci.strftime('%H:%M') if hasattr(raw_ci, 'strftime') else str(raw_ci).strip()[:5]
+                
+                if p['hora_salida'] > h_cierre:
+                    feasible = False
+                    msg = f"El atractivo '{atr_obj['nombre']}' cierra a las {h_cierre}. Tu visita termina a las {p['hora_salida']}."
+                    if msg not in mensajes_exceso:
+                        mensajes_exceso.append(msg)
+                        excesos.append("Horario del atractivo")
+
+        # 4. Validar Días Cerrados con las nuevas fechas
+        dias_semana_nombres = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
+        for p in paradas_detalle:
+            atr_obj = next((a for a in atractivos_efectivos if a['id'] == p['id']), None)
+            if atr_obj and atr_obj.get('dias_cerrado'):
+                try:
+                    fecha_dt = datetime.strptime(p['fecha'], '%Y-%m-%d')
+                    dia_nombre = dias_semana_nombres[fecha_dt.weekday()]
+                    dias_cerrados_norm = str(atr_obj['dias_cerrado']).lower().replace('á','a').replace('é','e').replace('í','i').replace('ó','o').replace('ú','u')
+                    dia_nombre_norm = dia_nombre.replace('á','a').replace('é','e').replace('í','i').replace('ó','o').replace('ú','u')
+                    
+                    if dia_nombre_norm in dias_cerrados_norm:
+                        feasible = False
+                        msg = f"El atractivo '{atr_obj['nombre']}' está cerrado los {dia_nombre}."
+                        if msg not in mensajes_exceso:
+                            mensajes_exceso.append(msg)
+                            excesos.append("Día cerrado")
+                except Exception:
+                    pass
+
+        # 5. Actualizar la solución con los resultados REALES
+        nueva_solucion["cumple_restricciones"] = feasible
+        nueva_solucion["mensajes_exceso"] = mensajes_exceso
+        nueva_solucion["excesos"] = excesos
+        
+        if feasible:
+            nueva_solucion["sugerencias_ajuste"] = []
+        else:
+            nueva_solucion["sugerencias_ajuste"] = generar_sugerencias_no_viable(
+                tiempo_total_min=nueva_solucion["tiempo_total_min"],
+                tiempo_max_min=tiempo_total_disponible_min,
+                costo_total_bob=nueva_solucion["costo_total_bob"],
+                presupuesto_max_bob=presupuesto_max,
+                num_atractivos=len(paradas_detalle),
+                mensajes_exceso=mensajes_exceso,
+                excesos_por_dia=excesos_por_dia,
+                num_dias_disponibles=num_dias_disponibles,
+                hora_fin_dia=hora_fin_dia,
+                paradas_por_dia=paradas_por_dia_conteo,
+            )
 
         soluciones_procesadas.append(nueva_solucion)
 
