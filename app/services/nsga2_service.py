@@ -1,5 +1,7 @@
+import json
 import time
 import logging
+import hashlib
 from datetime import datetime, time as dtime, timezone, timedelta
 from typing import Any
 import numpy as np
@@ -12,6 +14,20 @@ from pymoo.core.mutation import Mutation
 from pymoo.optimize import minimize
 
 from app.services.routing_service import obtener_ruta_real
+from app.services.metricas_pareto_service import (
+    extraer_vector_instancia,
+    predecir_parametros_knn,
+    evaluar_metricas_pareto_produccion,
+)
+
+def calcular_seed_por_hora() -> int:
+    """
+    Genera un seed determinista que cambia cada hora (UTC).
+    - Misma hora → mismo seed (reproducible para auditoría).
+    - Hora siguiente → seed distinto (evita congelamiento del algoritmo).
+    """
+    hora_actual = datetime.utcnow().strftime("%Y%m%d%H")
+    return int(hashlib.sha256(hora_actual.encode()).hexdigest()[:8], 16)
 
 logger = logging.getLogger(__name__)
 
@@ -1020,6 +1036,8 @@ def ejecutar_nsga2(
     k_libre: bool | None = None,
     atractivos_seleccionados_explicitamente: bool = False,
     permitir_multiples_vehiculos: bool = False,
+    modo_entrenamiento: bool = False,
+    seed: int | None = None,
     **kwargs: Any
 ) -> dict[str, Any]:
     """
@@ -1291,13 +1309,71 @@ def ejecutar_nsga2(
                 matriz_transportes_tramo[i][j] = t_tramo
                 matriz_polylines[i][j] = ruta_real.get("polyline_coords", [])
 
-    # 4. Calibración de población y generaciones para máxima diversidad
-    pob_calibrada = max(100, n * 5)
-    gen_calibradas = max(100, n * 4)
-    tamano_pob = max(tamano_poblacion, pob_calibrada)
-    num_gen = max(generaciones, gen_calibradas)
-    prob_crossover = 0.85
-    prob_mutation = 0.15
+    # 4. Calibración o Meta-Optimización (KNN solo parametriza P, G, M antes de generar)
+    archivo_ref_knn = None
+    knn_info = None
+    if not modo_entrenamiento:
+        atractivos_ids_ctx = kwargs.get("atractivos_ids") or (
+            [a["id"] for a in atractivos if "id" in a]
+            if atractivos_seleccionados_explicitamente else None
+        )
+
+        # Contexto completo para el vector de 17 dimensiones
+        contexto_vector = {
+            "atractivos_ids": atractivos_ids_ctx,
+            "num_dias": num_dias_disponibles,
+            "presupuesto_max": presupuesto_max,
+            "num_personas": num_personas,
+            "intereses": intereses,
+            "usar_clima": usar_clima,
+            "forzar_atractivos": forzar_atractivos,
+            "forzar_transporte": forzar_transporte,
+            "min_paradas": min_paradas,
+            "max_paradas": max_paradas,
+            "auto_rango_paradas": auto_rango_paradas,
+            "tamano_poblacion": tamano_poblacion,
+            "generaciones": generaciones,
+            "prob_mutacion": prob_mutacion,
+        }
+
+        # Obtener info del transporte representativo
+        transporte_representativo = transporte_fijo if transporte_fijo else (transportes[0] if transportes else None)
+
+        # Llamada completa al vector de 17 dimensiones
+        vector_instancia = extraer_vector_instancia(
+            contexto=contexto_vector,
+            atractivos_data=atractivos_efectivos,
+            matriz_distancias=matriz_distancias,
+            zonas_trafico=zonas_trafico,
+            transporte_info=transporte_representativo
+        )
+        print(f"[VECTOR 17D] Dimensiones={len(vector_instancia)}: {vector_instancia.round(4).tolist()}")
+
+        knn_info = predecir_parametros_knn(vector_instancia, k=3)
+        if knn_info and knn_info.get("archivo_ref") is not None:
+            archivo_ref_knn = knn_info["archivo_ref"]
+            tamano_pob = int(knn_info["tamano_poblacion"])
+            num_gen = int(knn_info["generaciones"])
+            prob_crossover = 0.85
+            prob_mutation = float(knn_info["prob_mutacion"])
+            print(
+                f"[KNN] Ref=#{archivo_ref_knn.id_archivo} | Vecinos={knn_info['vecinos_ids']} | "
+                f"Similitud={knn_info['similitud_pct']}% -> P={tamano_pob}, G={num_gen}, M={prob_mutation}"
+            )
+        else:
+            pob_calibrada = max(100, n * 5)
+            gen_calibradas = max(100, n * 4)
+            tamano_pob = max(tamano_poblacion, pob_calibrada)
+            num_gen = max(generaciones, gen_calibradas)
+            prob_crossover = 0.85
+            prob_mutation = float(prob_mutacion) if prob_mutacion else 0.15
+    else:
+        # Modo Entrenamiento: usar exactamente los parámetros recibidos (de la rejilla Grid Search)
+        vector_instancia = None
+        tamano_pob = int(tamano_poblacion)
+        num_gen = int(generaciones)
+        prob_crossover = float(prob_cruce) if prob_cruce else 0.85
+        prob_mutation = float(prob_mutacion) if prob_mutacion else 0.15
 
     problem = ItinerarioVariableProblem(
         atractivos=atractivos_efectivos,
@@ -1327,11 +1403,15 @@ def ejecutar_nsga2(
         eliminate_duplicates=True,
     )
 
+    # Seed: por hora en producción, o explícito en entrenamiento
+    seed_efectivo = seed if seed is not None else calcular_seed_por_hora()
+    print(f"[SEED] Usando seed={seed_efectivo} ({'manual' if seed is not None else 'por hora'})")
+
     res = minimize(
         problem,
         algorithm,
         ("n_gen", num_gen),
-        seed=42,
+        seed=seed_efectivo,
         save_history=True,
         verbose=False,
     )
@@ -1339,53 +1419,66 @@ def ejecutar_nsga2(
     fin = time.perf_counter()
     tiempo_ejecucion_seg = round(fin - inicio, 4)
 
-    # ===== Metricas de calidad del frente de Pareto (Fase 1, aditivo, NO intrusivo) =====
+    # ===== Metricas de calidad del frente de Pareto =====
     metricas_pareto = {
         "hipervolumen": None,
         "gd": None,
         "spread": None,
+        "id_archivo_pareto": None,
         "num_soluciones_archivo_ref": 0,
     }
-    try:
-        if res is not None and res.opt is not None and len(res.opt) > 0:
-            F_crudo_metricas = np.array(res.opt.get("F"))
-            if F_crudo_metricas is not None and len(F_crudo_metricas) > 0:
-                from app.services.metricas_pareto_service import (
-                    calcular_hash_problema,
-                    calcular_y_actualizar_metricas_pareto,
-                )
-                contexto_problema = {
-                    "atractivos_ids": sorted([int(a['id']) for a in atractivos_efectivos]),
-                    "transporte_ids": sorted([int(t['id']) for t in transportes]),
-                    "presupuesto_max": float(presupuesto_max),
-                    "num_dias": int(num_dias_disponibles),
-                    "intereses": {str(k): float(v) for k, v in (intereses or {}).items()},
-                    "num_personas": int(num_personas),
-                    "fecha_inicio": fecha_inicio_viaje.strftime("%Y-%m-%d") if hasattr(fecha_inicio_viaje, 'strftime') else str(fecha_inicio_viaje),
-                    "hora_inicio_dia": hora_inicio_dia.strftime("%H:%M") if hasattr(hora_inicio_dia, 'strftime') else str(hora_inicio_dia),
-                    "hora_fin_dia": hora_fin_dia.strftime("%H:%M") if hasattr(hora_fin_dia, 'strftime') else str(hora_fin_dia),
-                    "min_paradas": int(min_paradas_efectivo),
-                    "max_paradas": int(max_paradas_efectivo),
-                }
-                hash_problema = calcular_hash_problema(contexto_problema)
-                metricas_pareto = calcular_y_actualizar_metricas_pareto(
-                    F_crudo=F_crudo_metricas,
-                    hash_problema=hash_problema,
-                )
-                print(f"[METRICAS] HV={metricas_pareto['hipervolumen']} GD={metricas_pareto['gd']} Spread={metricas_pareto['spread']} RefN={metricas_pareto['num_soluciones_archivo_ref']}")
-    except Exception as e_metricas:
-        print(f"[WARN METRICAS] No se pudieron calcular metricas de Pareto: {e_metricas}")
+    if not modo_entrenamiento:
         try:
-            from app import db as _db_metricas
-            _db_metricas.session.rollback()
-        except Exception:
-            pass
-        metricas_pareto = {
-            "hipervolumen": None,
-            "gd": None,
-            "spread": None,
-            "num_soluciones_archivo_ref": 0,
-        }
+            if res is not None and res.opt is not None and len(res.opt) > 0:
+                F_crudo_metricas = np.array(res.opt.get("F"))
+                if F_crudo_metricas is not None and len(F_crudo_metricas) > 0:
+                    metricas_pareto = evaluar_metricas_pareto_produccion(
+                        F_crudo=F_crudo_metricas,
+                        vector_instancia=vector_instancia,
+                        archivo_ref=archivo_ref_knn,
+                    )
+                    print(
+                        f"[METRICAS] HV={metricas_pareto.get('hipervolumen')} GD={metricas_pareto.get('gd')} "
+                        f"Spread={metricas_pareto.get('spread')} ArchivoPareto=#{metricas_pareto.get('id_archivo_pareto')}"
+                    )
+        except Exception as e_metricas:
+            print(f"[WARN METRICAS] No se pudieron calcular metricas de Pareto: {e_metricas}")
+            try:
+                from app import db as _db_metricas
+                _db_metricas.session.rollback()
+            except Exception:
+                pass
+            metricas_pareto = {
+                "hipervolumen": None,
+                "gd": None,
+                "spread": None,
+                "id_archivo_pareto": None,
+                "num_soluciones_archivo_ref": 0,
+            }
+
+    # === HISTORIAL PARA MODO ENTRENAMIENTO ===
+    historial_F_raw_por_gen = []
+    frente_pareto_raw_final = []
+    
+    if modo_entrenamiento:
+        try:
+            # Extraer F raw de cada generación
+            for gen_res in res.history:
+                try:
+                    F_gen = gen_res.pop.get("F")
+                    if F_gen is not None and len(F_gen) > 0:
+                        historial_F_raw_por_gen.append(np.array(F_gen, dtype=float).tolist())
+                    else:
+                        historial_F_raw_por_gen.append([])
+                except Exception:
+                    historial_F_raw_por_gen.append([])
+            
+            # Extraer F raw del frente final (para construir pf_ref_raw)
+            if res.opt is not None and len(res.opt) > 0:
+                F_opt = np.array(res.opt.get("F"), dtype=float)
+                frente_pareto_raw_final = F_opt.tolist()
+        except Exception as e:
+            print(f"[WARN] Error extrayendo historial: {e}")
 
     # 5. Extracción y decodificación de soluciones con Frente 1, Frente 2 y F3
     candidatos = []
@@ -2421,8 +2514,19 @@ def ejecutar_nsga2(
             "sampling": "Sampler Diversificado en Rango [k_min, k_max]",
         },
         "tiempo_ejecucion_seg": tiempo_ejecucion_seg,
-        "hipervolumen": metricas_pareto["hipervolumen"],
-        "gd": metricas_pareto["gd"],
-        "spread": metricas_pareto["spread"],
-        "num_soluciones_archivo_ref": metricas_pareto["num_soluciones_archivo_ref"],
+        "historial_F_raw_por_gen": historial_F_raw_por_gen,
+        "frente_pareto_raw": frente_pareto_raw_final,    
+        "hipervolumen": metricas_pareto.get("hipervolumen"),
+        "gd": metricas_pareto.get("gd"),
+        "spread": metricas_pareto.get("spread"),
+        "id_archivo_pareto": metricas_pareto.get("id_archivo_pareto") or (archivo_ref_knn.id_archivo if archivo_ref_knn else None),
+        "num_soluciones_archivo_ref": metricas_pareto.get("num_soluciones_archivo_ref") or (int(archivo_ref_knn.num_puntos or 0) if archivo_ref_knn else 0),
+        "knn_info": {
+            "id_archivo_pareto": knn_info["id_archivo_pareto"],
+            "vecinos_ids": knn_info["vecinos_ids"],
+            "distancia_min": knn_info["distancia_min"],
+            "similitud_pct": knn_info["similitud_pct"],
+        } if knn_info else None,
+        "vector_instancia": vector_instancia.tolist() if isinstance(vector_instancia, np.ndarray) else vector_instancia,
+        "vector_instancia_json": json.dumps(vector_instancia.tolist()) if isinstance(vector_instancia, np.ndarray) else json.dumps(vector_instancia),
     }

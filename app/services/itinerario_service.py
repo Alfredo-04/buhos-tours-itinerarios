@@ -202,51 +202,50 @@ def generar_itinerarios(
     payload_str = json.dumps(payload_dict, sort_keys=True)
     hash_actual = hashlib.sha256(payload_str.encode('utf-8')).hexdigest()
 
-    # 2. LÓGICA DE CACHÉ Y RATE LIMITING
-    if id_usuario:
-        # a) Buscar si este usuario ya hizo esta consulta y tiene resultados guardados en caché
-        consulta_existente = db.session.query(ConsultaNSGA2).join(
-            Generacion, ConsultaNSGA2.id_generacion == Generacion.id_generacion
-        ).filter(
-            Generacion.id_usuario == id_usuario,
-            ConsultaNSGA2.hash_parametros == hash_actual
-        ).order_by(ConsultaNSGA2.fecha.desc()).first()
+    # 2. LÓGICA DE CACHÉ Y RATE LIMITING (DESACTIVADO TEMPORALMENTE PARA PRUEBAS Y DESARROLLO)
+    # if id_usuario:
+    #     # a) Buscar si este usuario ya hizo esta consulta y tiene resultados guardados en caché
+    #     consulta_existente = db.session.query(ConsultaNSGA2).join(
+    #         Generacion, ConsultaNSGA2.id_generacion == Generacion.id_generacion
+    #     ).filter(
+    #         Generacion.id_usuario == id_usuario,
+    #         ConsultaNSGA2.hash_parametros == hash_actual
+    #     ).order_by(ConsultaNSGA2.fecha.desc()).first()
+    # 
+    #     # Lógica de Caché con Expiración (24 horas)
+    #     if consulta_existente and consulta_existente.resultados_json:
+    #         fecha_consulta = consulta_existente.fecha
+    #         # Usar hora Bolivia local (naive) para que reste bien con la BD
+    #         ahora = datetime.now(BOLIVIA_TZ).replace(tzinfo=None)
+    # 
+    #         tiempo_transcurrido = (ahora - fecha_consulta).total_seconds()
+    # 
+    #         # Si pasaron menos de 24 horas (ignorando tiempos negativos de datos viejos)
+    #         if 0 <= tiempo_transcurrido < 86400:
+    #             print("[CACHE HIT] Devolviendo resultados guardados sin ejecutar NSGA-II.")
+    #             try:
+    #                 resultados_cacheados = json.loads(consulta_existente.resultados_json)
+    #                 if isinstance(resultados_cacheados, dict):
+    #                     resultados_cacheados['id_generacion'] = consulta_existente.id_generacion
+    #                 return resultados_cacheados
+    #             except Exception as ex_json:
+    #                 print(f"[CACHE ERROR] No se pudo deserializar resultados_json ({ex_json}), ejecutando NSGA-II...")
+    #         else:
+    #             print("[CACHE EXPIRADO] La consulta tiene más de 24h. Recalculando itinerario...")
+    # 
+    #     # b) Rate Limiting (esperar 3 segundos entre consultas consecutivas cuando es consulta nueva)
+    #     ultima_gen = Generacion.query.filter_by(id_usuario=id_usuario).order_by(Generacion.fecha_generacion.desc()).first()
+    # 
+    #     if ultima_gen and ultima_gen.fecha_generacion:
+    #         # Usar hora Bolivia local (naive)
+    #         ahora = datetime.now(BOLIVIA_TZ).replace(tzinfo=None)
+    #         fecha_gen = ultima_gen.fecha_generacion
+    #         segundos_desde_ultima = (ahora - fecha_gen).total_seconds()
+    #         # Si el tiempo es positivo y menor a 3 segundos, bloquea
+    #         if 0 <= segundos_desde_ultima < 3:
+    #             raise ValueError("Por favor, espera unos segundos antes de volver a generar.")
 
-        # Lógica de Caché con Expiración (24 horas)
-        if consulta_existente and consulta_existente.resultados_json:
-            fecha_consulta = consulta_existente.fecha
-            # Usar hora Bolivia local (naive) para que reste bien con la BD
-            ahora = datetime.now(BOLIVIA_TZ).replace(tzinfo=None)
-
-            tiempo_transcurrido = (ahora - fecha_consulta).total_seconds()
-
-            # Si pasaron menos de 24 horas (ignorando tiempos negativos de datos viejos)
-            if 0 <= tiempo_transcurrido < 86400:
-                print("[CACHE HIT] Devolviendo resultados guardados sin ejecutar NSGA-II.")
-                try:
-                    resultados_cacheados = json.loads(consulta_existente.resultados_json)
-                    if isinstance(resultados_cacheados, dict):
-                        resultados_cacheados['id_generacion'] = consulta_existente.id_generacion
-                    return resultados_cacheados
-                except Exception as ex_json:
-                    print(f"[CACHE ERROR] No se pudo deserializar resultados_json ({ex_json}), ejecutando NSGA-II...")
-            else:
-                print("[CACHE EXPIRADO] La consulta tiene más de 24h. Recalculando itinerario...")
-
-        # b) Rate Limiting (esperar 3 segundos entre consultas consecutivas cuando es consulta nueva)
-                # b) Rate Limiting (esperar 3 segundos entre consultas consecutivas)
-        ultima_gen = Generacion.query.filter_by(id_usuario=id_usuario).order_by(Generacion.fecha_generacion.desc()).first()
-
-        if ultima_gen and ultima_gen.fecha_generacion:
-            # Usar hora Bolivia local (naive)
-            ahora = datetime.now(BOLIVIA_TZ).replace(tzinfo=None)
-            fecha_gen = ultima_gen.fecha_generacion
-            segundos_desde_ultima = (ahora - fecha_gen).total_seconds()
-            # Si el tiempo es positivo y menor a 3 segundos, bloquea
-            if 0 <= segundos_desde_ultima < 3:
-                raise ValueError("Por favor, espera unos segundos antes de volver a generar.")
-
-    print("[CACHE MISS] Ejecutando NSGA-II (esto tomará unos segundos)...")
+    print("[DEV MODE] Caché y Rate Limiting desactivados temporalmente. Ejecutando NSGA-II...")
 
     # 3. Preparar datos desde la base de datos
     atractivos_data, transportes_data = preparar_datos_nsga2(
@@ -292,6 +291,8 @@ def generar_itinerarios(
         tiempo_disponible_horas=tiempo_disponible_horas,
         usar_clima=bool(usar_clima),
         k_libre=k_libre,
+        atractivos_ids=atractivos_ids,
+        atractivos_seleccionados_explicitamente=bool(atractivos_ids and len(atractivos_ids) > 0),
         permitir_multiples_vehiculos=bool(permitir_multiples_vehiculos),
     )
 
@@ -371,6 +372,11 @@ def generar_itinerarios(
             if tiempo_disp is None:
                 tiempo_disp = float(tiempo_disponible_horas or (dias_tot * 9.0))
 
+            params_usados = resultado.get('parametros_usados', {})
+            poblacion_guardar = int(params_usados.get('tamano_poblacion', tamano_poblacion))
+            generaciones_guardar = int(params_usados.get('generaciones', generaciones))
+            mutacion_guardar = float(params_usados.get('prob_mutacion', prob_mutacion))
+
             nueva_consulta = ConsultaNSGA2(
                 id_generacion=nueva_generacion.id_generacion,  # Relación FK
                 num_atractivos=len(atractivos_ids) if atractivos_ids else len(atractivos_data),
@@ -378,10 +384,10 @@ def generar_itinerarios(
                 presupuesto=presupuesto_max,
                 tiempo_disponible_horas=tiempo_disp,
                 intereses=json.dumps(intereses, ensure_ascii=False) if intereses else None,
-                tamano_poblacion=tamano_poblacion,
-                generaciones=generaciones,
-                prob_cruce=prob_cruce,
-                prob_mutacion=prob_mutacion,
+                tamano_poblacion=poblacion_guardar,
+                generaciones=generaciones_guardar,
+                prob_cruce=float(params_usados.get('prob_cruce', prob_cruce)),
+                prob_mutacion=mutacion_guardar,
                 num_soluciones=num_sols,
                 mejor_afinidad=mejor_afinidad,
                 mejor_tiempo=mejor_tiempo,
@@ -390,6 +396,9 @@ def generar_itinerarios(
                 tiempo_ejecucion_seg=resultado.get('tiempo_ejecucion_seg', 0.0),
                 convergencia=convergencia_val,
                 diversidad_final=diversidad_val,
+                hipervolumen=resultado.get('hipervolumen'),
+                generational_distance=resultado.get('gd'),
+                spread_spacing=resultado.get('spread'),
                 fecha_inicio_viaje=fecha_ini_date,
                 fecha_fin_viaje=fecha_fin_date,
                 hora_inicio_dia=hora_ini_obj,
@@ -401,7 +410,8 @@ def generar_itinerarios(
                 atractivos_ids_json=json.dumps(atractivos_ids or [a['id'] for a in atractivos_data]),
                 transporte_ids_json=json.dumps(transporte_ids or [t['id'] for t in transportes_data]),
                 hubo_soluciones_viables=bool(resultado.get('hay_viables', False)),
-                hash_parametros=hash_actual,  # Guardar hash para deduplicar a futuro
+                vector_instancia_json=resultado.get('vector_instancia_json'),
+                id_archivo_pareto=resultado.get('id_archivo_pareto'),
                 resultados_json=json.dumps(resultado, default=str, ensure_ascii=False),  # Guardar JSON completo en caché
             )
             db.session.add(nueva_consulta)

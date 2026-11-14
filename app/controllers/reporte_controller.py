@@ -6,6 +6,8 @@ from flask_login import login_required
 from app.services.reporte_service import (
     obtener_metricas_negocio,
     obtener_metricas_algoritmo,
+    obtener_metricas_entrenamiento,
+    obtener_resumen_consultas_produccion,
 )
 
 # Configuración no interactiva para Matplotlib
@@ -38,10 +40,14 @@ def dashboard_view():
     """
     metricas_negocio = obtener_metricas_negocio()
     metricas_algoritmo = obtener_metricas_algoritmo(limit=20)
+    metricas_entrenamiento = obtener_metricas_entrenamiento()
+    resumen_consultas = obtener_resumen_consultas_produccion()
     return render_template(
         'reportes/dashboard.html',
         metricas_negocio=metricas_negocio,
         metricas_algoritmo=metricas_algoritmo,
+        metricas_entrenamiento=metricas_entrenamiento,
+        resumen_consultas=resumen_consultas,
     )
 
 

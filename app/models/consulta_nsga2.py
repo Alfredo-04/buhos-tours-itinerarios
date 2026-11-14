@@ -15,7 +15,7 @@ class ConsultaNSGA2(db.Model):
     tiempo_disponible_horas = db.Column(db.Numeric(5, 2), nullable=False)
     intereses = db.Column(db.Text, nullable=True)
     
-    # Parámetros del Algoritmo
+    # Parámetros del Algoritmo (Los que realmente se usaron en esta corrida)
     tamano_poblacion = db.Column(db.Integer, nullable=False)
     generaciones = db.Column(db.Integer, nullable=False)
     prob_cruce = db.Column(db.Numeric(4, 2), nullable=False)
@@ -29,11 +29,11 @@ class ConsultaNSGA2(db.Model):
     todas_exceden = db.Column(db.Boolean, nullable=False, default=False)
     tiempo_ejecucion_seg = db.Column(db.Numeric(6, 2), nullable=True)
     
-    # Métricas antiguas
+    # Métricas antiguas (compatibilidad)
     convergencia = db.Column(db.Numeric(5, 4), nullable=True)
     diversidad_final = db.Column(db.Numeric(5, 4), nullable=True)
 
-    # --- MÉTRICAS FORMALES PARA LA TESIS ---
+    # --- MÉTRICAS FORMALES ---
     hipervolumen = db.Column(db.Numeric(8, 6), nullable=True)
     generational_distance = db.Column(db.Numeric(8, 6), nullable=True) 
     spread_spacing = db.Column(db.Numeric(8, 6), nullable=True)
@@ -52,28 +52,23 @@ class ConsultaNSGA2(db.Model):
     transporte_ids_json = db.Column(db.Text, nullable=True)
     hubo_soluciones_viables = db.Column(db.Boolean, nullable=False, default=True)
     
-    # --- SEPARACIÓN DE HASHES ---
-    hash_parametros = db.Column(db.String(64), nullable=True) 
+    # Guardamos el vector de esta consulta en específico para auditoría
+    vector_instancia_json = db.Column(db.Text, nullable=True)
     
-    # REFUERZO DE ARQUITECTURA: Relación formal con el ArchivoPareto
-    hash_problema_bucket = db.Column(
-        db.String(64), 
-        db.ForeignKey('archivo_pareto.hash_problema_bucket', name='fk_consulta_archivo_pareto'), 
+    # --- RELACIÓN CON EL VECINO MÁS CERCANO (KNN) ---
+    # En lugar de un hash, apuntamos al ID del archivo pareto que se usó como referencia
+    id_archivo_pareto = db.Column(
+        db.Integer, 
+        db.ForeignKey('archivo_pareto.id_archivo', name='fk_consulta_archivo_pareto'), 
         nullable=True, 
         index=True
     )
     
     resultados_json = db.Column(db.Text, nullable=True)
 
-    # Relaciones de SQLAlchemy
+    # Relaciones
     generacion = db.relationship('Generacion', backref='consultas_nsga2', lazy=True)
-    archivo_pareto_rel = db.relationship(
-        'ArchivoPareto', 
-        foreign_keys=[hash_problema_bucket], 
-        primaryjoin="ConsultaNSGA2.hash_problema_bucket == ArchivoPareto.hash_problema_bucket",
-        backref='consultas_asociadas', 
-        lazy=True
-    )
+    archivo_pareto_rel = db.relationship('ArchivoPareto', foreign_keys=[id_archivo_pareto], lazy=True)
 
     def __repr__(self):
         return f"<ConsultaNSGA2 #{self.id_consulta} Soluciones:{self.num_soluciones} HV:{self.hipervolumen}>"

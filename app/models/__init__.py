@@ -18,6 +18,7 @@ from .tipo_cambio import TipoCambio
 from .consulta_nsga2 import ConsultaNSGA2
 from .distancia_atractivo import DistanciaAtractivo
 from .archivo_pareto import ArchivoPareto
+from .receta_entrenamiento import RecetaEntrenamiento
 
 __all__ = [
     'Rol',
@@ -39,4 +40,5 @@ __all__ = [
     'ConsultaNSGA2',
     'DistanciaAtractivo',
     'ArchivoPareto',
+    'RecetaEntrenamiento',
 ]
