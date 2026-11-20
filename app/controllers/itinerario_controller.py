@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, flash, abort
+from flask import Blueprint, render_template, request, jsonify, flash, abort, Response
 from flask_login import login_required, current_user
 from app.utils.decorators import role_required
 from app.models.atractivo import Atractivo
@@ -294,7 +294,7 @@ def guardar():
             return jsonify({
                 "success": False,
                 "duplicado_admin": True,
-                "mensaje": res.get("mensaje", "Este itinerario ya fue guardado antes. ¿Deseas crear una nueva reserva para un nuevo grupo?")
+                "mensaje": res.get("mensaje", "Este itinerario ya fue guardado antes. ¿Deseas crear una nueva cotización para un nuevo grupo?")
             }), 200
 
         return jsonify({
@@ -388,4 +388,66 @@ def detalle(id_itinerario):
         listado_turistas=listado_turistas,
         tc_oficial=tc
     )
+
+
+@itinerarios_bp.route('/<int:id_itinerario>/estado', methods=['POST'])
+@login_required
+def cambiar_estado_endpoint(id_itinerario):
+    """
+    Actualiza el estado de un itinerario ('Borrador', 'Confirmado', 'En curso', 'Completado', 'Cancelado').
+    Exclusivo para Administrador y Agente.
+    Para pasar a 'Confirmado', valida estrictamente que todos los turistas acompañantes estén registrados.
+    """
+    payload = request.get_json(silent=True) or {}
+    nuevo_estado = payload.get('estado')
+    if not nuevo_estado:
+        return jsonify({"success": False, "error": "Debe especificar el nuevo estado del itinerario."}), 400
+
+    try:
+        resultado = itinerario_service.cambiar_estado_itinerario(
+            id_itinerario=id_itinerario,
+            nuevo_estado=nuevo_estado,
+            usuario_actual=current_user
+        )
+        return jsonify(resultado), 200
+    except ValueError as ve:
+        return jsonify({"success": False, "error": str(ve)}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error interno al actualizar estado: {str(e)}"}), 500
+
+
+@itinerarios_bp.route('/<int:id_itinerario>/voucher', methods=['GET'])
+@login_required
+def descargar_voucher(id_itinerario):
+    """
+    Genera y descarga el comprobante oficial (voucher) de cotización de itinerario en formato PDF
+    con código QR embebido para verificación rápida.
+    Admin y Agente pueden descargarlo de cualquier itinerario; Turista solo de los propios.
+    """
+    try:
+        it = itinerario_service.Itinerario.query.get(id_itinerario)
+        if not it or it.is_deleted:
+            abort(404)
+
+        rol = getattr(current_user.rol, 'nombre', '') if getattr(current_user, 'rol', None) else ''
+        if rol not in ['admin', 'agente']:
+            if not it.generacion or it.generacion.id_usuario != current_user.id_usuario:
+                abort(403)
+
+        pdf_bytes = itinerario_service.generar_voucher_pdf(id_itinerario)
+        filename = f"voucher_cotizacion_{id_itinerario}.pdf"
+        return Response(
+            pdf_bytes,
+            mimetype="application/pdf",
+            headers={
+                "Content-Disposition": f"inline; filename={filename}"
+            }
+        )
+    except ValueError as ve:
+        flash(str(ve), "danger")
+        return abort(404)
+    except Exception as e:
+        flash(f"Error al generar voucher de cotización: {str(e)}", "danger")
+        return abort(500)
+
 

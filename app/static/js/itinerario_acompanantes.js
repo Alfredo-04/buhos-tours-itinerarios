@@ -202,20 +202,38 @@ document.addEventListener('DOMContentLoaded', function () {
           if (contenedorBanners) {
             if (resData.completo) {
               contenedorBanners.innerHTML = `
-                <div class="alert alert-success border-success-subtle shadow-sm d-flex align-items-center gap-2 mb-0" id="bannerCompleto">
-                  <i class="bi bi-check-circle-fill fs-5"></i>
-                  <div>
-                    Grupo completo: <span id="txtRegistradosNum">${resData.total_registrados}</span>/${resData.esperado} personas registradas.
+                <div class="alert alert-success border-success-subtle shadow-sm d-flex align-items-center justify-content-between flex-wrap gap-2 mb-0" id="bannerCompleto">
+                  <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-check-circle-fill fs-5"></i>
+                    <div>
+                      Grupo completo: <span id="txtRegistradosNum">${resData.total_registrados}</span>/${resData.esperado} personas registradas.
+                    </div>
                   </div>
+                  <button type="button" class="btn btn-sm btn-success fw-bold d-inline-flex align-items-center gap-1 shadow-sm btn-cambiar-estado" data-estado="Confirmado" data-id-itinerario="${idItin}">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span>Confirmar Itinerario Ahora</span>
+                  </button>
                 </div>
               `;
               if (btnAbrirAcomp) btnAbrirAcomp.disabled = true;
+
+              // Desbloquear opción 'Confirmado' en el dropdown de estados si existe
+              const btnConfirmarDropdown = document.querySelector('.btn-cambiar-estado[data-estado="Confirmado"]');
+              if (btnConfirmarDropdown) {
+                btnConfirmarDropdown.removeAttribute('data-bloqueado');
+                btnConfirmarDropdown.removeAttribute('data-motivo');
+                const badgeReq = btnConfirmarDropdown.querySelector('.badge');
+                if (badgeReq) badgeReq.remove();
+              }
             } else {
               contenedorBanners.innerHTML = `
-                <div class="alert alert-warning border-warning-subtle shadow-sm d-flex align-items-center gap-2 mb-0" id="bannerFaltantes">
-                  <i class="bi bi-exclamation-triangle-fill fs-5"></i>
-                  <div>
-                    Faltan <strong id="txtFaltantesNum">${resData.faltantes}</strong> persona${resData.faltantes > 1 ? 's' : ''} por registrar (<span id="txtRegistradosNum">${resData.total_registrados}</span>/${resData.esperado}).
+                <div class="alert alert-warning border-warning-subtle shadow-sm d-flex align-items-center justify-content-between flex-wrap gap-2 mb-0" id="bannerFaltantes">
+                  <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                    <div>
+                      Faltan <strong id="txtFaltantesNum">${resData.faltantes}</strong> persona${resData.faltantes > 1 ? 's' : ''} por registrar (<span id="txtRegistradosNum">${resData.total_registrados}</span>/${resData.esperado}).
+                      <span class="text-muted d-block small mt-1"><i class="bi bi-info-circle me-1"></i>Para cambiar el estado a <strong>'Confirmado'</strong> y emitir la cotización definitiva, registra a todos los acompañantes primero.</span>
+                    </div>
                   </div>
                 </div>
               `;
@@ -332,4 +350,59 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   }
+
+  // 14. Manejo unificado de cambio de estado de itinerario
+  document.addEventListener('click', async function (e) {
+    const btn = e.target.closest('.btn-cambiar-estado');
+    if (!btn) return;
+    e.preventDefault();
+
+    const nuevoEstado = btn.getAttribute('data-estado');
+    const idItin = btn.getAttribute('data-id-itinerario') || (btnAbrirAcomp ? btnAbrirAcomp.getAttribute('data-id-itinerario') : null);
+    const estaBloqueado = btn.getAttribute('data-bloqueado') === 'true';
+    const motivoBloqueo = btn.getAttribute('data-motivo') || 'Es obligatorio registrar a todos los acompañantes antes de confirmar.';
+
+    if (estaBloqueado) {
+      alert(`⚠️ Acción no permitida:\n\n${motivoBloqueo}`);
+      return;
+    }
+
+    if (!idItin || !nuevoEstado) {
+      alert('Información insuficiente para cambiar el estado.');
+      return;
+    }
+
+    const confirmMsg = nuevoEstado === 'Confirmado'
+      ? `¿Deseas confirmar este itinerario? Se fijará el código de confirmación y se habilitará el comprobante de cotización oficial con código QR.`
+      : `¿Estás seguro de que deseas cambiar el estado del itinerario a '${nuevoEstado}'?`;
+
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Procesando...';
+
+    try {
+      const resp = await fetch(`/itinerarios/${idItin}/estado`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: nuevoEstado })
+      });
+      const data = await resp.json();
+
+      if (resp.ok && data.success) {
+        alert(`✅ ${data.mensaje || 'Estado del itinerario actualizado exitosamente.'}`);
+        window.location.reload();
+      } else {
+        alert(`❌ No se pudo cambiar el estado:\n\n${data.error || 'Ocurrió un error inesperado.'}`);
+      }
+    } catch (err) {
+      alert(`❌ Error de conexión al servidor:\n${err.message}`);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+    }
+  });
 });

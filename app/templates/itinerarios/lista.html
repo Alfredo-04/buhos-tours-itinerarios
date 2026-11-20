@@ -138,9 +138,28 @@
 
               <!-- Estado -->
               <td>
-                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
-                  {{ it.estado or 'Borrador' }}
-                </span>
+                {% set est = it.estado or 'Borrador' %}
+                {% if est == 'Confirmado' %}
+                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                    <i class="bi bi-check-circle-fill me-1"></i>Confirmado
+                  </span>
+                {% elif est == 'En curso' %}
+                  <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-2 py-1">
+                    <i class="bi bi-play-circle-fill me-1"></i>En curso
+                  </span>
+                {% elif est == 'Completado' %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                    <i class="bi bi-patch-check-fill me-1"></i>Completado
+                  </span>
+                {% elif est == 'Cancelado' %}
+                  <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">
+                    <i class="bi bi-x-circle-fill me-1"></i>Cancelado
+                  </span>
+                {% else %}
+                  <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
+                    <i class="bi bi-pencil-fill me-1"></i>Borrador
+                  </span>
+                {% endif %}
                 {% if not it.es_viable %}
                 <span class="badge bg-danger text-white ms-1" title="Excede alguna restricción">
                   Excede
@@ -150,10 +169,16 @@
 
               <!-- Acción -->
               <td class="pe-4 text-end">
-                <a href="{{ url_for('itinerarios.detalle', id_itinerario=it.id_itinerario) }}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 shadow-sm">
-                  <i class="bi bi-eye"></i>
-                  <span>Ver Detalle</span>
-                </a>
+                <div class="d-inline-flex align-items-center gap-1">
+                  <a href="{{ url_for('itinerarios.descargar_voucher', id_itinerario=it.id_itinerario) }}" target="_blank" class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1 shadow-sm" title="Descargar comprobante en PDF con código QR">
+                    <i class="bi bi-file-earmark-pdf-fill"></i>
+                    <span>Voucher</span>
+                  </a>
+                  <a href="{{ url_for('itinerarios.detalle', id_itinerario=it.id_itinerario) }}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 shadow-sm">
+                    <i class="bi bi-eye"></i>
+                    <span>Ver</span>
+                  </a>
+                </div>
               </td>
             </tr>
             {% endfor %}

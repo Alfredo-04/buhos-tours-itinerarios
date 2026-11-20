@@ -68,8 +68,25 @@
       </nav>
       <div class="d-flex align-items-center gap-3 flex-wrap">
         <h2 class="fw-bold mb-0 text-dark">Itinerario #{{ itinerario.id_itinerario }}</h2>
-        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-1 rounded-pill fw-semibold">
-          Estado: {{ itinerario.estado or 'Borrador' }}
+        {% set estado_actual = itinerario.estado or 'Borrador' %}
+        {% if estado_actual == 'Confirmado' %}
+          {% set badge_estado_class = 'bg-primary-subtle text-primary border-primary-subtle' %}
+          {% set badge_estado_icon = 'bi-check-circle-fill' %}
+        {% elif estado_actual == 'En curso' %}
+          {% set badge_estado_class = 'bg-info-subtle text-info-emphasis border-info-subtle' %}
+          {% set badge_estado_icon = 'bi-play-circle-fill' %}
+        {% elif estado_actual == 'Completado' %}
+          {% set badge_estado_class = 'bg-success-subtle text-success border-success-subtle' %}
+          {% set badge_estado_icon = 'bi-patch-check-fill' %}
+        {% elif estado_actual == 'Cancelado' %}
+          {% set badge_estado_class = 'bg-danger-subtle text-danger border-danger-subtle' %}
+          {% set badge_estado_icon = 'bi-x-circle-fill' %}
+        {% else %}
+          {% set badge_estado_class = 'bg-secondary-subtle text-secondary border-secondary-subtle' %}
+          {% set badge_estado_icon = 'bi-pencil-fill' %}
+        {% endif %}
+        <span class="badge {{ badge_estado_class }} border px-3 py-1 rounded-pill fw-semibold" id="badgeEstadoItinerario">
+          <i class="bi {{ badge_estado_icon }} me-1"></i>Estado: {{ estado_actual }}
         </span>
         {% if itinerario.cumple_restricciones %}
         <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill fw-semibold">
@@ -88,11 +105,67 @@
       {% endif %}
     </div>
 
-    <div class="d-flex align-items-center gap-2">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
       <a href="{{ url_for('itinerarios.lista') }}" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2 shadow-sm">
         <i class="bi bi-arrow-left"></i>
         <span>Volver a la Lista</span>
       </a>
+
+      <!-- Descargar Voucher PDF con QR -->
+      <a href="{{ url_for('itinerarios.descargar_voucher', id_itinerario=itinerario.id_itinerario) }}" target="_blank" class="btn btn-outline-danger d-inline-flex align-items-center gap-2 shadow-sm" title="Descargar comprobante de cotización oficial en PDF con código QR">
+        <i class="bi bi-file-earmark-pdf-fill"></i>
+        <span>Descargar Voucher (PDF con QR)</span>
+      </a>
+
+      <!-- Selector de Cambio de Estado (Admin y Agente) -->
+      {% if current_user.rol.nombre in ['admin', 'agente'] %}
+      <div class="dropdown">
+        <button class="btn btn-warning dropdown-toggle d-inline-flex align-items-center gap-2 shadow-sm text-dark fw-semibold" type="button" id="dropdownCambiarEstado" data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="bi bi-arrow-repeat"></i>
+          <span>Estado: <strong>{{ estado_actual }}</strong></span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow border-0" aria-labelledby="dropdownCambiarEstado">
+          <li><h6 class="dropdown-header text-uppercase small" style="font-size: 0.72rem;">Transición de Estados</h6></li>
+          <li>
+            <button type="button" class="dropdown-item py-2 d-flex align-items-center gap-2 btn-cambiar-estado {% if estado_actual == 'Borrador' %}active{% endif %}" data-estado="Borrador" data-id-itinerario="{{ itinerario.id_itinerario }}">
+              <i class="bi bi-pencil text-secondary"></i>
+              <span>Borrador</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="dropdown-item py-2 d-flex align-items-center justify-content-between btn-cambiar-estado {% if estado_actual == 'Confirmado' %}active{% endif %}" data-estado="Confirmado" data-id-itinerario="{{ itinerario.id_itinerario }}" {% if not conteo or not conteo.completo %}data-bloqueado="true" data-motivo="Faltan {{ conteo.faltantes if conteo else 1 }} acompañante(s) por registrar. Registra a todos los turistas antes de confirmar."{% endif %}>
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-check-circle text-primary"></i>
+                <span class="fw-semibold">Confirmado</span>
+              </div>
+              {% if not conteo or not conteo.completo %}
+              <span class="badge bg-warning text-dark small" style="font-size: 0.65rem;">Requiere acompañantes</span>
+              {% endif %}
+            </button>
+          </li>
+          <li>
+            <button type="button" class="dropdown-item py-2 d-flex align-items-center gap-2 btn-cambiar-estado {% if estado_actual == 'En curso' %}active{% endif %}" data-estado="En curso" data-id-itinerario="{{ itinerario.id_itinerario }}">
+              <i class="bi bi-play-circle text-info"></i>
+              <span>En curso</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="dropdown-item py-2 d-flex align-items-center gap-2 btn-cambiar-estado {% if estado_actual == 'Completado' %}active{% endif %}" data-estado="Completado" data-id-itinerario="{{ itinerario.id_itinerario }}">
+              <i class="bi bi-patch-check text-success"></i>
+              <span>Completado</span>
+            </button>
+          </li>
+          <li><hr class="dropdown-divider"></li>
+          <li>
+            <button type="button" class="dropdown-item py-2 d-flex align-items-center gap-2 text-danger btn-cambiar-estado {% if estado_actual == 'Cancelado' %}active{% endif %}" data-estado="Cancelado" data-id-itinerario="{{ itinerario.id_itinerario }}">
+              <i class="bi bi-x-circle"></i>
+              <span>Cancelado</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+      {% endif %}
+
       {% if current_user.rol.nombre in ['admin', 'agente'] %}
       <a href="{{ url_for('itinerarios.generar_view') }}" class="btn btn-primary d-inline-flex align-items-center gap-2 shadow-sm">
         <i class="bi bi-cpu-fill"></i>
@@ -105,19 +178,30 @@
   <!-- Banners de Cupos de Turistas -->
   <div id="contenedorBannersTuristas" class="mb-3">
     {% if conteo and not conteo.completo %}
-    <div class="alert alert-warning border-warning-subtle shadow-sm d-flex align-items-center gap-2 mb-0" id="bannerFaltantes">
-      <i class="bi bi-exclamation-triangle-fill fs-5"></i>
-      <div>
-        Faltan <strong id="txtFaltantesNum">{{ conteo.faltantes }}</strong> persona{{ 's' if conteo.faltantes > 1 else '' }} por registrar (<span id="txtRegistradosNum">{{ conteo.total_registrados }}</span>/{{ conteo.esperado }}).
+    <div class="alert alert-warning border-warning-subtle shadow-sm d-flex align-items-center justify-content-between flex-wrap gap-2 mb-0" id="bannerFaltantes">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+        <div>
+          Faltan <strong id="txtFaltantesNum">{{ conteo.faltantes }}</strong> persona{{ 's' if conteo.faltantes > 1 else '' }} por registrar (<span id="txtRegistradosNum">{{ conteo.total_registrados }}</span>/{{ conteo.esperado }}).
+          <span class="text-muted d-block small mt-1"><i class="bi bi-info-circle me-1"></i>Para cambiar el estado a <strong>'Confirmado'</strong> y emitir la cotización definitiva, registra a todos los acompañantes primero.</span>
+        </div>
       </div>
     </div>
     {% endif %}
     {% if conteo and conteo.completo %}
-    <div class="alert alert-success border-success-subtle shadow-sm d-flex align-items-center gap-2 mb-0" id="bannerCompleto">
-      <i class="bi bi-check-circle-fill fs-5"></i>
-      <div>
-        Grupo completo: <span id="txtRegistradosNum">{{ conteo.total_registrados }}</span>/{{ conteo.esperado }} personas registradas.
+    <div class="alert alert-success border-success-subtle shadow-sm d-flex align-items-center justify-content-between flex-wrap gap-2 mb-0" id="bannerCompleto">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-check-circle-fill fs-5"></i>
+        <div>
+          Grupo completo: <span id="txtRegistradosNum">{{ conteo.total_registrados }}</span>/{{ conteo.esperado }} personas registradas.
+        </div>
       </div>
+      {% if itinerario.estado == 'Borrador' and current_user.rol.nombre in ['admin', 'agente'] %}
+      <button type="button" class="btn btn-sm btn-success fw-bold d-inline-flex align-items-center gap-1 shadow-sm btn-cambiar-estado" data-estado="Confirmado" data-id-itinerario="{{ itinerario.id_itinerario }}">
+        <i class="bi bi-check-circle-fill"></i>
+        <span>Confirmar Itinerario Ahora</span>
+      </button>
+      {% endif %}
     </div>
     {% endif %}
   </div>

@@ -79,6 +79,13 @@
       </button>
     </li>
     <li class="nav-item" role="presentation">
+      <button class="nav-link d-flex align-items-center gap-2" id="tab-cotejo-btn" data-bs-toggle="tab" data-bs-target="#tab-cotejo" type="button" role="tab" aria-selected="false">
+        <i class="bi bi-clipboard2-check-fill text-info"></i>
+        <span>Lista de Cotejo y Validación</span>
+        <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill">{{ auditoria_cotejo.resumen.total_evaluados }}</span>
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
       <button class="nav-link d-flex align-items-center gap-2" id="tab-guia-btn" data-bs-toggle="tab" data-bs-target="#tab-guia" type="button" role="tab" aria-selected="false">
         <i class="bi bi-book-half text-success"></i>
         <span>¿Qué Significan los Valores?</span>
@@ -980,6 +987,419 @@
       </div>
     </div>
 
+    <!-- ============================================================ -->
+    <!-- PESTAÑA 4: LISTA DE COTEJO DE VIABILIDAD OPERATIVA           -->
+    <!-- ============================================================ -->
+    <div class="tab-pane fade" id="tab-cotejo" role="tabpanel">
+
+      <!-- Encabezado de la Pestaña de Lista de Cotejo -->
+      <div class="card border-0 shadow-sm rounded-3 p-4 mb-4 bg-white">
+        <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+          <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <span class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1 small fw-semibold">Metodología de Validación</span>
+              <span class="badge bg-light text-muted border small">{{ auditoria_cotejo.resumen.fuente_utilizada }}</span>
+            </div>
+            <h4 class="fw-bold mb-1 text-dark">Lista de Cotejo de Viabilidad Operativa</h4>
+            <p class="text-muted small mb-0">
+              Evaluación automatizada de las 4 condiciones operativas esenciales (Apertura, Cierre, Traslados y Transporte).
+              Cumplimiento dicotómico (<code>Sí / No</code>) por parada e itinerario.
+            </p>
+          </div>
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <!-- Selector de Filtros de Cotejo (Fecha, Consulta y Fuente) -->
+            <form method="GET" action="{{ url_for('reportes.dashboard_view') }}" class="d-flex flex-wrap align-items-center gap-2 me-2">
+              <input type="hidden" name="tab" value="cotejo">
+
+              <!-- Filtro de Fecha de Ejecución -->
+              <div class="d-flex align-items-center gap-1">
+                <label for="fecha_cotejo_select" class="small text-muted fw-semibold mb-0 text-nowrap"><i class="bi bi-calendar3 me-1"></i>Fecha:</label>
+                <select name="fecha_cotejo" id="fecha_cotejo_select" class="form-select form-select-sm" style="min-width: 140px;" onchange="this.form.submit()">
+                  {% if auditoria_cotejo.fechas_disponibles %}
+                    {% for f in auditoria_cotejo.fechas_disponibles %}
+                      <option value="{{ f }}" {% if fecha_cotejo == f %}selected{% endif %}>{{ f }}{% if loop.first %} (Hoy/Reciente){% endif %}</option>
+                    {% endfor %}
+                    <option value="todas" {% if fecha_cotejo == 'todas' %}selected{% endif %}>Todas las fechas</option>
+                  {% else %}
+                    <option value="{{ fecha_cotejo }}">{{ fecha_cotejo }}</option>
+                  {% endif %}
+                </select>
+              </div>
+
+              <!-- Selector de Consulta Específica -->
+              <div class="d-flex align-items-center gap-1">
+                <label for="id_consulta_cotejo_select" class="small text-muted fw-semibold mb-0 text-nowrap"><i class="bi bi-filter-circle me-1"></i>Consulta:</label>
+                <select name="id_consulta_cotejo" id="id_consulta_cotejo_select" class="form-select form-select-sm" style="min-width: 190px;" onchange="this.form.submit()">
+                  <option value="">Todas las del día ({{ auditoria_cotejo.resumen.total_evaluados }} opciones)</option>
+                  {% for c_opt in auditoria_cotejo.consultas_selector %}
+                    <option value="{{ c_opt.id_consulta }}" {% if id_consulta_cotejo == c_opt.id_consulta %}selected{% endif %}>
+                      {{ c_opt.label }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <!-- Selector de Fuente de Datos -->
+              <!-- <div class="d-flex align-items-center gap-1">
+                <label for="fuente_cotejo_select" class="small text-muted fw-semibold mb-0 text-nowrap">Fuente:</label>
+                <select name="fuente_cotejo" id="fuente_cotejo_select" class="form-select form-select-sm" style="min-width: 140px;" onchange="this.form.submit()">
+                  <option value="auto" {% if fuente_cotejo == 'auto' %}selected{% endif %}>Automática (Pareto)</option>
+                  <option value="consultas" {% if fuente_cotejo == 'consultas' %}selected{% endif %}>Soluciones NSGA-II</option>
+                  <option value="itinerarios" {% if fuente_cotejo == 'itinerarios' %}selected{% endif %}>Itinerarios Guardados</option>
+                </select>
+              </div> -->
+            </form>
+            <a href="{{ url_for('reportes.exportar_cotejo_pdf', fuente=fuente_cotejo, fecha_cotejo=fecha_cotejo, id_consulta_cotejo=id_consulta_cotejo or '') }}" class="btn btn-outline-danger btn-sm shadow-sm d-flex align-items-center gap-1 px-3">
+              <i class="bi bi-file-earmark-pdf-fill"></i>
+              <span>PDF Cotejo</span>
+            </a>
+            <a href="{{ url_for('reportes.exportar_cotejo_csv', fuente=fuente_cotejo, fecha_cotejo=fecha_cotejo, id_consulta_cotejo=id_consulta_cotejo or '') }}" class="btn btn-outline-success btn-sm shadow-sm d-flex align-items-center gap-1 px-3">
+              <i class="bi bi-file-earmark-spreadsheet-fill"></i>
+              <span>CSV Cotejo</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tarjetas KPIs Metodológicos Consolidados -->
+      <div class="row g-3 mb-4">
+        <!-- KPI 1: Viabilidad Global -->
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white border-start border-4 border-info">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-muted small text-uppercase fw-bold" style="letter-spacing: 0.05em;">Viabilidad Operativa</span>
+                <h3 class="fw-bold mb-0 text-dark mt-1">{{ auditoria_cotejo.resumen.porcentaje_viabilidad }}%</h3>
+                <small class="text-muted d-block mt-1">
+                  <strong>{{ auditoria_cotejo.resumen.viables }}</strong> de {{ auditoria_cotejo.resumen.total_evaluados }} sin conflictos
+                </small>
+              </div>
+              <div class="bg-info-subtle text-info p-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 52px; height: 52px;">
+                <i class="bi bi-patch-check-fill fs-3"></i>
+              </div>
+            </div>
+            <div class="progress mt-3" style="height: 6px;">
+              <div class="progress-bar bg-info" role="progressbar" style="width: {{ auditoria_cotejo.resumen.porcentaje_viabilidad }}%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI 2: Tiempo Promedio Motor -->
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-muted small text-uppercase fw-bold" style="letter-spacing: 0.05em;">Tiempo Motor (NSGA-II)</span>
+                <h3 class="fw-bold mb-0 text-dark mt-1">{{ auditoria_cotejo.resumen.tiempo_promedio_nsga2 }} <span class="fs-6 fw-normal text-muted">seg</span></h3>
+                <small class="text-success fw-semibold d-block mt-1">
+                  <i class="bi bi-lightning-charge-fill me-1"></i>Respuesta sub-minuto
+                </small>
+              </div>
+              <div class="bg-primary-subtle text-primary p-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 52px; height: 52px;">
+                <i class="bi bi-stopwatch-fill fs-3"></i>
+              </div>
+            </div>
+            <small class="text-muted d-block mt-3" style="font-size: 0.75rem;">Promedio de tiempo de optimización multiobjetivo</small>
+          </div>
+        </div>
+
+        <!-- KPI 3: Variedad Promedio -->
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-muted small text-uppercase fw-bold" style="letter-spacing: 0.05em;">Variedad Promedio</span>
+                <h3 class="fw-bold mb-0 text-dark mt-1">{{ auditoria_cotejo.resumen.soluciones_promedio }} <span class="fs-6 fw-normal text-muted">rutas/gen</span></h3>
+                <small class="text-muted d-block mt-1">Opciones viables por consulta</small>
+              </div>
+              <div class="bg-warning-subtle text-warning p-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 52px; height: 52px;">
+                <i class="bi bi-signpost-2-fill fs-3"></i>
+              </div>
+            </div>
+            <small class="text-muted d-block mt-3" style="font-size: 0.75rem;">Alternativas no dominadas retornadas al turista</small>
+          </div>
+        </div>
+
+        <!-- KPI 4: Calidad Pareto (HV / GD) -->
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-muted small text-uppercase fw-bold" style="letter-spacing: 0.05em;">Calidad Pareto Promedio</span>
+                <h3 class="fw-bold mb-0 text-dark mt-1">{{ auditoria_cotejo.resumen.hipervolumen_promedio }}</h3>
+                <small class="text-muted d-block mt-1">
+                  GD: {{ auditoria_cotejo.resumen.gd_promedio }} · Spread: {{ auditoria_cotejo.resumen.spread_promedio }}
+                </small>
+              </div>
+              <div class="bg-success-subtle text-success p-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 52px; height: 52px;">
+                <i class="bi bi-award-fill fs-3"></i>
+              </div>
+            </div>
+            <small class="text-muted d-block mt-3" style="font-size: 0.75rem;">Convergencia y diversidad sobre frentes reales</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla Consolidada de Cumplimiento por Criterio (C1, C2, C3, C4) -->
+      <div class="card border-0 shadow-sm rounded-3 mb-4 bg-white">
+        <div class="card-header bg-transparent border-0 pt-4 px-4 pb-2">
+          <div class="d-flex align-items-center justify-content-between">
+            <div>
+              <h5 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                <i class="bi bi-check2-square text-primary"></i>
+                <span>Consolidado de Cumplimiento por Condición Operativa</span>
+              </h5>
+              <small class="text-muted">Resumen cuantitativo de las 4 restricciones dicotómicas (Sí / No) evaluadas en {{ auditoria_cotejo.resumen.total_evaluados }} itinerarios.</small>
+            </div>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill small">
+              Fórmula: Viabilidad = (Sin conflictos / Total) × 100
+            </span>
+          </div>
+        </div>
+        <div class="card-body p-4 pt-2">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light text-uppercase small" style="font-size: 0.75rem; letter-spacing: 0.05em;">
+                <tr>
+                  <th style="width: 70px;">Cód.</th>
+                  <th style="width: 250px;">Condición Operativa</th>
+                  <th>Regla de Validación Verificada</th>
+                  <th class="text-center" style="width: 130px;">Cumple (SÍ)</th>
+                  <th class="text-center" style="width: 130px;">No Cumple (NO)</th>
+                  <th class="text-center" style="width: 140px;">Tasa de Éxito</th>
+                </tr>
+              </thead>
+              <tbody class="small">
+                {% for crit in auditoria_cotejo.tabla_criterios %}
+                <tr>
+                  <td class="fw-bold text-primary fs-6">{{ crit.codigo }}</td>
+                  <td class="fw-semibold text-dark">{{ crit.criterio }}</td>
+                  <td class="text-muted">{{ crit.descripcion }}</td>
+                  <td class="text-center">
+                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 fs-6">
+                      {{ crit.si_count }} <small class="fw-normal">({{ crit.si_pct }}%)</small>
+                    </span>
+                  </td>
+                  <td class="text-center">
+                    {% if crit.no_count > 0 %}
+                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 fs-6">
+                      {{ crit.no_count }} <small class="fw-normal">({{ crit.no_pct }}%)</small>
+                    </span>
+                    {% else %}
+                    <span class="badge bg-light text-muted border px-2 py-1 fs-6">0 (0.0%)</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-center">
+                    <div class="d-flex align-items-center justify-content-center gap-2">
+                      <div class="progress flex-grow-1" style="height: 6px; max-width: 70px;">
+                        <div class="progress-bar {% if crit.si_pct >= 95 %}bg-success{% elif crit.si_pct >= 80 %}bg-warning{% else %}bg-danger{% endif %}" style="width: {{ crit.si_pct }}%;"></div>
+                      </div>
+                      <span class="fw-bold {% if crit.si_pct >= 95 %}text-success{% else %}text-warning{% endif %}">{{ crit.si_pct }}%</span>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla Detallada de Lista de Cotejo por Itinerario -->
+      <div class="card border-0 shadow-sm rounded-3 bg-white">
+        <div class="card-header bg-transparent border-0 pt-4 px-4 pb-3">
+          <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+            <div>
+              <h5 class="fw-bold text-dark mb-1 d-flex align-items-center gap-2">
+                <i class="bi bi-table text-primary"></i>
+                <span>Matriz Detallada de la Lista de Cotejo por Itinerario</span>
+              </h5>
+              <small class="text-muted">Explora cada itinerario evaluado, sus 4 estados de cumplimiento y el desglose parada por parada.</small>
+            </div>
+            <!-- Filtros interactivos -->
+            <div class="d-flex align-items-center gap-2">
+              <div class="input-group input-group-sm" style="width: 220px;">
+                <span class="input-group-text bg-light text-muted"><i class="bi bi-search"></i></span>
+                <input type="text" id="buscadorItinerariosCotejo" class="form-control" placeholder="Buscar código o fecha...">
+              </div>
+              <select id="filtroEstadoCotejo" class="form-select form-select-sm" style="width: 170px;">
+                <option value="todos">Todos los Estados</option>
+                <option value="viable">Solo Viables (Sin conflicto)</option>
+                <option value="conflicto">Con Conflictos</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="card-body p-4 pt-1">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="tablaMatrizCotejo">
+              <thead class="table-light text-uppercase small" style="font-size: 0.72rem; letter-spacing: 0.05em;">
+                <tr>
+                  <th>Código / ID</th>
+                  <th>Fecha Ejecución</th>
+                  <th>Fecha Visita</th>
+                  <th class="text-center">Días</th>
+                  <th class="text-center">Paradas</th>
+                  <th class="text-center" title="C1: Apertura del atractivo">C1 (Apertura)</th>
+                  <th class="text-center" title="C2: Cierre del atractivo">C2 (Cierre)</th>
+                  <th class="text-center" title="C3: Suficiencia de traslados">C3 (Traslados)</th>
+                  <th class="text-center" title="C4: Disponibilidad de transporte">C4 (Transporte)</th>
+                  <th class="text-center">Estado Global</th>
+                  <th>Observaciones / Diagnóstico</th>
+                  <th class="text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="small" id="tbodyMatrizCotejo">
+                {% if auditoria_cotejo.itinerarios %}
+                  {% for it in auditoria_cotejo.itinerarios %}
+                  <tr class="fila-cotejo" data-estado="{% if it.es_viable %}viable{% else %}conflicto{% endif %}" data-codigo="{{ it.id_codigo|lower }}" data-fecha="{{ it.fecha_ejecucion|lower }} {{ it.fecha_visita|lower }}">
+                    <td class="fw-bold text-dark font-monospace">{{ it.id_codigo }}</td>
+                    <td class="text-dark small">
+                      <i class="bi bi-clock me-1 text-muted"></i>{{ it.fecha_ejecucion }}
+                    </td>
+                    <td class="text-muted small">
+                      <i class="bi bi-calendar-event me-1 text-primary"></i>{{ it.fecha_visita }}
+                    </td>
+                    <td class="text-center">{{ it.dias }}d</td>
+                    <td class="text-center">
+                      <span class="badge bg-light text-dark border">{{ it.paradas_count }}</span>
+                    </td>
+                    <td class="text-center">
+                      {% if it.c1 %}
+                        <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-lg"></i> SÍ</span>
+                      {% else %}
+                        <span class="badge bg-danger text-white"><i class="bi bi-x-lg"></i> NO</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-center">
+                      {% if it.c2 %}
+                        <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-lg"></i> SÍ</span>
+                      {% else %}
+                        <span class="badge bg-danger text-white"><i class="bi bi-x-lg"></i> NO</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-center">
+                      {% if it.c3 %}
+                        <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-lg"></i> SÍ</span>
+                      {% else %}
+                        <span class="badge bg-danger text-white"><i class="bi bi-x-lg"></i> NO</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-center">
+                      {% if it.c4 %}
+                        <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-lg"></i> SÍ</span>
+                      {% else %}
+                        <span class="badge bg-danger text-white"><i class="bi bi-x-lg"></i> NO</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-center">
+                      {% if it.es_viable %}
+                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                          <i class="bi bi-shield-check me-1"></i>Viable
+                        </span>
+                      {% else %}
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">
+                          <i class="bi bi-exclamation-octagon-fill me-1"></i>Con conflicto
+                        </span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <div class="text-truncate text-muted" style="max-width: 280px;" title="{{ it.observaciones }}">
+                        {{ it.observaciones }}
+                      </div>
+                    </td>
+                    <td class="text-center">
+                      <button type="button" class="btn btn-outline-primary btn-sm btn-detalle-cotejo"
+                              data-codigo="{{ it.id_codigo }}"
+                              data-origen="{{ it.origen }}"
+                              data-fecha="Ejecución: {{ it.fecha_ejecucion }} · Visita: {{ it.fecha_visita }}"
+                              data-estado="{{ it.estado }}"
+                              data-viable="{{ it.es_viable|tojson }}"
+                              data-paradas='{{ it.paradas_detalle|tojson|safe }}'>
+                        <i class="bi bi-eye-fill me-1"></i>Paradas
+                      </button>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr>
+                    <td colspan="12" class="text-center text-muted py-5">
+                      <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
+                      No se encontraron itinerarios o consultas para auditar con la fuente seleccionada.
+                    </td>
+                  </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mt-3 text-muted small">
+            <span id="contadorFilasCotejo">Mostrando {{ auditoria_cotejo.itinerarios|length }} registros</span>
+            <span class="text-end">Cumplimiento estricto de las 4 condiciones (C1 · C2 · C3 · C4)</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL: DESGLOSE PARADA POR PARADA DE LA LISTA DE COTEJO       -->
+<!-- ============================================================ -->
+<div class="modal fade" id="modalDetalleCotejo" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-dark text-white border-0 py-3 px-4">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-clipboard2-check fs-4 text-info"></i>
+          <div>
+            <h5 class="modal-title fw-bold mb-0" id="modalCotejoTitulo">Auditoría de Paradas</h5>
+            <small class="text-light opacity-75" id="modalCotejoSubtitulo">Desglose de cumplimiento horario y operacional</small>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body p-4 bg-light">
+        <div class="card border-0 shadow-sm rounded-3 mb-3 bg-white p-3">
+          <div class="row g-3 text-center" id="modalCotejoResumenBanner">
+            <!-- Rellenado dinámicamente con JS -->
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm rounded-3 bg-white">
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0 small">
+                <thead class="table-light text-uppercase" style="font-size: 0.72rem;">
+                  <tr>
+                    <th style="width: 50px;" class="text-center">#</th>
+                    <th style="width: 60px;" class="text-center">Día</th>
+                    <th>Atractivo Turístico</th>
+                    <th class="text-center">Llegada</th>
+                    <th class="text-center">Salida</th>
+                    <th class="text-center">Horario Catálogo</th>
+                    <th class="text-center">Traslado</th>
+                    <th>Medio de Transporte</th>
+                    <th class="text-center">C1</th>
+                    <th class="text-center">C2</th>
+                    <th class="text-center">C3</th>
+                    <th class="text-center">C4</th>
+                    <th>Observación</th>
+                  </tr>
+                </thead>
+                <tbody id="modalCotejoTablaParadas">
+                  <!-- Inyectado vía JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer bg-white border-0 py-2 px-4">
+        <button type="button" class="btn btn-secondary btn-sm px-4" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1583,6 +2003,130 @@ document.addEventListener('DOMContentLoaded', function() {
   if (escenariosData && escenariosData.length > 0) {
     actualizarComparadorEscenarios();
     renderizarDetalleEscenario(selectorDetalle ? selectorDetalle.value : escenariosData[0].id_archivo);
+  }
+
+  // ========================================================
+  // 3. INTERACCIÓN DE LA LISTA DE COTEJO (PESTAÑA COTEJO)
+  // ========================================================
+  var inputBuscadorCotejo = document.getElementById('buscadorItinerariosCotejo');
+  var selectFiltroEstado = document.getElementById('filtroEstadoCotejo');
+  var filasCotejo = document.querySelectorAll('.fila-cotejo');
+  var contadorCotejo = document.getElementById('contadorFilasCotejo');
+
+  function filtrarTablaCotejo() {
+    var texto = (inputBuscadorCotejo ? inputBuscadorCotejo.value : '').toLowerCase().trim();
+    var estadoFiltro = selectFiltroEstado ? selectFiltroEstado.value : 'todos';
+    var visibles = 0;
+
+    filasCotejo.forEach(function(fila) {
+      var codigo = fila.getAttribute('data-codigo') || '';
+      var fecha = fila.getAttribute('data-fecha') || '';
+      var estado = fila.getAttribute('data-estado') || '';
+
+      var coincideTexto = !texto || codigo.indexOf(texto) !== -1 || fecha.indexOf(texto) !== -1;
+      var coincideEstado = estadoFiltro === 'todos' || estado === estadoFiltro;
+
+      if (coincideTexto && coincideEstado) {
+        fila.style.display = '';
+        visibles++;
+      } else {
+        fila.style.display = 'none';
+      }
+    });
+
+    if (contadorCotejo) {
+      contadorCotejo.textContent = 'Mostrando ' + visibles + ' de ' + filasCotejo.length + ' itinerarios evaluados';
+    }
+  }
+
+  if (inputBuscadorCotejo) inputBuscadorCotejo.addEventListener('input', filtrarTablaCotejo);
+  if (selectFiltroEstado) selectFiltroEstado.addEventListener('change', filtrarTablaCotejo);
+
+  // Modal de desglose de paradas por itinerario
+  var modalCotejoEl = document.getElementById('modalDetalleCotejo');
+  var modalCotejo = modalCotejoEl ? new bootstrap.Modal(modalCotejoEl) : null;
+
+  document.querySelectorAll('.btn-detalle-cotejo').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var codigo = this.getAttribute('data-codigo');
+      var origen = this.getAttribute('data-origen');
+      var fecha = this.getAttribute('data-fecha');
+      var estado = this.getAttribute('data-estado');
+      var esViable = this.getAttribute('data-viable') === 'true';
+      var paradas = [];
+      try {
+        paradas = JSON.parse(this.getAttribute('data-paradas') || '[]');
+      } catch (e) {
+        paradas = [];
+      }
+
+      document.getElementById('modalCotejoTitulo').textContent = 'Auditoría de Paradas: ' + codigo;
+      document.getElementById('modalCotejoSubtitulo').textContent = origen + ' · Fecha: ' + fecha;
+
+      var bannerHtml = `
+        <div class="col-4">
+          <small class="text-muted d-block">Estado Global</small>
+          <span class="badge ${esViable ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'} px-3 py-1 fs-6">
+            ${estado}
+          </span>
+        </div>
+        <div class="col-4">
+          <small class="text-muted d-block">Total de Paradas</small>
+          <span class="fw-bold text-dark fs-5">${paradas.length} paradas</span>
+        </div>
+        <div class="col-4">
+          <small class="text-muted d-block">Condiciones Validadas</small>
+          <span class="fw-bold text-primary fs-6">C1 · C2 · C3 · C4</span>
+        </div>
+      `;
+      document.getElementById('modalCotejoResumenBanner').innerHTML = bannerHtml;
+
+      var tbody = document.getElementById('modalCotejoTablaParadas');
+      tbody.innerHTML = '';
+
+      if (paradas.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-4">No hay desglose de paradas disponible para este itinerario.</td></tr>';
+      } else {
+        paradas.forEach(function(p) {
+          var c1Badge = p.c1 ? '<span class="badge bg-success-subtle text-success">SÍ</span>' : '<span class="badge bg-danger text-white">NO</span>';
+          var c2Badge = p.c2 ? '<span class="badge bg-success-subtle text-success">SÍ</span>' : '<span class="badge bg-danger text-white">NO</span>';
+          var c3Badge = p.c3 ? '<span class="badge bg-success-subtle text-success">SÍ</span>' : '<span class="badge bg-danger text-white">NO</span>';
+          var c4Badge = p.c4 ? '<span class="badge bg-success-subtle text-success">SÍ</span>' : '<span class="badge bg-danger text-white">NO</span>';
+
+          var obsText = (p.observaciones && p.observaciones.length > 0) ? p.observaciones.join('; ') : '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Conforme</span>';
+
+          var tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="text-center fw-bold text-muted">${p.numero}</td>
+            <td class="text-center"><span class="badge bg-light text-dark border">Día ${p.dia}</span></td>
+            <td class="fw-semibold text-dark">${p.atractivo}</td>
+            <td class="text-center font-monospace">${p.hora_llegada}</td>
+            <td class="text-center font-monospace">${p.hora_salida}</td>
+            <td class="text-center text-muted small">${p.horario_atractivo}</td>
+            <td class="text-center">${p.tiempo_traslado_min} min</td>
+            <td class="small text-muted">${p.transporte}</td>
+            <td class="text-center">${c1Badge}</td>
+            <td class="text-center">${c2Badge}</td>
+            <td class="text-center">${c3Badge}</td>
+            <td class="text-center">${c4Badge}</td>
+            <td class="small text-muted">${obsText}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      if (modalCotejo) modalCotejo.show();
+    });
+  });
+
+  // Activar pestaña si viene por parámetro GET (?tab=cotejo)
+  var urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('tab') === 'cotejo') {
+    var tabCotejoBtn = document.getElementById('tab-cotejo-btn');
+    if (tabCotejoBtn) {
+      var tabTrigger = new bootstrap.Tab(tabCotejoBtn);
+      tabTrigger.show();
+    }
   }
 });
 </script>

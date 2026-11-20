@@ -3,6 +3,21 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import re
+import io
+import uuid
+import qrcode
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+    Image as RLImage,
+    KeepTogether,
+)
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from app.models.atractivo import Atractivo
 from app.models.subcategoria import Subcategoria
 from app.models.transporte import Transporte
@@ -535,9 +550,9 @@ def guardar_itinerario(
         ).first()
 
         if ya_guardado_turista:
-            raise ValueError("Ya has guardado este itinerario. Puedes verlo en tu lista de reservas.")
+            raise ValueError("Ya has guardado este itinerario. Puedes verlo en tu lista de cotizaciones.")
     elif rol_nombre in ['admin', 'agente']:
-        # Para Admin/Agente: Si ya existe, preguntar si desea crear nueva reserva
+        # Para Admin/Agente: Si ya existe, preguntar si desea crear nueva cotización
         existente = Itinerario.query.filter_by(
             id_generacion=id_generacion,
             numero_solucion=int(numero_solucion),
@@ -546,7 +561,7 @@ def guardar_itinerario(
         if existente and not forzar_nuevo:
             return {
                 "duplicado_admin": True,
-                "mensaje": "Este itinerario ya fue guardado antes. ¿Deseas crear una nueva reserva para un nuevo grupo?"
+                "mensaje": "Este itinerario ya fue guardado antes. ¿Deseas crear una nueva cotización para un nuevo grupo?"
             }
 
     resultados = json.loads(consulta.resultados_json)
@@ -691,13 +706,16 @@ def guardar_itinerario(
 
         # id_transporte real del tramo / parada: NUNCA será NULL
         id_trans = parada.get('id_transporte')
-        tiempo_tras = parada.get('tiempo_traslado_min') or parada.get('tiempo_traslado_desde_anterior')
+        tiempo_tras = parada.get('tiempo_traslado_desde_anterior')
+        if tiempo_tras is None:
+            tiempo_tras = parada.get('tiempo_traslado_min')
 
         if not id_trans:
             for tramo in sol.get('tramos', []):
                 if tramo.get('destino_id') == parada['id'] and tramo.get('dia') == parada.get('dia', 1):
                     id_trans = tramo.get('id_transporte')
-                    tiempo_tras = tramo.get('tiempo_traslado_min', 0)
+                    if tiempo_tras is None:
+                        tiempo_tras = tramo.get('tiempo_traslado_min')
                     break
 
         if not id_trans:
@@ -711,6 +729,11 @@ def guardar_itinerario(
 
         if tiempo_tras is None or tiempo_tras == 0:
             tiempo_tras = 15 if parada.get('numero', 1) == 1 else 10
+        else:
+            try:
+                tiempo_tras = max(1, int(round(float(tiempo_tras))))
+            except (ValueError, TypeError):
+                tiempo_tras = 15 if parada.get('numero', 1) == 1 else 10
 
         detalle = ItinerarioDetalle(
             id_itinerario=nuevo_itinerario.id_itinerario,
@@ -874,7 +897,7 @@ def obtener_detalle_itinerario(id_itinerario: int) -> dict | None:
             "costo_entrada_bob": float(d.costo_entrada_bob or 0.0),
             "hora_llegada": d.hora_llegada_estimada.strftime("%H:%M") if d.hora_llegada_estimada else "09:00",
             "hora_salida": d.hora_salida_estimada.strftime("%H:%M") if d.hora_salida_estimada else "10:00",
-            "tiempo_visita_min": int(d.tiempo_traslado_desde_anterior or 60),
+            "tiempo_visita_min": int((d.hora_salida_estimada.hour * 60 + d.hora_salida_estimada.minute) - (d.hora_llegada_estimada.hour * 60 + d.hora_llegada_estimada.minute)) if (d.hora_salida_estimada and d.hora_llegada_estimada) else 60,
             "id_transporte": d.id_transporte,
             "tiempo_traslado_desde_anterior": int(d.tiempo_traslado_desde_anterior or 15),
             "clima": {
@@ -1094,3 +1117,417 @@ def agregar_acompanante(
         "faltantes": datos_finales["faltantes"],
         "completo": datos_finales["completo"],
     }
+
+
+def cambiar_estado_itinerario(id_itinerario: int, nuevo_estado: str, usuario_actual) -> dict:
+    """
+    Permite a Administradores y Agentes cambiar el estado de un itinerario.
+    Estados válidos: 'Borrador', 'Confirmado', 'En curso', 'Completado', 'Cancelado'.
+    
+    Regla de negocio estricta:
+    Para pasar a 'Confirmado', es OBLIGATORIO que todos los turistas acompañantes
+    estén registrados (calcular_faltantes(id_itinerario).get("completo") == True).
+    """
+    rol_nombre = getattr(usuario_actual.rol, 'nombre', '') if getattr(usuario_actual, 'rol', None) else ''
+    if rol_nombre not in ['admin', 'agente']:
+        raise ValueError("No tienes permisos de Administrador o Agente para cambiar el estado de este itinerario.")
+
+    itinerario = Itinerario.query.get(id_itinerario)
+    if not itinerario or itinerario.is_deleted:
+        raise ValueError("Itinerario no encontrado.")
+
+    estados_validos = ['Borrador', 'Confirmado', 'En curso', 'Completado', 'Cancelado']
+    if nuevo_estado not in estados_validos:
+        raise ValueError(f"Estado '{nuevo_estado}' no válido. Opciones: {', '.join(estados_validos)}")
+
+    # Validar grupo completo antes de confirmar
+    if nuevo_estado == 'Confirmado':
+        conteo = calcular_faltantes(id_itinerario)
+        if not conteo.get("completo"):
+            faltantes = conteo.get("faltantes", 1)
+            esperado = conteo.get("esperado", 1)
+            registrados = conteo.get("total_registrados", 0)
+            raise ValueError(
+                f"No se puede confirmar el itinerario. Faltan {faltantes} turista(s) por registrar "
+                f"({registrados} de {esperado} registrados). Registra a todos los acompañantes primero."
+            )
+
+        if not itinerario.codigo_confirmacion:
+            itinerario.codigo_confirmacion = uuid.uuid4()
+        itinerario.voucher_generado = True
+
+        # Intentar enviar notificación de cortesía
+        try:
+            from app.services.email_service import enviar_itinerario_confirmado
+            if itinerario.generacion and itinerario.generacion.usuario and itinerario.generacion.usuario.email:
+                enviar_itinerario_confirmado(itinerario.generacion.usuario, itinerario)
+        except Exception as ex_mail:
+            print(f"[WARNING] No se pudo enviar correo de confirmación: {ex_mail}")
+
+    itinerario.estado = nuevo_estado
+    db.session.commit()
+
+    return {
+        "success": True,
+        "id_itinerario": itinerario.id_itinerario,
+        "estado": itinerario.estado,
+        "codigo_confirmacion": str(itinerario.codigo_confirmacion) if itinerario.codigo_confirmacion else None,
+        "voucher_generado": itinerario.voucher_generado,
+        "mensaje": f"Estado del itinerario #{itinerario.id_itinerario} actualizado a '{nuevo_estado}' exitosamente."
+    }
+
+
+def generar_voucher_pdf(id_itinerario: int) -> bytes:
+    """
+    Genera en memoria el documento PDF oficial del Comprobante / Voucher de Itinerario
+    con código QR embebido generado con qrcode y PIL para verificación rápida.
+    """
+    itinerario = Itinerario.query.get(id_itinerario)
+    if not itinerario or itinerario.is_deleted:
+        raise ValueError(f"Itinerario #{id_itinerario} no encontrado.")
+
+    # Generar código de confirmación si no lo tiene
+    if not itinerario.codigo_confirmacion:
+        itinerario.codigo_confirmacion = uuid.uuid4()
+        db.session.commit()
+
+    turistas = listar_turistas_itinerario(id_itinerario)
+    detalles = ItinerarioDetalle.query.filter_by(
+        id_itinerario=id_itinerario
+    ).order_by(ItinerarioDetalle.dia, ItinerarioDetalle.orden).all()
+
+    turista_titular = turistas[0] if turistas else None
+    nombre_titular = f"{turista_titular['nombres']} {turista_titular['apellidos']}" if turista_titular else "Cliente General"
+    doc_titular = turista_titular['nro_documento'] if turista_titular else "S/D"
+
+    # Generar Código QR
+    tc = 6.96
+    c_bob = float(itinerario.costo_total_bob or 0.0)
+    c_usd = round(c_bob / tc, 2)
+    f_ini = itinerario.fecha_inicio.strftime('%d/%m/%Y') if itinerario.fecha_inicio else "Por definir"
+    f_fin = itinerario.fecha_fin.strftime('%d/%m/%Y') if itinerario.fecha_fin else "Por definir"
+
+    qr_payload = (
+        f"BUHOS TOURS - VOUCHER OFICIAL\n"
+        f"Itinerario: #{itinerario.id_itinerario}\n"
+        f"Confirmacion: {itinerario.codigo_confirmacion}\n"
+        f"Titular: {nombre_titular} (Doc: {doc_titular})\n"
+        f"Fechas: {f_ini} al {f_fin}\n"
+        f"Grupo: {itinerario.num_personas} personas\n"
+        f"Total: Bs. {c_bob:.2f} (~${c_usd:.2f} USD)\n"
+        f"Estado: {itinerario.estado}"
+    )
+
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=4,
+        border=2,
+    )
+    qr.add_data(qr_payload)
+    qr.make(fit=True)
+    qr_img = qr.make_image(fill_color="#0f172a", back_color="white")
+    qr_buffer = io.BytesIO()
+    qr_img.save(qr_buffer, format='PNG')
+    qr_buffer.seek(0)
+
+    # Configuración del documento PDF
+    pdf_buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        pdf_buffer,
+        pagesize=letter,
+        leftMargin=36,
+        rightMargin=36,
+        topMargin=36,
+        bottomMargin=36,
+    )
+
+    styles = getSampleStyleSheet()
+
+    style_title = ParagraphStyle(
+        'VoucherTitle',
+        parent=styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=18,
+        leading=22,
+        textColor=colors.HexColor('#0369a1'),
+        spaceAfter=2,
+    )
+    style_subtitle = ParagraphStyle(
+        'VoucherSubtitle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor('#64748b'),
+        spaceAfter=4,
+    )
+    style_voucher_header = ParagraphStyle(
+        'VoucherHeader',
+        parent=styles['Heading2'],
+        fontName='Helvetica-Bold',
+        fontSize=11,
+        leading=14,
+        textColor=colors.HexColor('#0f172a'),
+    )
+    style_section = ParagraphStyle(
+        'VoucherSection',
+        parent=styles['Heading3'],
+        fontName='Helvetica-Bold',
+        fontSize=10,
+        leading=13,
+        textColor=colors.HexColor('#0369a1'),
+        spaceBefore=8,
+        spaceAfter=4,
+    )
+    style_cell = ParagraphStyle(
+        'VoucherCell',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=7.5,
+        leading=9.5,
+        textColor=colors.HexColor('#1e293b'),
+    )
+    style_cell_header = ParagraphStyle(
+        'VoucherCellHeader',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=7.5,
+        leading=9.5,
+        textColor=colors.white,
+    )
+    style_cell_center = ParagraphStyle(
+        'VoucherCellCenter',
+        parent=style_cell,
+        alignment=1,
+    )
+    style_notes = ParagraphStyle(
+        'VoucherNotes',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=7,
+        leading=9,
+        textColor=colors.HexColor('#475569'),
+    )
+
+    story = []
+
+    # 1. Cabecera y Marca
+    header_left = [
+        Paragraph("BUHOS TOURS", style_title),
+        Paragraph("OPERADORA DE TURISMO &amp; SERVICIOS DE VIAJE", style_subtitle),
+        Paragraph("COMPROBANTE DE COTIZACIÓN Y VOUCHER DE ITINERARIO", style_voucher_header),
+    ]
+
+    badge_color = "#16a34a" if itinerario.estado == "Confirmado" else ("#d97706" if itinerario.estado == "Borrador" else "#2563eb")
+    header_right = [
+        Paragraph(f"<font color='{badge_color}'><b>ESTADO: {itinerario.estado.upper()}</b></font>", style_voucher_header),
+        Paragraph(f"Emisión: {datetime.now().strftime('%d/%m/%Y %H:%M')}", style_subtitle),
+        Paragraph(f"Código: <font face='Courier'><b>{str(itinerario.codigo_confirmacion)[:18]}...</b></font>", style_notes),
+    ]
+
+    header_table = Table([[header_left, header_right]], colWidths=[360, 180])
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 6))
+
+    # 2. Resumen General y Código QR
+    resumen_datos = [
+        [
+            Paragraph("<b>Identificador de Itinerario:</b>", style_cell),
+            Paragraph(f"#ITIN-{itinerario.id_itinerario:04d}", style_cell),
+        ],
+        [
+            Paragraph("<b>Código de Confirmación (UUID):</b>", style_cell),
+            Paragraph(f"<font face='Courier'>{itinerario.codigo_confirmacion}</font>", style_cell),
+        ],
+        [
+            Paragraph("<b>Turista Titular:</b>", style_cell),
+            Paragraph(f"{nombre_titular} (Doc: {doc_titular})", style_cell),
+        ],
+        [
+            Paragraph("<b>Fechas del Viaje:</b>", style_cell),
+            Paragraph(f"{f_ini} al {f_fin} ({itinerario.dias_totales or 1} días programados)", style_cell),
+        ],
+        [
+            Paragraph("<b>Cantidad de Pasajeros:</b>", style_cell),
+            Paragraph(f"{itinerario.num_personas} persona(s) registradas", style_cell),
+        ],
+        [
+            Paragraph("<b>Costo Total Estimado:</b>", style_cell),
+            Paragraph(f"<b>Bs. {c_bob:.2f}</b> (~ ${c_usd:.2f} USD, T.C. Oficial {tc})", style_cell),
+        ],
+    ]
+    tabla_resumen_datos = Table(resumen_datos, colWidths=[150, 240])
+    tabla_resumen_datos.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f8fafc')),
+    ]))
+
+    qr_image = RLImage(qr_buffer, width=95, height=95)
+    qr_block = [
+        qr_image,
+        Spacer(1, 2),
+        Paragraph("<font size='6' color='#64748b'>Escanear para validación en agencia</font>", style_cell_center),
+    ]
+
+    bloque_superior = Table([[tabla_resumen_datos, qr_block]], colWidths=[400, 140])
+    bloque_superior.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+        ('LEFTPADDING', (1, 0), (1, 0), 10),
+    ]))
+    story.append(bloque_superior)
+    story.append(Spacer(1, 8))
+
+    # 3. Nómina de Turistas
+    story.append(Paragraph("1. NÓMINA DE PASAJEROS / TURISTAS REGISTRADOS", style_section))
+    filas_turistas = [
+        [
+            Paragraph("Tipo", style_cell_header),
+            Paragraph("Nombres y Apellidos", style_cell_header),
+            Paragraph("Documento", style_cell_header),
+            Paragraph("Procedencia", style_cell_header),
+            Paragraph("Contacto (Email / Teléfono)", style_cell_header),
+        ]
+    ]
+
+    for t_item in turistas:
+        tipo_lbl = "Titular" if t_item.get("rol") == "titular" else "Acompañante"
+        tipo_str = f"<b>{tipo_lbl}</b>"
+        nombre_str = f"{t_item.get('nombres', '')} {t_item.get('apellidos', '')}"
+        doc_str = t_item.get("nro_documento") or "S/D"
+        proc_str = t_item.get("procedencia") or "No especificada"
+        contacto_parts = []
+        if t_item.get("email"):
+            contacto_parts.append(t_item["email"])
+        if t_item.get("telefono"):
+            contacto_parts.append(t_item["telefono"])
+        contacto_str = " · ".join(contacto_parts) if contacto_parts else "S/D"
+
+        filas_turistas.append([
+            Paragraph(tipo_str, style_cell),
+            Paragraph(nombre_str, style_cell),
+            Paragraph(doc_str, style_cell),
+            Paragraph(proc_str, style_cell),
+            Paragraph(contacto_str, style_cell),
+        ])
+
+    tabla_turistas = Table(filas_turistas, colWidths=[70, 140, 80, 100, 150])
+    tabla_turistas.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0369a1')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+    ]))
+    story.append(tabla_turistas)
+    story.append(Spacer(1, 8))
+
+    # 4. Cronograma Detallado
+    story.append(Paragraph("2. CRONOGRAMA DETALLADO Y TRANSPORTE", style_section))
+    filas_paradas = [
+        [
+            Paragraph("Día", style_cell_header),
+            Paragraph("N°", style_cell_header),
+            Paragraph("Atractivo Turístico", style_cell_header),
+            Paragraph("Llegada", style_cell_header),
+            Paragraph("Salida", style_cell_header),
+            Paragraph("Visita", style_cell_header),
+            Paragraph("Traslado", style_cell_header),
+            Paragraph("Transporte Asignado", style_cell_header),
+        ]
+    ]
+
+    for d in detalles:
+        atr = d.atractivo
+        nom_atr = atr.nombre if atr else f"Atractivo #{d.id_atractivo}"
+        h_lleg = d.hora_llegada_estimada.strftime("%H:%M") if d.hora_llegada_estimada else "--:--"
+        h_sal = d.hora_salida_estimada.strftime("%H:%M") if d.hora_salida_estimada else "--:--"
+
+        t_vis = 60
+        if d.hora_salida_estimada and d.hora_llegada_estimada:
+            t_vis = (d.hora_salida_estimada.hour * 60 + d.hora_salida_estimada.minute) - (d.hora_llegada_estimada.hour * 60 + d.hora_llegada_estimada.minute)
+            t_vis = max(1, t_vis)
+
+        try:
+            t_tras = int(d.tiempo_traslado_desde_anterior or 0)
+        except (TypeError, ValueError):
+            t_tras = 0
+        nom_trans = d.transporte.nombre if (d.transporte and d.transporte.nombre) else "Vehículo"
+
+        filas_paradas.append([
+            Paragraph(f"Día {d.dia}", style_cell_center),
+            Paragraph(str(d.orden), style_cell_center),
+            Paragraph(nom_atr, style_cell),
+            Paragraph(h_lleg, style_cell_center),
+            Paragraph(h_sal, style_cell_center),
+            Paragraph(f"{t_vis} min", style_cell_center),
+            Paragraph(f"{t_tras} min" if t_tras > 0 else "Inicio", style_cell_center),
+            Paragraph(nom_trans, style_cell),
+        ])
+
+    tabla_paradas = Table(filas_paradas, colWidths=[38, 22, 160, 45, 45, 40, 45, 145])
+    tabla_paradas.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0369a1')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+    ]))
+    story.append(tabla_paradas)
+    story.append(Spacer(1, 8))
+
+    # 5. Resumen Económico y Términos
+    c_ent = float(itinerario.costo_entradas_bob or 0.0)
+    c_trans = float(itinerario.costo_transporte_bob or 0.0)
+    filas_costos = [
+        [
+            Paragraph("<b>Concepto</b>", style_cell_header),
+            Paragraph("<b>Importe (BOB)</b>", style_cell_header),
+        ],
+        [
+            Paragraph("Entradas a Atractivos Turísticos", style_cell),
+            Paragraph(f"Bs. {c_ent:.2f}", style_cell),
+        ],
+        [
+            Paragraph("Servicio de Transporte y Traslados", style_cell),
+            Paragraph(f"Bs. {c_trans:.2f}", style_cell),
+        ],
+        [
+            Paragraph("<b>TOTAL COTIZADO:</b>", style_cell),
+            Paragraph(f"<b>Bs. {c_bob:.2f}</b> (~ ${c_usd:.2f} USD)", style_cell),
+        ],
+    ]
+    tabla_costos = Table(filas_costos, colWidths=[380, 160])
+    tabla_costos.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f172a')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e0f2fe')),
+    ]))
+
+    story.append(KeepTogether([
+        Paragraph("3. RESUMEN ECONÓMICO ESTIMADO", style_section),
+        tabla_costos,
+        Spacer(1, 8),
+        Paragraph(
+            "<b>NOTAS Y TÉRMINOS OPERATIVOS:</b><br/>"
+            "1. Este voucher certifica la planificación y cotización formal generada a través de la plataforma de Buhos Tours.<br/>"
+            "2. Para la confirmación de salidas, pago final y asignación de guía certificado, presente este documento con su código QR en nuestras oficinas o contáctese con su agente asignado.<br/>"
+            "3. Los horarios y traslados han sido optimizados considerando factores de congestión vehicular y tiempos de visita reglamentarios.<br/>"
+            "<b>Buhos Tours</b> · Av. 16 de Julio (El Prado), Edif. Cosmos · La Paz, Bolivia · Tel: +591 2 2444444 · info@buhostours.com",
+            style_notes
+        )
+    ]))
+
+    doc.build(story)
+    pdf_buffer.seek(0)
+    return pdf_buffer.getvalue()

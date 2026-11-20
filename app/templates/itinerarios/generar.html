@@ -123,6 +123,48 @@
     background-color: #f8f9fa !important;
     border-color: #ced4da !important;
   }
+
+  /* Toasts de validación interactivos y animados */
+  #toastContainerValidacion {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 1090;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+    max-width: 420px;
+  }
+  .toast-validacion {
+    pointer-events: auto;
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    background: #ffffff;
+    overflow: hidden;
+    animation: slideInToast 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes slideInToast {
+    from {
+      opacity: 0;
+      transform: translateX(50px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+  }
+  .input-error-shake {
+    animation: shakeError 0.45s ease-in-out !important;
+    border-color: #EF4444 !important;
+    box-shadow: 0 0 0 0.25rem rgba(239, 68, 68, 0.25) !important;
+  }
+  @keyframes shakeError {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-6px); }
+    40%, 80% { transform: translateX(6px); }
+  }
 </style>
 {% endblock %}
 
@@ -273,6 +315,9 @@
   </div>
 </div>
 
+<!-- Contenedor Flotante de Toasts de Validación Personalizados -->
+<div id="toastContainerValidacion" aria-live="polite" aria-atomic="true"></div>
+
 <!-- Modal 1: Confirmación de Guardado -->
 <div class="modal fade" id="modalConfirmarGuardado" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -359,6 +404,68 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const TC_OFICIAL = {{ tc_oficial or 6.96 }};
+
+  // ==========================================
+  // SISTEMA DE ALERTAS Y NOTIFICACIONES PERSONALIZADAS (UI/UX)
+  // ==========================================
+  function mostrarAlertaValidacion(mensaje, tipo = 'warning', campoElemento = null) {
+    const contenedor = document.getElementById('toastContainerValidacion');
+    if (!contenedor) return;
+
+    // Colores e íconos por tipo
+    let bgHeader = 'bg-warning-subtle text-warning-emphasis';
+    let iconClass = 'bi-exclamation-triangle-fill text-warning';
+    let badgeTxt = 'Atención requerida';
+
+    if (tipo === 'danger' || tipo === 'error') {
+      bgHeader = 'bg-danger-subtle text-danger-emphasis';
+      iconClass = 'bi-x-circle-fill text-danger';
+      badgeTxt = 'Error de validación';
+    } else if (tipo === 'info') {
+      bgHeader = 'bg-info-subtle text-info-emphasis';
+      iconClass = 'bi-info-circle-fill text-info';
+      badgeTxt = 'Información';
+    } else if (tipo === 'success') {
+      bgHeader = 'bg-success-subtle text-success-emphasis';
+      iconClass = 'bi-check-circle-fill text-success';
+      badgeTxt = 'Operación exitosa';
+    }
+
+    const toastId = 'toast_val_' + Date.now();
+    const toastHTML = `
+      <div id="${toastId}" class="toast toast-validacion shadow-lg mb-2" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header ${bgHeader} border-0 py-2 px-3 d-flex align-items-center justify-content-between">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi ${iconClass} fs-5"></i>
+            <strong class="me-auto small fw-bold">${badgeTxt}</strong>
+          </div>
+          <button type="button" class="btn-close btn-close-sm ms-2" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+        </div>
+        <div class="toast-body py-3 px-3 text-dark small" style="background: #ffffff; font-size: 0.88rem; line-height: 1.45;">
+          ${mensaje}
+        </div>
+      </div>
+    `;
+
+    contenedor.insertAdjacentHTML('beforeend', toastHTML);
+    const toastEl = document.getElementById(toastId);
+    if (toastEl && typeof bootstrap !== 'undefined' && bootstrap.Toast) {
+      const bsToast = new bootstrap.Toast(toastEl, { delay: 5500 });
+      bsToast.show();
+      toastEl.addEventListener('hidden.bs.toast', () => {
+        toastEl.remove();
+      });
+    }
+
+    // Efecto de retroalimentación visual en el input con error
+    if (campoElemento) {
+      campoElemento.classList.add('input-error-shake');
+      campoElemento.focus();
+      setTimeout(() => {
+        campoElemento.classList.remove('input-error-shake');
+      }, 1500);
+    }
+  }
 
   function traducirNivelTraficoJS(color, factor) {
     const f = parseFloat(factor || 1.0);
@@ -952,16 +1059,15 @@ document.addEventListener('DOMContentLoaded', function () {
     btnGenerar.addEventListener('click', async function () {
       const atractivosIds = Array.from(document.querySelectorAll('.chk-atractivo:checked')).map(el => parseInt(el.value));
       if (atractivosIds.length === 1) {
-        alert('Debes marcar al menos 2 atractivos o dejar ninguno (el algoritmo decidirá).');
+        mostrarAlertaValidacion('Debes marcar <strong>al menos 2 atractivos</strong> o dejar ninguno seleccionado (en cuyo caso el algoritmo elegirá del catálogo completo).', 'warning');
         return;
       }
 
       const transportesIds = Array.from(document.querySelectorAll('.chk-transporte:checked')).map(el => parseInt(el.value));
       const numPersonas = parseInt(document.getElementById('num_personas')?.value, 10) || 1;
       if (isNaN(numPersonas) || numPersonas < 1 || numPersonas > LIMITE_MAX_PERSONAS) {
-        alert(`El número de personas debe estar entre 1 y ${LIMITE_MAX_PERSONAS}.`);
+        mostrarAlertaValidacion(`El número de personas debe estar entre <strong>1 y ${LIMITE_MAX_PERSONAS}</strong> pasajeros.`, 'danger', inputNumPersonas);
         if (inputNumPersonas) inputNumPersonas.value = Math.min(Math.max(numPersonas || 1, 1), LIMITE_MAX_PERSONAS);
-        inputNumPersonas?.focus();
         return;
       }
 
@@ -971,7 +1077,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const chkMulti = document.getElementById('chkPermitirMultiplesVehiculos');
         const permitirMulti = chkMulti ? chkMulti.checked : false;
         if (!permitirMulti && numPersonas > cap + 1) {
-          alert(`El transporte seleccionado no tiene capacidad (${cap} asientos) para ${numPersonas} personas. Activa la opción de permitir múltiples vehículos o selecciona un transporte con mayor capacidad.`);
+          mostrarAlertaValidacion(`El transporte seleccionado tiene capacidad para <strong>${cap} asientos</strong>, insuficiente para <strong>${numPersonas} personas</strong>. Activa <em>"Permitir múltiples vehículos"</em> o elige un transporte de mayor capacidad.`, 'warning');
           return;
         }
       }
@@ -996,8 +1102,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (isNaN(maxParadas) || maxParadas < 1) maxParadas = 1;
         if (maxParadas > LIMITE_MAX_PARADAS) maxParadas = LIMITE_MAX_PARADAS;
         if (minParadas > maxParadas) {
-          alert(`El número mínimo de paradas (${minParadas}) no puede ser mayor que el máximo (${maxParadas}).`);
-          inputMinParadas?.focus();
+          mostrarAlertaValidacion(`El número mínimo de paradas (<strong>${minParadas}</strong>) no puede ser mayor que el máximo (<strong>${maxParadas}</strong>).`, 'danger', inputMinParadas);
           return;
         }
       }
@@ -1010,27 +1115,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
       if (!autoFechas) {
         if (!fechaInicio) {
-          alert('Por favor selecciona la fecha de inicio del viaje.');
+          mostrarAlertaValidacion('Por favor selecciona la <strong>fecha de inicio</strong> de tu viaje.', 'warning', inputFechaInicio);
           return;
         }
         if (fechaInicio < hoyYMD) {
-          alert('La fecha de inicio no puede ser una fecha pasada.');
+          mostrarAlertaValidacion('La fecha de inicio <strong>no puede ser una fecha pasada</strong>. Selecciona a partir de hoy o una fecha futura.', 'danger', inputFechaInicio);
           return;
         }
         if (isNaN(numDias) || numDias < 1 || numDias > 14) {
-          alert('El número de días disponibles debe ser entre 1 y 14.');
+          mostrarAlertaValidacion('El número de días disponibles debe ser de <strong>1 a 14 días</strong>.', 'danger', inputNumDias);
           return;
         }
         if (!horaInicio || !horaFin) {
-          alert('Debes definir el rango de horarios diario.');
+          mostrarAlertaValidacion('Debes definir el rango de horarios diarios de inicio y finalización.', 'warning', inputHoraInicio);
           return;
         }
         if (horaInicio < '06:00' || horaFin > '19:59') {
-          alert('El rango horario diario debe estar entre las 06:00 y las 19:59.');
+          mostrarAlertaValidacion('La ventana horaria diaria debe encontrarse entre las <strong>06:00</strong> y las <strong>19:59</strong>.', 'warning', inputHoraInicio);
           return;
         }
         if (horaFin <= horaInicio) {
-          alert('La hora de fin debe ser posterior a la hora de inicio.');
+          mostrarAlertaValidacion('La <strong>hora de finalización</strong> debe ser posterior a la <strong>hora de inicio</strong>.', 'danger', inputHoraFin);
           return;
         }
       }
@@ -1038,15 +1143,13 @@ document.addEventListener('DOMContentLoaded', function () {
       const valPresupuesto = parseFloat(inputPresupuesto ? inputPresupuesto.value : document.getElementById('presupuesto_max').value);
       const maxPresupuestoPermitido = monedaSeleccionada === 'BOB' ? LIMITE_PRESUPUESTO_BOB : LIMITE_PRESUPUESTO_USD;
       if (isNaN(valPresupuesto) || valPresupuesto <= 0) {
-        alert('El presupuesto debe ser un número positivo mayor a 0.');
-        inputPresupuesto?.focus();
+        mostrarAlertaValidacion('El presupuesto debe ser un <strong>monto numérico positivo mayor a 0</strong>.', 'danger', inputPresupuesto);
         return;
       }
       if (valPresupuesto > maxPresupuestoPermitido) {
-        alert(`El presupuesto máximo no puede exceder ${monedaSeleccionada === 'BOB' ? 'Bs. 100,000' : '$15,000 USD'}.`);
+        mostrarAlertaValidacion(`El presupuesto máximo no puede exceder <strong>${monedaSeleccionada === 'BOB' ? 'Bs. 100,000' : '$15,000 USD'}</strong>.`, 'warning', inputPresupuesto);
         inputPresupuesto.value = maxPresupuestoPermitido;
         actualizarEquivalenciaPresupuesto();
-        inputPresupuesto?.focus();
         return;
       }
 
@@ -1107,7 +1210,7 @@ document.addEventListener('DOMContentLoaded', function () {
         procesarYRenderizarResultados(data, true);
 
       } catch (err) {
-        alert('Error: ' + err.message);
+        mostrarAlertaValidacion('<strong>Error en la optimización:</strong> ' + err.message, 'danger');
       } finally {
         btnGenerar.disabled = false;
         spinnerGenerar.classList.add('d-none');
@@ -1300,7 +1403,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const data = await res.json();
         
         if (data.success) {
-          alert("¡Itinerario guardado con éxito en la base de datos!");
+          mostrarAlertaValidacion('<strong>¡Itinerario guardado con éxito!</strong> La cotización ha sido registrada en el sistema.', 'success');
           const modalInst = bootstrap.Modal.getInstance(document.getElementById('modalConfirmarGuardado'));
           if (modalInst) modalInst.hide();
 
@@ -1310,10 +1413,10 @@ document.addEventListener('DOMContentLoaded', function () {
             itinerarioPendiente.btn.disabled = true;
           }
         } else {
-          alert("Error: " + (data.error || 'No se pudo guardar el itinerario.'));
+          mostrarAlertaValidacion('<strong>No se pudo guardar:</strong> ' + (data.error || 'Ocurrió un error inesperado al guardar el itinerario.'), 'danger');
         }
       } catch (err) {
-        alert("Error de red al guardar: " + err.message);
+        mostrarAlertaValidacion('<strong>Error de conexión:</strong> No se pudo comunicar con el servidor (' + err.message + ').', 'danger');
       } finally {
         btnConfirmarGuardado.disabled = false;
         btnConfirmarGuardado.innerHTML = 'Sí, guardar ahora';

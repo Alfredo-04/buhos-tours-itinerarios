@@ -1591,7 +1591,12 @@ def ejecutar_nsga2(
             mejor_hora_llegada = None
             mejor_hora_salida = None
             idx_previo_d = None
-            t_traslado_d = 0.0
+            t_traslado_min = 0.0
+            t_traslado_int = 0
+            hora_salida_ant_tramo = None
+            dist_km_d = 0.0
+            t_asignado_d = None
+            factor_trafico_d = 1.0
 
             for d in range(num_dias_disponibles):
                 fecha_d = fecha_inicio_viaje + timedelta(days=d)
@@ -1604,12 +1609,17 @@ def ejecutar_nsga2(
 
                 # Si es el primer día que estamos probando (o el día actual), calculamos desde la hora de inicio del día.
                 # Si es un día posterior, calculamos desde su hora de inicio.
-                hora_actual_d = datetime.combine(fecha_d, hora_inicio_dia)
-                limite_dia_d = datetime.combine(fecha_d, hora_fin_dia)
+                hora_actual_d = datetime.combine(fecha_d, hora_inicio_dia).replace(second=0, microsecond=0)
+                limite_dia_d = datetime.combine(fecha_d, hora_fin_dia).replace(second=0, microsecond=0)
 
                 # Buscar el último atractivo de este día para calcular el traslado
-                idx_previo_d = None
-                t_traslado_d = 0.0
+                idx_previo_cand = None
+                t_tras_cand_d = 0.0
+                t_tras_cand_int = 0
+                dist_cand = 0.0
+                t_asig_cand = None
+                factor_cand = 1.0
+
                 if paradas_por_dia_conteo.get(d + 1, 0) > 0:
                     # Buscar la última parada de este día en paradas_detalle
                     ultima_parada = next((p for p in reversed(paradas_detalle) if p['dia'] == d + 1), None)
@@ -1617,17 +1627,24 @@ def ejecutar_nsga2(
                         # Convertir hora de salida a datetime para calcular
                         h_sal_str = ultima_parada.get('hora_salida', hora_inicio_dia.strftime('%H:%M') if hasattr(hora_inicio_dia, 'strftime') else str(hora_inicio_dia))
                         try:
-                            h_sal_dt = datetime.combine(fecha_d, datetime.strptime(h_sal_str[:5], '%H:%M').time())
+                            h_sal_dt = datetime.combine(fecha_d, datetime.strptime(h_sal_str[:5], '%H:%M').time()).replace(second=0, microsecond=0)
                         except Exception:
-                            h_sal_dt = datetime.combine(fecha_d, hora_inicio_dia)
+                            h_sal_dt = datetime.combine(fecha_d, hora_inicio_dia).replace(second=0, microsecond=0)
                         hora_actual_d = h_sal_dt
-                        idx_previo_d = next((i for i, a in enumerate(atractivos_efectivos) if a['id'] == ultima_parada['id']), None)
-                        if idx_previo_d is not None:
+                        idx_previo_cand = next((i for i, a in enumerate(atractivos_efectivos) if a['id'] == ultima_parada['id']), None)
+                        if idx_previo_cand is not None:
                             idx_actual = next((i for i, a in enumerate(atractivos_efectivos) if a['id'] == atr['id']), None)
                             if idx_actual is not None:
-                                t_traslado_d = matriz_duraciones_base[idx_previo_d, idx_actual] * matriz_factores_trafico[idx_previo_d, idx_actual]
+                                dist_cand = matriz_distancias[idx_previo_cand, idx_actual]
+                                t_asig_cand = matriz_transportes_tramo[idx_previo_cand][idx_actual]
+                                factor_cand = matriz_factores_trafico[idx_previo_cand, idx_actual]
+                                t_tras_cand_d = matriz_duraciones_base[idx_previo_cand, idx_actual] * factor_cand
+                                if t_tras_cand_d > 0:
+                                    t_tras_cand_int = max(1, int(round(t_tras_cand_d)))
+                                else:
+                                    t_tras_cand_int = 0
 
-                hora_llegada_d = hora_actual_d + timedelta(minutes=t_traslado_d)
+                hora_llegada_d = hora_actual_d + timedelta(minutes=t_tras_cand_int)
                 horario_ap = atr.get("horario_apertura")
                 if isinstance(horario_ap, str):
                     try:
@@ -1639,11 +1656,9 @@ def ejecutar_nsga2(
                             horario_ap = None
 
                 if horario_ap and hora_llegada_d.time() < horario_ap:
-                    hora_inicio_vis_d = datetime.combine(fecha_d, horario_ap)
-                else:
-                    hora_inicio_vis_d = hora_llegada_d
+                    hora_llegada_d = datetime.combine(fecha_d, horario_ap).replace(second=0, microsecond=0)
 
-                hora_salida_vis_d = hora_inicio_vis_d + timedelta(minutes=t_vis)
+                hora_salida_vis_d = hora_llegada_d + timedelta(minutes=t_vis)
 
                 # Validar si cabe en este día
                 cabe_en_d = (hora_salida_vis_d <= limite_dia_d)
@@ -1664,31 +1679,77 @@ def ejecutar_nsga2(
                     dia_asignado_idx = d
                     mejor_hora_llegada = hora_llegada_d
                     mejor_hora_salida = hora_salida_vis_d
-                    t_traslado_min = t_traslado_d
+                    t_traslado_min = t_tras_cand_d
+                    t_traslado_int = t_tras_cand_int
+                    hora_salida_ant_tramo = hora_actual_d
+                    idx_previo_d = idx_previo_cand
+                    dist_km_d = dist_cand
+                    t_asignado_d = t_asig_cand
+                    factor_trafico_d = factor_cand
                     break  # ¡Encontramos un día! Nos quedamos aquí.
 
-            # Actualizar variables para el resto del bucle
+            if mejor_hora_llegada is None:
+                dia_asignado_idx = num_dias_disponibles - 1
+                fecha_d = fecha_inicio_viaje + timedelta(days=dia_asignado_idx)
+                hora_actual_d = datetime.combine(fecha_d, hora_inicio_dia).replace(second=0, microsecond=0)
+                idx_previo_cand = None
+                t_tras_cand_d = 0.0
+                t_tras_cand_int = 0
+                dist_cand = 0.0
+                t_asig_cand = None
+                factor_cand = 1.0
+                if paradas_por_dia_conteo.get(dia_asignado_idx + 1, 0) > 0:
+                    ultima_parada = next((p for p in reversed(paradas_detalle) if p['dia'] == dia_asignado_idx + 1), None)
+                    if ultima_parada:
+                        h_sal_str = ultima_parada.get('hora_salida', hora_inicio_dia.strftime('%H:%M') if hasattr(hora_inicio_dia, 'strftime') else str(hora_inicio_dia))
+                        try:
+                            h_sal_dt = datetime.combine(fecha_d, datetime.strptime(h_sal_str[:5], '%H:%M').time()).replace(second=0, microsecond=0)
+                        except Exception:
+                            h_sal_dt = datetime.combine(fecha_d, hora_inicio_dia).replace(second=0, microsecond=0)
+                        hora_actual_d = h_sal_dt
+                        idx_previo_cand = next((i for i, a in enumerate(atractivos_efectivos) if a['id'] == ultima_parada['id']), None)
+                        if idx_previo_cand is not None:
+                            idx_actual = next((i for i, a in enumerate(atractivos_efectivos) if a['id'] == atr['id']), None)
+                            if idx_actual is not None:
+                                dist_cand = matriz_distancias[idx_previo_cand, idx_actual]
+                                t_asig_cand = matriz_transportes_tramo[idx_previo_cand][idx_actual]
+                                factor_cand = matriz_factores_trafico[idx_previo_cand, idx_actual]
+                                t_tras_cand_d = matriz_duraciones_base[idx_previo_cand, idx_actual] * factor_cand
+                                if t_tras_cand_d > 0:
+                                    t_tras_cand_int = max(1, int(round(t_tras_cand_d)))
+                                else:
+                                    t_tras_cand_int = 0
+                hora_llegada_d = hora_actual_d + timedelta(minutes=t_tras_cand_int)
+                if horario_ap and hora_llegada_d.time() < horario_ap:
+                    hora_llegada_d = datetime.combine(fecha_d, horario_ap).replace(second=0, microsecond=0)
+                mejor_hora_llegada = hora_llegada_d
+                mejor_hora_salida = hora_llegada_d + timedelta(minutes=t_vis)
+                t_traslado_min = t_tras_cand_d
+                t_traslado_int = t_tras_cand_int
+                hora_salida_ant_tramo = hora_actual_d
+                idx_previo_d = idx_previo_cand
+                dist_km_d = dist_cand
+                t_asignado_d = t_asig_cand
+                factor_trafico_d = factor_cand
+
             # Actualizar variables para el resto del bucle
             dia_idx = dia_asignado_idx
             fecha_actual = fecha_inicio_viaje + timedelta(days=dia_idx)
             
-            # GUARDAMOS LA HORA DE SALIDA DEL PUNTO ANTERIOR ANTES DE SOBRESCRIBIRLA
-            hora_salida_anterior = hora_actual_step
-            
-            hora_actual_step = mejor_hora_salida if mejor_hora_salida else datetime.combine(fecha_actual, hora_inicio_dia)
+            hora_salida_anterior = hora_salida_ant_tramo if hora_salida_ant_tramo else hora_actual_step
+            hora_actual_step = mejor_hora_salida if mejor_hora_salida else datetime.combine(fecha_actual, hora_inicio_dia).replace(second=0, microsecond=0)
             hora_llegada_est = mejor_hora_llegada if mejor_hora_llegada else hora_actual_step
             hora_inicio_vis_est = hora_llegada_est
             hora_salida_vis_est = mejor_hora_salida if mejor_hora_salida else (hora_actual_step + timedelta(minutes=t_vis))
-            limite_dia = datetime.combine(fecha_actual, hora_fin_dia)
-            t_traslado_min = t_traslado_d
+            limite_dia = datetime.combine(fecha_actual, hora_fin_dia).replace(second=0, microsecond=0)
 
             # Si este día ya tenía paradas, actualizar idx_previo y matriz de distancias/transporte para este tramo
             paradas_en_dia = paradas_por_dia_conteo.get(dia_idx + 1, 0)
             if idx_previo_d is not None and paradas_en_dia > 0:
                 idx_previo = idx_previo_d
-                dist_km = matriz_distancias[idx_previo, idx_atr]
-                t_asignado = matriz_transportes_tramo[idx_previo][idx_atr]
-                factor_trafico = matriz_factores_trafico[idx_previo, idx_atr]
+                dist_km = dist_km_d
+                t_asignado = t_asignado_d
+                factor_trafico = factor_trafico_d
             else:
                 idx_previo = None
                 dist_km = 0.0
@@ -1700,7 +1761,7 @@ def ejecutar_nsga2(
 
             if idx_previo is not None and paradas_en_dia > 0:
                 distancia_total_km += dist_km
-                tiempo_traslados += t_traslado_min
+                tiempo_traslados += t_traslado_int
                 if t_asignado:
                     transportes_en_solucion.append(t_asignado.get("nombre"))
 
@@ -1738,7 +1799,7 @@ def ejecutar_nsga2(
                     "destino_id": atr["id"],
                     "destino_nombre": atr["nombre"],
                     "distancia_km": round(dist_km, 2),
-                    "tiempo_traslado_min": round(t_traslado_min, 1),
+                    "tiempo_traslado_min": t_traslado_int,
                     "id_transporte": t_asignado.get("id") if t_asignado else (transportes[0].get("id") if transportes else 1),
                     "transporte_usado": t_asignado.get("nombre_formateado") or (t_asignado.get("nombre") if t_asignado else "Vehículo"),
                     "transporte_tipo": t_asignado.get("tipo") if t_asignado else "General",
@@ -1759,7 +1820,7 @@ def ejecutar_nsga2(
 
             id_trans_p = t_parada.get("id") if t_parada else 1
             nom_trans_p = t_parada.get("nombre_formateado") or (t_parada.get("nombre") if t_parada else "Vehículo")
-            t_tras_estimado = round(t_traslado_min, 1) if (t_traslado_min and t_traslado_min > 0) else 15.0
+            t_tras_estimado_int = t_traslado_int if (idx_previo is not None and paradas_en_dia > 0) else 15
 
             # Clima de la parada en su hora de llegada
             clima_parada = None
@@ -1789,7 +1850,7 @@ def ejecutar_nsga2(
                 "hora_salida": hora_salida_vis_est.strftime("%H:%M"),
                 "id_transporte": id_trans_p,
                 "transporte_usado": nom_trans_p,
-                "tiempo_traslado_desde_anterior": int(round(t_tras_estimado)),
+                "tiempo_traslado_desde_anterior": t_tras_estimado_int,
                 "clima": {
                     "estado": clima_parada.get("estado", "bueno") if clima_parada else "bueno",
                     "razon": clima_parada.get("razon") or clima_parada.get("razon_clima") if clima_parada else None,
@@ -2121,7 +2182,8 @@ def ejecutar_nsga2(
                     continue
 
                 fecha_d = fecha_inicio_viaje + timedelta(days=d - 1)
-                hora_actual_d = datetime.combine(fecha_d, hora_inicio_dia)
+                hora_actual_d = datetime.combine(fecha_d, hora_inicio_dia).replace(second=0, microsecond=0)
+                limite_dia_d = datetime.combine(fecha_d, hora_fin_dia).replace(second=0, microsecond=0)
                 idx_previo_d = None
 
                 # Ordenar para mantener una secuencia lógica
@@ -2129,15 +2191,20 @@ def ejecutar_nsga2(
 
                 for p in paradas_por_dia[d]:
                     atr_obj = next((a for a in atractivos_efectivos if a['id'] == p['id']), None)
-                    t_vis = p['tiempo_visita_min']
+                    t_vis = int(p.get('tiempo_visita_min', 60) or 60)
+                    t_vis = max(1, t_vis)
 
-                    t_traslado = 0.0
+                    t_traslado_int = 0
                     if idx_previo_d is not None:
                         idx_actual = next((i for i, a in enumerate(atractivos_efectivos) if a['id'] == p['id']), None)
                         if idx_actual is not None:
-                            t_traslado = matriz_duraciones_base[idx_previo_d, idx_actual] * matriz_factores_trafico[idx_previo_d, idx_actual]
+                            t_tras_raw = matriz_duraciones_base[idx_previo_d, idx_actual] * matriz_factores_trafico[idx_previo_d, idx_actual]
+                            if t_tras_raw > 0:
+                                t_traslado_int = max(1, int(round(t_tras_raw)))
+                            else:
+                                t_traslado_int = 0
 
-                    hora_llegada = hora_actual_d + timedelta(minutes=t_traslado)
+                    hora_llegada = hora_actual_d + timedelta(minutes=t_traslado_int)
                     horario_ap = atr_obj.get("horario_apertura") if atr_obj else None
                     if isinstance(horario_ap, str):
                         try:
@@ -2149,18 +2216,17 @@ def ejecutar_nsga2(
                                 horario_ap = None
 
                     if horario_ap and hora_llegada.time() < horario_ap:
-                        hora_inicio = datetime.combine(fecha_d, horario_ap)
-                    else:
-                        hora_inicio = hora_llegada
+                        hora_llegada = datetime.combine(fecha_d, horario_ap).replace(second=0, microsecond=0)
 
-                    hora_salida = hora_inicio + timedelta(minutes=t_vis)
+                    hora_salida = hora_llegada + timedelta(minutes=t_vis)
 
                     # ACTUALIZAR LOS DATOS DE LA PARADA
-                    p['hora_llegada'] = hora_inicio.strftime('%H:%M')  # Se pone la hora de inicio (después de esperar si abrió tarde)
+                    p['hora_llegada'] = hora_llegada.strftime('%H:%M')
                     p['hora_salida'] = hora_salida.strftime('%H:%M')
+                    p['tiempo_visita_min'] = t_vis
                     p['numero'] = numero_global
-                    if idx_previo_d is not None and t_traslado > 0:
-                        p['tiempo_traslado_desde_anterior'] = int(round(t_traslado))
+                    if idx_previo_d is not None:
+                        p['tiempo_traslado_desde_anterior'] = t_traslado_int
                     elif not p.get('tiempo_traslado_desde_anterior'):
                         p['tiempo_traslado_desde_anterior'] = 15
                     numero_global += 1
@@ -2189,6 +2255,7 @@ def ejecutar_nsga2(
                     tramo_orig['hora_llegada'] = p_act['hora_llegada']
                     tramo_orig['dia'] = p_act['dia']
                     tramo_orig['fecha'] = p_act['fecha']
+                    tramo_orig['tiempo_traslado_min'] = p_act.get('tiempo_traslado_desde_anterior', tramo_orig.get('tiempo_traslado_min', 0))
                     nuevos_tramos.append(tramo_orig)
         
         tramos = nuevos_tramos
