@@ -4,7 +4,11 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@24.5.0/build/css/intlTelInput.css">
 <style>
+  .iti { width: 100%; display: block; }
+  .iti__dropdown-content { z-index: 1065 !important; }
+  .iti__country-list { max-height: 200px; }
   .kpi-card-detail {
     background: #F8FAFC;
     border: 1px solid #E2E8F0;
@@ -424,7 +428,8 @@
             </div>
             <div class="mb-3">
               <label class="form-label small fw-bold">Teléfono (opcional)</label>
-              <input type="text" class="form-control" id="acomp_telefono" name="telefono" maxlength="20" placeholder="+591 70000000">
+              <input type="hidden" id="acomp_telefono" name="telefono">
+              <input type="tel" class="form-control" id="acomp_telefono_input" placeholder="Número telefónico">
             </div>
           </div>
           <div class="modal-footer border-0 bg-light">
@@ -464,6 +469,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
 <script src="https://unpkg.com/leaflet-polylineoffset@1.1.1/leaflet.polylineoffset.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@24.5.0/build/js/intlTelInput.min.js"></script>
 <script src="{{ url_for('static', filename='js/itinerario_acompanantes.js') }}"></script>
 
 <script>

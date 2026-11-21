@@ -18,7 +18,27 @@ document.addEventListener('DOMContentLoaded', function () {
   const inpNom = document.getElementById('acomp_nombres');
   const inpApe = document.getElementById('acomp_apellidos');
   const inpEmail = document.getElementById('acomp_email');
-  const inpTel = document.getElementById('acomp_telefono');
+  const inpHidTel = document.getElementById('acomp_telefono');
+  const inpTelInput = document.getElementById('acomp_telefono_input');
+  let itiAcomp = null;
+
+  if (inpTelInput && window.intlTelInput) {
+    itiAcomp = window.intlTelInput(inpTelInput, {
+      initialCountry: "bo",
+      preferredCountries: ["bo", "pe", "ar", "br", "cl", "us", "es"],
+      separateDialCode: true,
+      utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@24.5.0/build/js/utils.js"
+    });
+
+    inpTelInput.addEventListener('keypress', function(e) {
+      if (!/[0-9]/.test(e.key)) {
+        e.preventDefault();
+      }
+    });
+    inpTelInput.addEventListener('input', function() {
+      this.value = this.value.replace(/\D/g, '');
+    });
+  }
 
   const contenedorBanners = document.getElementById('contenedorBannersTuristas');
   const txtBtnAcompConteo = document.getElementById('txtBtnAcompConteo');
@@ -31,10 +51,10 @@ document.addEventListener('DOMContentLoaded', function () {
     telefono: false
   };
 
-  [inpNom, inpApe, inpEmail, inpTel].forEach(inp => {
+  [inpNom, inpApe, inpEmail, inpTelInput].forEach(inp => {
     if (inp) {
       inp.addEventListener('input', () => {
-        const campo = inp.name;
+        const campo = inp === inpTelInput ? 'telefono' : inp.name;
         if (camposModificadosManualmente.hasOwnProperty(campo)) {
           camposModificadosManualmente[campo] = true;
         }
@@ -44,6 +64,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function resetearFormAcompanante() {
     if (formAcomp) formAcomp.reset();
+    if (inpTelInput) inpTelInput.value = '';
+    if (inpHidTel) inpHidTel.value = '';
+    if (itiAcomp) itiAcomp.setCountry('bo');
     if (alertAcompErr) {
       alertAcompErr.textContent = '';
       alertAcompErr.classList.add('d-none');
@@ -97,7 +120,14 @@ document.addEventListener('DOMContentLoaded', function () {
           if (!camposModificadosManualmente.nombres && t.nombres && inpNom) inpNom.value = t.nombres;
           if (!camposModificadosManualmente.apellidos && t.apellidos && inpApe) inpApe.value = t.apellidos;
           if (!camposModificadosManualmente.email && t.email && inpEmail) inpEmail.value = t.email;
-          if (!camposModificadosManualmente.telefono && t.telefono && inpTel) inpTel.value = t.telefono;
+          if (!camposModificadosManualmente.telefono && t.telefono && inpTelInput) {
+            if (itiAcomp) {
+              itiAcomp.setNumber(t.telefono);
+              inpTelInput.value = inpTelInput.value.replace(/\D/g, '');
+            } else {
+              inpTelInput.value = t.telefono;
+            }
+          }
 
           if (alertAcompSuc) alertAcompSuc.classList.remove('d-none');
         } else if (data.motivo === 'conflicto_procedencia') {
@@ -130,13 +160,13 @@ document.addEventListener('DOMContentLoaded', function () {
       const procedencia = (inpProc ? inpProc.value : '').trim();
       const doc = (inpDoc ? inpDoc.value : '').trim();
       const email = (inpEmail ? inpEmail.value : '').trim();
-      const tel = (inpTel ? inpTel.value : '').trim();
+      const localTel = inpTelInput ? inpTelInput.value.replace(/\D/g, '').trim() : '';
 
       const regexTexto = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
       const regexDoc = /^[A-Za-z0-9-]+$/;
-      const regexTel = /^[0-9+-\s]+$/;
 
       let errorMsg = '';
+      let telFinal = null;
 
       if (!nombres || !apellidos) {
         errorMsg = 'Nombres y apellidos son obligatorios.';
@@ -148,8 +178,14 @@ document.addEventListener('DOMContentLoaded', function () {
         errorMsg = 'El documento solo admite letras, números y guiones.';
       } else if (email && inpEmail && !inpEmail.checkValidity()) {
         errorMsg = 'El correo electrónico no tiene un formato válido.';
-      } else if (tel && !regexTel.test(tel)) {
-        errorMsg = 'El teléfono solo admite dígitos, +, espacios y guiones.';
+      } else if (localTel) {
+        if (localTel.length < 6) {
+          errorMsg = 'El teléfono debe contener al menos 6 dígitos.';
+        } else {
+          const cd = itiAcomp ? itiAcomp.getSelectedCountryData() : {};
+          const dc = cd.dialCode ? `+${cd.dialCode}` : '';
+          telFinal = `${dc} ${localTel}`;
+        }
       }
 
       if (errorMsg) {
@@ -184,7 +220,7 @@ document.addEventListener('DOMContentLoaded', function () {
             procedencia: procedencia,
             nro_documento: doc || null,
             email: email || null,
-            telefono: tel || null
+            telefono: telFinal
           })
         });
 

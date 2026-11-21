@@ -222,4 +222,48 @@ def create_app(config_class=Config):
         stats = precalcular_matriz_completa(delay_seg=0.5)
         click.echo(f"Completado: {stats.get('calculados', 0)} calculadas, {stats.get('actualizados', 0)} polylines actualizadas, {stats.get('omitidos', 0)} ya completas, {stats.get('errores', 0)} errores.")
 
+    # Manejadores Globales de Errores HTTP Personalizados
+    from flask import render_template, request, jsonify
+
+    @app.errorhandler(403)
+    def handle_403(e):
+        if request.path.startswith('/api/') or request.is_json:
+            return jsonify({
+                'success': False,
+                'codigo': 403,
+                'mensaje': 'Acceso no autorizado. No dispones de los permisos necesarios.'
+            }), 403
+        return render_template('errors/403.html'), 403
+
+    @app.errorhandler(404)
+    def handle_404(e):
+        if request.path.startswith('/api/') or request.is_json:
+            return jsonify({
+                'success': False,
+                'codigo': 404,
+                'mensaje': 'El recurso solicitado no fue encontrado en el servidor.'
+            }), 404
+        return render_template('errors/404.html'), 404
+
+    @app.errorhandler(500)
+    def handle_500(e):
+        db.session.rollback()
+        if request.path.startswith('/api/') or request.is_json:
+            return jsonify({
+                'success': False,
+                'codigo': 500,
+                'mensaje': 'Ocurrió una interrupción interna en el servidor. Por favor intenta más tarde.'
+            }), 500
+        return render_template('errors/500.html'), 500
+
+    @app.errorhandler(400)
+    def handle_400(e):
+        if request.path.startswith('/api/') or request.is_json:
+            return jsonify({
+                'success': False,
+                'codigo': 400,
+                'mensaje': 'La solicitud enviada no tiene un formato válido.'
+            }), 400
+        return render_template('errors/400.html'), 400
+
     return app

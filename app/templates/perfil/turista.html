@@ -2,6 +2,15 @@
 
 {% block title %}Mi Perfil y Seguridad{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@24.5.0/build/css/intlTelInput.css">
+<style>
+  .iti { width: 100%; display: block; }
+  .iti__dropdown-content { z-index: 1065 !important; }
+  .iti__country-list { max-height: 200px; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid px-4 py-4">
   
@@ -81,15 +90,16 @@
             </div>
 
             <div class="col-md-6 form-field-wrapper">
-              <label for="telefono" class="form-label">Teléfono de Contacto</label>
-              <input 
-                type="tel" 
-                class="form-control" 
-                id="telefono" 
-                name="telefono" 
-                value="{{ user.turista.telefono if user.turista else '' }}" 
-                placeholder="+51 987 654 321"
-              >
+              <label for="telefono_input" class="form-label">Teléfono de Contacto</label>
+              <input type="hidden" name="telefono" id="telefono" value="{{ user.turista.telefono if user.turista else '' }}">
+              <div>
+                <input 
+                  type="tel" 
+                  class="form-control" 
+                  id="telefono_input" 
+                  placeholder="Número telefónico"
+                >
+              </div>
             </div>
 
           </div>
@@ -156,4 +166,55 @@
   </div>
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@24.5.0/build/js/intlTelInput.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const telInput = document.getElementById('telefono_input');
+  const hiddenTel = document.getElementById('telefono');
+  let itiPerfil = null;
+
+  if (telInput && window.intlTelInput) {
+    itiPerfil = window.intlTelInput(telInput, {
+      initialCountry: "bo",
+      preferredCountries: ["bo", "pe", "ar", "br", "cl", "us", "es"],
+      separateDialCode: true,
+      utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@24.5.0/build/js/utils.js"
+    });
+
+    if (hiddenTel && hiddenTel.value) {
+      itiPerfil.setNumber(hiddenTel.value);
+      telInput.value = telInput.value.replace(/\D/g, '');
+    }
+
+    // Restricción estricta: solo números [0-9]
+    telInput.addEventListener('keypress', function(e) {
+      if (!/[0-9]/.test(e.key)) {
+        e.preventDefault();
+      }
+    });
+    telInput.addEventListener('input', function() {
+      this.value = this.value.replace(/\D/g, '');
+    });
+  }
+
+  const formPerfil = telInput ? telInput.closest('form') : null;
+  if (formPerfil) {
+    formPerfil.addEventListener('submit', function() {
+      if (itiPerfil && telInput && hiddenTel) {
+        const localVal = telInput.value.replace(/\D/g, '').trim();
+        if (localVal) {
+          const cd = itiPerfil.getSelectedCountryData();
+          const dialCode = cd.dialCode ? `+${cd.dialCode}` : '';
+          hiddenTel.value = `${dialCode} ${localVal}`;
+        } else {
+          hiddenTel.value = '';
+        }
+      }
+    });
+  }
+});
+</script>
 {% endblock %}

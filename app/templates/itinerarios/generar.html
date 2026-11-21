@@ -4,7 +4,11 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@24.5.0/build/css/intlTelInput.css">
 <style>
+  .iti { width: 100%; display: block; }
+  .iti__dropdown-content { z-index: 1065 !important; }
+  .iti__country-list { max-height: 200px; }
   .marcador-numerado {
     background: transparent !important;
     border: none !important;
@@ -379,9 +383,10 @@
               <span class="text-danger small d-none" id="errEmail">Correo electrónico inválido.</span>
             </div>
             <div class="col-md-6">
-              <label class="form-label small fw-bold">Teléfono</label>
-              <input type="text" class="form-control" name="telefono" id="inpTelefono" pattern="^[+]?[\d\s-]{7,15}$">
-              <span class="text-danger small d-none" id="errTelefono">Teléfono inválido (mín. 7 dígitos).</span>
+              <label class="form-label small fw-bold">Teléfono (opcional)</label>
+              <input type="hidden" name="telefono" id="inpHiddenTelefono">
+              <input type="tel" class="form-control" id="inpTelefono" placeholder="Número telefónico">
+              <span class="text-danger small d-none" id="errTelefono">Teléfono inválido (mín. 6 dígitos).</span>
             </div>
           </div>
         </div>
@@ -400,6 +405,7 @@
 <script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
 <script src="https://unpkg.com/leaflet-polylineoffset@1.1.1/leaflet.polylineoffset.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@24.5.0/build/js/intlTelInput.min.js"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -1301,7 +1307,15 @@ document.addEventListener('DOMContentLoaded', function () {
           if (t.nombres) document.getElementById('inpNombres').value = t.nombres;
           if (t.apellidos) document.getElementById('inpApellidos').value = t.apellidos;
           if (t.email) document.getElementById('inpEmail').value = t.email;
-          if (t.telefono) document.getElementById('inpTelefono').value = t.telefono;
+          if (t.telefono) {
+            const inpT = document.getElementById('inpTelefono');
+            if (inpT && itiTurista) {
+              itiTurista.setNumber(t.telefono);
+              inpT.value = inpT.value.replace(/\D/g, '');
+            } else if (inpT) {
+              inpT.value = t.telefono;
+            }
+          }
           if (sucTuristaGlobal) sucTuristaGlobal.classList.remove('d-none');
         } else if (dat.motivo === 'conflicto_procedencia') {
           conflictoProcedenciaActivo = true;
@@ -1319,6 +1333,29 @@ document.addEventListener('DOMContentLoaded', function () {
   if (inpDocTurista) inpDocTurista.addEventListener('blur', consultarTuristaGenerador);
   if (inpProcTurista) inpProcTurista.addEventListener('blur', consultarTuristaGenerador);
 
+  // Inicialización de selector internacional de teléfono en generador
+  const inpTelTurista = document.getElementById('inpTelefono');
+  const inpHidTelTurista = document.getElementById('inpHiddenTelefono');
+  let itiTurista = null;
+
+  if (inpTelTurista && window.intlTelInput) {
+    itiTurista = window.intlTelInput(inpTelTurista, {
+      initialCountry: "bo",
+      preferredCountries: ["bo", "pe", "ar", "br", "cl", "us", "es"],
+      separateDialCode: true,
+      utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@24.5.0/build/js/utils.js"
+    });
+
+    inpTelTurista.addEventListener('keypress', function(e) {
+      if (!/[0-9]/.test(e.key)) {
+        e.preventDefault();
+      }
+    });
+    inpTelTurista.addEventListener('input', function() {
+      this.value = this.value.replace(/\D/g, '');
+    });
+  }
+
   // 2. Validaciones visuales y envío del formulario
   const formTurista = document.getElementById('formTurista');
   if (formTurista) {
@@ -1334,7 +1371,6 @@ document.addEventListener('DOMContentLoaded', function () {
       let isValid = true;
       const regexTexto = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
       const regexDoc = /^[a-zA-Z0-9-]+$/;
-      const regexTel = /^[+]?[\d\s-]{7,15}$/;
 
       const nombres = document.getElementById('inpNombres');
       const apellidos = document.getElementById('inpApellidos');
@@ -1355,7 +1391,20 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!procedencia.value.trim()) { document.getElementById('errProcedencia').classList.remove('d-none'); isValid = false; }
       
       if (email.value.trim() && !email.checkValidity()) { document.getElementById('errEmail').classList.remove('d-none'); isValid = false; }
-      if (tel.value.trim() && !regexTel.test(tel.value.trim())) { document.getElementById('errTelefono').classList.remove('d-none'); isValid = false; }
+
+      const localTel = tel ? tel.value.replace(/\D/g, '').trim() : '';
+      if (localTel) {
+        if (localTel.length < 6) {
+          document.getElementById('errTelefono').classList.remove('d-none');
+          isValid = false;
+        } else if (itiTurista && inpHidTelTurista) {
+          const cd = itiTurista.getSelectedCountryData();
+          const dc = cd.dialCode ? `+${cd.dialCode}` : '';
+          inpHidTelTurista.value = `${dc} ${localTel}`;
+        }
+      } else if (inpHidTelTurista) {
+        inpHidTelTurista.value = '';
+      }
 
       if (!isValid) return; // Detener si hay errores
 
@@ -1377,7 +1426,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
       const form = document.getElementById('formTurista');
       const formData = new FormData(form);
-      
+      const telFinal = inpHidTelTurista && inpHidTelTurista.value ? inpHidTelTurista.value : null;
+
       const payload = {
         id_generacion: parseInt(itinerarioPendiente.id_gen),
         numero_solucion: parseInt(itinerarioPendiente.num_sol),
@@ -1387,7 +1437,7 @@ document.addEventListener('DOMContentLoaded', function () {
           nro_documento: formData.get('nro_documento'),
           procedencia: formData.get('procedencia'),
           email: formData.get('email'),
-          telefono: formData.get('telefono')
+          telefono: telFinal
         }
       };
 

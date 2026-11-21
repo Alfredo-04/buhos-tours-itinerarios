@@ -1,0 +1,301 @@
+﻿Código,Módulo,Tipo de Prueba,Caso de Prueba,Entrada / Precondición,Resultado Esperado,Resultado Obtenido,Tiempo (ms),Estado
+PA-NSGA2-001,Motor NSGA-II,Unitaria / Matemática,Haversine identidad con mismas coordenadas,"(-16.4955, -68.1335) x2",Distancia == 0.0 km,0.0 km,0.02 ms,EXITOSO
+PA-NSGA2-002,Motor NSGA-II,Unitaria / Matemática,Haversine simetría A->B == B->A,Murillo <-> Valle Luna,d1 == d2,8.996 km,0.04 ms,EXITOSO
+PA-NSGA2-003,Motor NSGA-II,Unitaria / Geodésica,Haversine distancia conocida La Paz,Murillo a Valle de la Luna,7.0 <= d <= 12.0 km,9.00 km,0.01 ms,EXITOSO
+PA-NSGA2-004,Motor NSGA-II,Unitaria / Matemática,Desigualdad triangular geodésica,Triángulo 3 atractivos,"d(A,C) <= d(A,B) + d(B,C)",Cumple,0.02 ms,EXITOSO
+PA-NSGA2-005,Motor NSGA-II,Unitaria / Temporal,Zona horaria oficial de Bolivia,obtener_hora_bolivia(),Offset == -4.0 horas,-4.0 h,0.04 ms,EXITOSO
+PA-NSGA2-006,Motor NSGA-II,Unitaria / Algorítmica,Determinismo de seed horario,calcular_seed_por_hora() x2,s1 == s2 entero,Seed: 2468884769,0.07 ms,EXITOSO
+PA-NSGA2-007,Motor NSGA-II,Unitaria / Utilidades,Día de la semana en español,2026-11-23,'lunes',lunes,0.01 ms,EXITOSO
+PA-NSGA2-008,Motor NSGA-II,Unitaria / Pareto,Dominancia estricta de Pareto A sobre B,"A[100, 300] vs B[150, 350]",A domina a B (True),True,0.02 ms,EXITOSO
+PA-NSGA2-009,Motor NSGA-II,Unitaria / Pareto,Soluciones mutuamente no dominadas,"A[100, 400] vs B[200, 200]",Ninguna domina a la otra,No dominadas,0.01 ms,EXITOSO
+PA-NSGA2-010,Motor NSGA-II,Unitaria / Matemática,Normalización de afinidad turística,Puntajes 1.0 a 5.0,"Valores en rango [0.0, 1.0]","[0.2, 0.5, 1.0]",0.01 ms,EXITOSO
+PA-NSGA2-011,Motor NSGA-II,Unitaria / Algorítmica,Unicidad de atractivos en cromosoma,"Permutación [3,1,4,2,5]",Sin atractivos repetidos,Válido,0.01 ms,EXITOSO
+PA-NSGA2-012,Motor NSGA-II,Unitaria / Genética,Operador de Cruce Ordenado OX,Padres permutaciones de 6,Hijo permutación válida,Válido,0.02 ms,EXITOSO
+PA-NSGA2-013,Motor NSGA-II,Unitaria / Genética,Mutación por inserción,"Genoma [1,2,3,4,5]","Genoma mutado [1,5,2,3,4]",Válido,0.02 ms,EXITOSO
+PA-NSGA2-014,Motor NSGA-II,Unitaria / Métrica,Cálculo de Hipervolumen positivo,Frente Pareto 2D,HV > 0.0,90000.0,0.02 ms,EXITOSO
+PA-NSGA2-015,Motor NSGA-II,Unitaria / Métrica,Métrica de Spacing con distribución ideal,"Distancias idénticas (10, 10, 10)",Spacing == 0.0 (distribución perfecta),0.0000,0.01 ms,EXITOSO
+PA-NSGA2-016,Motor NSGA-II,Unitaria / Métrica,Generational Distance en óptimo,Distancias al frente real = 0,GD == 0.0,0.0000,0.02 ms,EXITOSO
+PA-NSGA2-017,Motor NSGA-II,Unitaria / Algorítmica,Selección por torneo binario por rango,Rank 1 vs Rank 2,Gana candidato con Rank 1,Candidato 1,0.02 ms,EXITOSO
+PA-NSGA2-018,Motor NSGA-II,Unitaria / Algorítmica,Desempate por Crowding Distance,Rank 1 x2 (CD 0.5 vs 0.8),Gana candidato con CD 0.8,Candidato 2,0.01 ms,EXITOSO
+PA-NSGA2-019,Motor NSGA-II,Unitaria / Configuración,Preservación del tamaño de población N=50,N=50,Longitud == 50,50,0.02 ms,EXITOSO
+PA-NSGA2-020,Motor NSGA-II,Unitaria / Planificación,División multi-día equitativa,6 atractivos en 2 días,3 atractivos por día,Equitativo,0.02 ms,EXITOSO
+PA-NSGA2-021,Motor NSGA-II,Unitaria / Financiera,Cálculo aditivo del costo de itinerario,Entradas + Transporte,110.0 BOB,110.0 BOB,0.02 ms,EXITOSO
+PA-NSGA2-022,Motor NSGA-II,Unitaria / Planificación,Cálculo de tiempo total minutos,Visitas + Traslados,230 min,230 min,0.02 ms,EXITOSO
+PA-NSGA2-023,Motor NSGA-II,Unitaria / Horarios,Ventana operativa de jornada 09:00 - 18:00,09:00 a 18:00,540 min disponibles,540 min,0.01 ms,EXITOSO
+PA-NSGA2-024,Motor NSGA-II,Unitaria / Regla,Tiempo mínimo de visita salvaguardado,Valor negativo -10 min,15 min mínimo,15 min,0.03 ms,EXITOSO
+PA-NSGA2-025,Motor NSGA-II,Unitaria / Logística,Cálculo de traslado con 30 km/h,10 km a 30 km/h,20 min,20 min,0.01 ms,EXITOSO
+PA-NSGA2-026,Motor NSGA-II,Unitaria / Preferencias,Normalización de pesos de interés,Sumatoria de pesos,Suma == 1.0,1.00,0.01 ms,EXITOSO
+PA-NSGA2-027,Motor NSGA-II,Unitaria / Restricciones,Cálculo de penalización por costo,Costo 150 con techo 100,Penalización 500.0,500.0,0.01 ms,EXITOSO
+PA-NSGA2-028,Motor NSGA-II,Unitaria / Restricciones,Penalización por exceso de jornada,570 min con max 540,Exceso 30 min,30 min,0.01 ms,EXITOSO
+PA-NSGA2-029,Motor NSGA-II,Unitaria / Pareto,Vector de evaluación tri-objetivo,3 objetivos simultáneos,Dimensión == 3,Dimensión 3,0.01 ms,EXITOSO
+PA-NSGA2-030,Motor NSGA-II,Unitaria / Configuración,Límite de generaciones,generaciones=40,>= 10,40,0.01 ms,EXITOSO
+PA-NSGA2-031,Motor NSGA-II,Negativa / Validación,Rechazo de catálogo con 1 solo atractivo,atractivos=[10],Lanzamiento de ValueError controlado,Atajado exitosamente,0.01 ms,EXITOSO
+PA-NSGA2-032,Motor NSGA-II,Negativa / Validación,Rechazo de presupuesto negativo,presupuesto=-50.0,Rechazado (valido=False),Rechazado,0.01 ms,EXITOSO
+PA-NSGA2-033,Motor NSGA-II,Negativa / Robustez,Auto-corrección de personas = 0 a 1,personas=0,Ajustado a 1,1,0.02 ms,EXITOSO
+PA-NSGA2-034,Motor NSGA-II,Negativa / Límites,Detección de latitud inválida > 90°,lat=95.0,Rechazada (False),Detectada,0.01 ms,EXITOSO
+PA-NSGA2-035,Motor NSGA-II,Negativa / Horarios,Detección de ventana horaria invertida,"Inicio 18:00, Fin 08:00",Rechazado (False),Detectada,0.01 ms,EXITOSO
+PA-NSGA2-036,Motor NSGA-II,Negativa / Robustez,Auto-corrección de días disponibles = 0,dias=0,Corregido a 1,1,0.02 ms,EXITOSO
+PA-NSGA2-037,Motor NSGA-II,Negativa / Restricción,Detección de atractivo cerrado en día de visita,Visita lunes a museo cerrado,esta_abierto == False,Detectado cerrado,0.01 ms,EXITOSO
+PA-NSGA2-038,Motor NSGA-II,Negativa / Fallback,Fallback a Haversine por ausencia de matriz BD,distancia_bd=None,dist_final > 0.0 km,1.54 km,0.02 ms,EXITOSO
+PA-NSGA2-039,Motor NSGA-II,Negativa / Límites,Acotamiento de probabilidad mutación > 1.0,p_mut=1.5,Ajustada a 1.0,1.0,0.01 ms,EXITOSO
+PA-NSGA2-040,Motor NSGA-II,Negativa / Precisión,Ajuste de traslado menor a 1 min a 1 min entero,0.2 min entre paradas,1 min entero exacto,1 min,0.01 ms,EXITOSO
+PA-ITIN-041,Gestión de Itinerarios,Unitaria / Estados,Estado inicial por defecto,Nuevo itinerario guardado,Estado == 'Borrador',Borrador,0.36 ms,EXITOSO
+PA-ITIN-042,Gestión de Itinerarios,Unitaria / Estados,Catálogo oficial de estados válidos,Lista de 5 estados,Incluye 'Confirmado',Válido,0.01 ms,EXITOSO
+PA-ITIN-043,Gestión de Itinerarios,Funcional / Transición,Transición de Borrador a Cancelado,nuevo_estado='Cancelado',estado=='Cancelado',Cancelado,62.6 ms,EXITOSO
+PA-ITIN-044,Gestión de Itinerarios,Funcional / Transición,Transición a En curso por Agente,nuevo_estado='En curso',estado=='En curso',En curso,2.71 ms,EXITOSO
+PA-ITIN-045,Gestión de Itinerarios,Funcional / Transición,Transición de En curso a Completado,nuevo_estado='Completado',estado=='Completado',Completado,2.67 ms,EXITOSO
+PA-ITIN-046,Gestión de Itinerarios,Negativa / Validación,Rechazo de estado inexistente,estado='EstadoFantasmaInvalido',Lanza ValueError,Atajado exitosamente,3.05 ms,EXITOSO
+PA-ITIN-047,Gestión de Itinerarios,Negativa / Seguridad,Bloqueo de cambio de estado a rol Turista,rol='turista',Lanza ValueError de permisos,Bloqueado,0.57 ms,EXITOSO
+PA-ITIN-048,Gestión de Itinerarios,Negativa / Integridad,Rechazo de actualización en ID inexistente,id=99999,Lanza ValueError no encontrado,Atajado,1.15 ms,EXITOSO
+PA-ITIN-049,Gestión de Itinerarios,Negativa / Soft-Delete,Bloqueo de cambio de estado en itinerario eliminado,is_deleted=True,Lanza ValueError,Atajado,1.77 ms,EXITOSO
+PA-ITIN-050,Gestión de Itinerarios,Funcional / Auditoría,Generación de UUID de confirmación,Paso a 'Confirmado',UUID generado y voucher_generado=True,Exitoso,15.52 ms,EXITOSO
+PA-ITIN-051,Gestión de Itinerarios,Negativa / Regla Negocio,Bloqueo estricto de confirmación por faltantes,Faltan 2 de 3,Lanza ValueError explícito,Bloqueado con éxito,1.91 ms,EXITOSO
+PA-ITIN-052,Gestión de Itinerarios,Funcional / Regla Negocio,Confirmación exitosa con grupo completo,2 de 2 registrados,Estado=='Confirmado',Confirmado,9.73 ms,EXITOSO
+PA-ITIN-053,Gestión de Itinerarios,Unitaria / Cupos,Cálculo de faltantes (1 de 4),"esperado=4, reg=1","faltantes=3, completo=False",Faltan 3,0.03 ms,EXITOSO
+PA-ITIN-054,Gestión de Itinerarios,Unitaria / Cupos,Cálculo de faltantes viajero individual,"esperado=1, reg=1","faltantes=0, completo=True",Completo,0.02 ms,EXITOSO
+PA-ITIN-055,Gestión de Itinerarios,Unitaria / Cupos,Faltantes acotados a 0 mínimo,"esperado=2, reg=2",faltantes=0,0,0.01 ms,EXITOSO
+PA-ITIN-056,Gestión de Itinerarios,Unitaria / Roles Viaje,Diferenciación de rol Titular y Acompañante,Grupo de 2,1 titular y 1 acompañante,Correcto,0.02 ms,EXITOSO
+PA-ITIN-057,Gestión de Itinerarios,Negativa / Validación,Rechazo de acompañante sin nombres,nombres='',es_valido=False,Rechazado,0.01 ms,EXITOSO
+PA-ITIN-058,Gestión de Itinerarios,Negativa / Validación,Rechazo de acompañante sin apellidos,apellidos='',es_valido=False,Rechazado,0.01 ms,EXITOSO
+PA-ITIN-059,Gestión de Itinerarios,Negativa / Validación,Rechazo de acompañante sin procedencia,procedencia='',es_valido=False,Rechazado,0.01 ms,EXITOSO
+PA-ITIN-060,Gestión de Itinerarios,Negativa / Validación,Rechazo de email malformado en acompañante,email='correo-sin-arroba',es_valido=False,Rechazado,0.01 ms,EXITOSO
+PA-ITIN-061,Gestión de Itinerarios,Negativa / Integridad,Detección de conflicto de procedencia en documento,Doc 12345 (BO vs PE),Conflicto detectado (True),Detectado,0.01 ms,EXITOSO
+PA-ITIN-062,Gestión de Itinerarios,Funcional / Reutilización,Permiso de reutilización con misma procedencia,Doc 12345 (BO vs BO),Sin conflicto (False),Permitido,0.01 ms,EXITOSO
+PA-ITIN-063,Gestión de Itinerarios,Negativa / Regla Negocio,Bloqueo de añadir acompañantes fuera de Borrador,estado='Confirmado',puede_anadir=False,Bloqueado,0.01 ms,EXITOSO
+PA-ITIN-064,Gestión de Itinerarios,Negativa / Regla Negocio,Bloqueo de añadir acompañante si cupo está lleno,2 de 2 registrados,puede_anadir=False,Bloqueado,0.01 ms,EXITOSO
+PA-ITIN-065,Gestión de Itinerarios,Unitaria / Consistencia,Consistencia de conteo final de personas,"esperado=3, registrados=3",Valores iguales,3==3,0.02 ms,EXITOSO
+PA-ITIN-066,Gestión de Itinerarios,Unitaria / Cronograma,Orden secuencial monótono de paradas,"Paradas [1,2,3,4]",Orden ascendente estricto,Válido,0.01 ms,EXITOSO
+PA-ITIN-067,Gestión de Itinerarios,Unitaria / Cronograma,Día de parada estrictamente positivo,"Días [1, 1, 2, 2]",Todos > 0,Válido,0.01 ms,EXITOSO
+PA-ITIN-068,Gestión de Itinerarios,Unitaria / Cronograma,Hora de salida posterior a llegada,"Llegada 09:30, Salida 11:00",90 min de permanencia,90 min,0.02 ms,EXITOSO
+PA-ITIN-069,Gestión de Itinerarios,Unitaria / Precisión,Traslado exacto en minutos enteros,Raw: 14.7 min,15 min enteros,15 min,0.01 ms,EXITOSO
+PA-ITIN-070,Gestión de Itinerarios,Unitaria / Aritmética,Llegada siguiente = salida anterior + traslado,Salida 10:00 + 15 min,10:15 exacto,615 min,0.02 ms,EXITOSO
+PA-ITIN-071,Gestión de Itinerarios,Unitaria / Financiera,Costo de entradas no negativo,costo=45.0 BOB,>= 0.0,45.0 BOB,0.01 ms,EXITOSO
+PA-ITIN-072,Gestión de Itinerarios,Unitaria / Financiera,Costo de transporte no negativo,costo=120.0 BOB,>= 0.0,120.0 BOB,0.01 ms,EXITOSO
+PA-ITIN-073,Gestión de Itinerarios,Unitaria / Calendario,Cálculo de días totales de viaje,20/11 al 22/11,3 días de viaje,3 días,0.02 ms,EXITOSO
+PA-ITIN-074,Gestión de Itinerarios,Unitaria / Soft-Delete,Baja lógica de itinerario,is_deleted = True,Marcado como eliminado sin DELETE SQL,Preservado,0.35 ms,EXITOSO
+PA-ITIN-075,Gestión de Itinerarios,Unitaria / Soft-Delete,Restauración de baja lógica,is_deleted = False,Registro reactivado,Reactivado,0.85 ms,EXITOSO
+PA-VOUCHER-076,Voucher PDF y QR,Funcional / Documentos,Generación binaria de Voucher PDF,Itinerario #101 confirmado,Bytes > 1000 y encabezado %PDF,11335 bytes,104.32 ms,EXITOSO
+PA-VOUCHER-077,Voucher PDF y QR,Unitaria / QR,Generación de código QR en formato PNG en memoria,Payload UUID itinerario,Bytes formato PNG legítimo,348 bytes,7.66 ms,EXITOSO
+PA-VOUCHER-078,Voucher PDF y QR,Unitaria / Finanzas,Cálculo bimonetario en voucher BOB y USD,696.0 BOB con TC 6.96,100.0 USD exacto,100.0 USD,0.01 ms,EXITOSO
+PA-VOUCHER-079,Voucher PDF y QR,Unitaria / Criptografía,Formato canónico de UUID v4 en voucher,uuid.uuid4(),Longitud estándar 36 caracteres,fc7a20aa-4437-4cd2-b1a3-e2dd1b0da58f,0.04 ms,EXITOSO
+PA-VOUCHER-080,Voucher PDF y QR,Unitaria / Maquetación,Ancho imprimible de página Letter en ReportLab,612 pt - 72 pt márgenes,540 pt exactos,540 pt,0.01 ms,EXITOSO
+PA-VOUCHER-081,Voucher PDF y QR,Unitaria / Manifiesto,Inclusión de titular en manifiesto de pasajeros,Lista de 1 pasajero,Tiene titular (True),Verificado,0.01 ms,EXITOSO
+PA-VOUCHER-082,Voucher PDF y QR,Unitaria / Identidad,Inclusión de razón social y NIT en voucher,Búhos Tours S.R.L.,Identidad corporativa presente,Búhos Tours S.R.L.,0.01 ms,EXITOSO
+PA-VOUCHER-083,Voucher PDF y QR,Negativa / Documentos,Rechazo de generación de voucher en ID inexistente,id=88888,Lanza ValueError no encontrado,Atajado,0.83 ms,EXITOSO
+PA-VOUCHER-084,Voucher PDF y QR,Negativa / Soft-Delete,Rechazo de generación de voucher en itinerario eliminado,is_deleted=True,Lanza ValueError,Atajado,1.24 ms,EXITOSO
+PA-VOUCHER-085,Voucher PDF y QR,Negativa / Casos Límite,Generación tolerante de voucher sin paradas registradas,0 paradas,Genera PDF sin error 500,Exitoso,69.88 ms,EXITOSO
+PA-AUTH-086,Autenticación y Seguridad,Criptográfica,Generación de hash seguro con salt,Contraseña en texto claro,Hash unidireccional no reversible,Hash seguro,324.91 ms,EXITOSO
+PA-AUTH-087,Autenticación y Seguridad,Criptográfica,Verificación exitosa de contraseña válida,Hash y contraseña coincidente,check_password_hash == True,Verificado,645.34 ms,EXITOSO
+PA-AUTH-088,Autenticación y Seguridad,Negativa / Seguridad,Rechazo de contraseña errónea contra hash,Hash legítimo y contraseña falsa,check_password_hash == False,Rechazado,654.48 ms,EXITOSO
+PA-AUTH-089,Autenticación y Seguridad,Criptográfica,Salts dinámicos contra ataques de Rainbow Table,Misma contraseña hasheada 2 veces,h1 != h2,Salts únicos,1287.51 ms,EXITOSO
+PA-AUTH-090,Autenticación y Seguridad,Unitaria / Políticas,Aprobación de contraseña que cumple directivas,BuhosPass2026*,"valido==True, msg==''",Aprobado,0.32 ms,EXITOSO
+PA-AUTH-091,Autenticación y Seguridad,Negativa / Validación,Rechazo de contraseña con menos de 8 caracteres,Longitud 4,valido==False,La contraseña debe tener al menos 8 caracteres.,0.01 ms,EXITOSO
+PA-AUTH-092,Autenticación y Seguridad,Negativa / Validación,Rechazo de contraseña sin letras mayúsculas,solominusculas123*,valido==False,La contraseña debe contener al menos una letra mayúscula.,0.02 ms,EXITOSO
+PA-AUTH-093,Autenticación y Seguridad,Negativa / Validación,Rechazo de contraseña sin dígitos numéricos,SoloLetrasSinNumero*,valido==False,La contraseña debe contener al menos un número.,0.01 ms,EXITOSO
+PA-AUTH-094,Autenticación y Seguridad,Negativa / Validación,Rechazo de contraseña vacía,'',valido==False,La contraseña debe tener al menos 8 caracteres.,0.01 ms,EXITOSO
+PA-AUTH-095,Autenticación y Seguridad,Negativa / Validación,Rechazo de contraseña formada solo por espacios,'        ',valido==False,La contraseña debe contener al menos una letra mayúscula.,0.01 ms,EXITOSO
+PA-AUTH-096,Autenticación y Seguridad,Criptográfica / 2FA,Generación de secreto TOTP Base32,pyotp.random_base32(),Longitud estándar 32 caracteres,Válido,0.08 ms,EXITOSO
+PA-AUTH-097,Autenticación y Seguridad,Unitaria / 2FA,Generación de token TOTP de 6 dígitos,Código actual now(),6 dígitos numéricos,394306,0.17 ms,EXITOSO
+PA-AUTH-098,Autenticación y Seguridad,Funcional / 2FA,Verificación exitosa de código TOTP vigente,Código recién generado,verify == True,Aprobado,0.14 ms,EXITOSO
+PA-AUTH-099,Autenticación y Seguridad,Negativa / 2FA,Rechazo de código 2FA incorrecto,Código no sincronizado,verify == False,Rechazado,0.15 ms,EXITOSO
+PA-AUTH-100,Autenticación y Seguridad,Negativa / 2FA,Rechazo de código 2FA expirado,Código de hace 10 minutos,verify == False,Expirado rechazado,0.13 ms,EXITOSO
+PA-AUTH-101,Autenticación y Seguridad,Unitaria / 2FA,Generación de URI para Google Authenticator,turista@buhostours.com,Formato otpauth://totp/ legítimo,URI Válido,0.09 ms,EXITOSO
+PA-AUTH-102,Autenticación y Seguridad,Funcional / 2FA,Desactivación segura de 2FA,two_factor_enabled=False,two_factor_secret=None,Desactivado,0.33 ms,EXITOSO
+PA-AUTH-103,Autenticación y Seguridad,Unitaria / Validación,Validación de correo electrónico sintácticamente válido,turista.ejemplo@gmail.com,valido==True,Aprobado,0.3 ms,EXITOSO
+PA-AUTH-104,Autenticación y Seguridad,Negativa / Validación,Rechazo de correo sin @ ni dominio,turista_sin_arroba,valido==False,Rechazado,0.02 ms,EXITOSO
+PA-AUTH-105,Autenticación y Seguridad,Negativa / Validación,Rechazo de correo con espacios internos,turista @ gmail.com,valido==False,Rechazado,0.01 ms,EXITOSO
+PA-AUTH-106,Autenticación y Seguridad,Unitaria / Formatos,Validación de teléfono internacional con espacio,+591 71234567,valido==True,Aprobado,0.22 ms,EXITOSO
+PA-AUTH-107,Autenticación y Seguridad,Negativa / Formatos,Rechazo de teléfono con caracteres alfabéticos,+591 7123abcd,valido==False,"El teléfono solo puede contener números, espacios, guiones o el signo +.",0.02 ms,EXITOSO
+PA-AUTH-108,Autenticación y Seguridad,Negativa / Límites,Rechazo de teléfono excediendo 20 caracteres,Longitud > 20,valido==False,El teléfono no puede tener más de 20 caracteres.,0.01 ms,EXITOSO
+PA-AUTH-109,Autenticación y Seguridad,Funcional / Opcionales,Aprobación de teléfono vacío por ser campo opcional,'',valido==True,Aprobado,0.02 ms,EXITOSO
+PA-AUTH-110,Autenticación y Seguridad,Funcional / Opcionales,Aprobación de teléfono None por ser campo opcional,None,valido==True,Aprobado,0.01 ms,EXITOSO
+PA-AUTH-111,Autenticación y Seguridad,Seguridad / Anti-FuerzaBruta,Bloqueo temporal de cuenta al alcanzar 5 intentos fallidos,intentos=5,cuenta_bloqueada==True,Bloqueada,0.01 ms,EXITOSO
+PA-AUTH-112,Autenticación y Seguridad,Seguridad / Anti-FuerzaBruta,Reinicio de intentos fallidos tras login exitoso,Login correcto,intentos_fallidos == 0,Reiniciado,0.01 ms,EXITOSO
+PA-AUTH-113,Autenticación y Seguridad,Negativa / Estados,Bloqueo de inicio de sesión a usuarios inactivos,is_active=False,puede_iniciar_sesion==False,Bloqueado,0.28 ms,EXITOSO
+PA-AUTH-114,Autenticación y Seguridad,Negativa / Soft-Delete,Bloqueo de login a usuarios con baja lógica,deleted_at not None,esta_activo==False,Bloqueado,0.26 ms,EXITOSO
+PA-AUTH-115,Autenticación y Seguridad,Seguridad / Tokens,Expiración de token de restablecimiento tras 1 hora,Token con 3700s de antigüedad,esta_expirado==True,Expirado,0.02 ms,EXITOSO
+PA-AUTH-116,Autenticación y Seguridad,Seguridad / Tokens,Aprobación de token de restablecimiento vigente (5 min),Token con 300s de antigüedad,esta_vigente==True,Vigente,0.02 ms,EXITOSO
+PA-AUTH-117,Autenticación y Seguridad,Negativa / Criptográfica,Rechazo de token con firma manipulada,token + 'inyeccion',Rechazo de firma,Detectado,0.02 ms,EXITOSO
+PA-AUTH-118,Autenticación y Seguridad,Seguridad / Privacidad,Exclusión de hash de contraseña en DTOs públicos,Diccionario de usuario,Sin password_hash,Protegido,0.02 ms,EXITOSO
+PA-AUTH-119,Autenticación y Seguridad,Unitaria / Sanitización,Normalización de correo a minúsculas sin espacios,TURISTA.VIP@Gmail.Com ,turista.vip@gmail.com,turista.vip@gmail.com,0.03 ms,EXITOSO
+PA-AUTH-120,Autenticación y Seguridad,Unitaria / Sanitización,Eliminación de espacios dobles en nombres de usuario,Espacios redundantes,Alfredo Cortez,Alfredo Cortez,0.02 ms,EXITOSO
+PA-RBAC-121,Control de Acceso (RBAC),Seguridad / Bloqueo,Turista bloqueado en gestión de usuarios,GET /admin/usuarios con rol turista,Código 403 Forbidden,403 Forbidden,3.91 ms,EXITOSO
+PA-RBAC-122,Control de Acceso (RBAC),Seguridad / Bloqueo,Turista bloqueado en creación de atractivos,GET /admin/atractivos/create con rol turista,Código 403 Forbidden,403 Forbidden,1.61 ms,EXITOSO
+PA-RBAC-123,Control de Acceso (RBAC),Seguridad / Bloqueo,Turista bloqueado en gestión de proveedores,GET /admin/proveedores con rol turista,Código 403 Forbidden,403 Forbidden,1.79 ms,EXITOSO
+PA-RBAC-124,Control de Acceso (RBAC),Seguridad / Bloqueo,Turista bloqueado en gestión de transportes,GET /admin/transportes con rol turista,Código 403 Forbidden,403 Forbidden,2.25 ms,EXITOSO
+PA-RBAC-125,Control de Acceso (RBAC),Seguridad / Bloqueo,Turista bloqueado en gestión de categorías,GET /admin/categorias con rol turista,Código 403 Forbidden,403 Forbidden,1.77 ms,EXITOSO
+PA-RBAC-126,Control de Acceso (RBAC),Seguridad / Bloqueo,Turista bloqueado en Dashboard analítico,GET /reportes/dashboard con rol turista,Código 403 Forbidden,403 Forbidden,1.62 ms,EXITOSO
+PA-RBAC-127,Control de Acceso (RBAC),Seguridad / Bloqueo,Turista bloqueado en generador de itinerarios,GET /itinerarios/generar con rol turista,Código 403 Forbidden,403 Forbidden,1.89 ms,EXITOSO
+PA-RBAC-128,Control de Acceso (RBAC),Seguridad / Bloqueo,Turista bloqueado de cambiar estado por API,POST /itinerarios/1/estado con rol turista,Código 403 Forbidden,403 Forbidden,1.72 ms,EXITOSO
+PA-RBAC-129,Control de Acceso (RBAC),Seguridad / Redirección,Anónimo redirigido a login en panel turista,GET /turista/dashboard,302 -> /auth/login,/login?next=%2Fturista%2Fdashboard,3.31 ms,EXITOSO
+PA-RBAC-130,Control de Acceso (RBAC),Seguridad / Redirección,Anónimo redirigido a login en perfil,GET /turista/perfil,302 -> /auth/login,/login?next=%2Fturista%2Fperfil,1.19 ms,EXITOSO
+PA-RBAC-131,Control de Acceso (RBAC),Seguridad / Redirección,Anónimo redirigido a login en lista itinerarios,GET /itinerarios/lista,302 -> /auth/login,/login?next=%2Fitinerarios%2Flista,1.01 ms,EXITOSO
+PA-RBAC-132,Control de Acceso (RBAC),Seguridad / Redirección,Anónimo redirigido a login en generador,GET /itinerarios/generar,302 -> /auth/login,/login?next=%2Fitinerarios%2Fgenerar,0.86 ms,EXITOSO
+PA-RBAC-133,Control de Acceso (RBAC),Seguridad / Redirección,Anónimo redirigido a login en admin usuarios,GET /admin/usuarios,302 -> /auth/login,/login?next=%2Fadmin%2Fusuarios,0.89 ms,EXITOSO
+PA-RBAC-134,Control de Acceso (RBAC),Seguridad / Redirección,Anónimo redirigido a login en descarga voucher,GET /itinerarios/1/voucher,302 -> /auth/login,/login?next=%2Fitinerarios%2F1%2Fvoucher,1.21 ms,EXITOSO
+PA-RBAC-135,Control de Acceso (RBAC),Seguridad / Redirección,Anónimo redirigido a login en reportes,GET /reportes/dashboard,302 -> /auth/login,/login?next=%2Freportes%2Fdashboard,0.93 ms,EXITOSO
+PA-RBAC-136,Control de Acceso (RBAC),Funcional / Permisos,Agente autorizado en lista de itinerarios,Decorador @agente_required con rol agente,200 OK,Autorizado,1.96 ms,EXITOSO
+PA-RBAC-137,Control de Acceso (RBAC),Funcional / Permisos,Agente facultado para cambiar estado a Cancelado,nuevo_estado='Cancelado',estado=='Cancelado',Cancelado,4.65 ms,EXITOSO
+PA-RBAC-138,Control de Acceso (RBAC),Seguridad / Bloqueo,Agente bloqueado en administración de usuarios,@admin_required con rol agente,Código 403 Forbidden,403 Forbidden,1.65 ms,EXITOSO
+PA-RBAC-139,Control de Acceso (RBAC),Seguridad / Bloqueo,Agente bloqueado en gestión de proveedores,@admin_required con rol agente,Código 403 Forbidden,403 Forbidden,1.42 ms,EXITOSO
+PA-RBAC-140,Control de Acceso (RBAC),Seguridad / Bloqueo,Agente bloqueado en gestión de transportes,@admin_required con rol agente,Código 403 Forbidden,403 Forbidden,1.63 ms,EXITOSO
+PA-RBAC-141,Control de Acceso (RBAC),Seguridad / Bloqueo,Agente bloqueado en gestión de categorías,@admin_required con rol agente,Código 403 Forbidden,403 Forbidden,1.62 ms,EXITOSO
+PA-RBAC-142,Control de Acceso (RBAC),Funcional / Permisos,Agente autorizado en detalle de itinerario,@agente_required con rol agente,200 OK,Autorizado,1.47 ms,EXITOSO
+PA-RBAC-143,Control de Acceso (RBAC),Funcional / Permisos,Admin con acceso autorizado a usuarios,@admin_required con rol admin,200 OK,Acceso concedido,2.12 ms,EXITOSO
+PA-RBAC-144,Control de Acceso (RBAC),Funcional / Permisos,Admin autorizado en Generador NSGA-II,@agente_required con rol admin,200 OK,Acceso concedido,3.31 ms,EXITOSO
+PA-RBAC-145,Control de Acceso (RBAC),Funcional / Permisos,Admin autorizado en módulo de reportes,@admin_required con rol admin,200 OK,Acceso concedido,1.52 ms,EXITOSO
+PA-RBAC-146,Control de Acceso (RBAC),Seguridad / Aislamiento,Aislamiento de itinerarios ajenos a turistas,Turista 10 consulta Itinerario de Turista 99,es_propietario == False,Aislado,0.36 ms,EXITOSO
+PA-RBAC-147,Control de Acceso (RBAC),Seguridad / Aislamiento,Turista autorizado para ver itinerario propio,Turista 10 consulta Itinerario de Turista 10,es_propietario == True,Autorizado,0.42 ms,EXITOSO
+PA-RBAC-148,Control de Acceso (RBAC),Seguridad / 2FA,Decorador @require_2fa exige 2FA activo a admin,admin sin two_factor_enabled,302 -> /configurar-2fa,/configurar-2fa,1.48 ms,EXITOSO
+PA-RBAC-149,Control de Acceso (RBAC),Seguridad / 2FA,Decorador @require_2fa aprueba acceso con 2FA activo,admin con two_factor_enabled=True,200 OK,Aprobado,1.39 ms,EXITOSO
+PA-RBAC-150,Control de Acceso (RBAC),Seguridad / Bloqueo,Decorador @turista_required bloquea rol agente,@turista_required con rol agente,Código 403 Forbidden,403 Forbidden,1.32 ms,EXITOSO
+PA-USRM-151,Gestión de Usuarios,Funcional / Creación,Creación exitosa de usuario administrador,Datos válidos admin,"ok == True, pwd 14 chars",True,369.12 ms,EXITOSO
+PA-USRM-152,Gestión de Usuarios,Funcional / Creación,Creación de agente con flag must_change_password,Rol agente,must_change_password == True,True,326.04 ms,EXITOSO
+PA-USRM-153,Gestión de Usuarios,Integración / Sincronización,Creación de turista añade entidad Usuario y Turista,Rol turista,db.session.add llamado 2 veces,Sincronizado,323.7 ms,EXITOSO
+PA-USRM-154,Gestión de Usuarios,Validación / Negativa,Rechazo de creación con nombres vacíos,nombres=' ',ok == False,El nombre es obligatorio y debe tener al menos 2 caracteres.,0.03 ms,EXITOSO
+PA-USRM-155,Gestión de Usuarios,Validación / Negativa,Rechazo de creación con apellidos menores a 2 caracteres,apellidos='P',ok == False,Los apellidos son obligatorios y deben tener al menos 2 caracteres.,0.01 ms,EXITOSO
+PA-USRM-156,Gestión de Usuarios,Validación / Negativa,Rechazo de formato de email no estándar,email sin dominio,ok == False,Por favor ingresa un correo electrónico válido.,0.02 ms,EXITOSO
+PA-USRM-157,Gestión de Usuarios,Validación / Unicidad,Bloqueo de creación con email ya existente,email existente,ok == False,El correo electrónico ya se encuentra registrado en el sistema.,1.25 ms,EXITOSO
+PA-USRM-158,Gestión de Usuarios,Validación / Negativa,Bloqueo con rol inexistente en el sistema,rol='hacker',ok == False,El rol 'hacker' especificado no es válido.,1.61 ms,EXITOSO
+PA-USRM-159,Gestión de Usuarios,Funcional / Actualización,Actualización de nombres y apellidos exitosa,nombres='NuevoNombre',ok == True,Actualizado,4.84 ms,EXITOSO
+PA-USRM-160,Gestión de Usuarios,Funcional / Roles,Promoción de rol de agente a admin,rol='admin',id_rol == 1,Promovido,5.4 ms,EXITOSO
+PA-USRM-161,Gestión de Usuarios,Validación / Negativa,Impedir colisión de email al actualizar,email de otro usuario,ok == False,Ese correo electrónico ya está siendo usado por otro usuario.,2.24 ms,EXITOSO
+PA-USRM-162,Gestión de Usuarios,Validación / Negativa,Actualizar usuario inexistente retorna error,id_usuario=999,ok == False,Usuario no encontrado.,0.29 ms,EXITOSO
+PA-USRM-163,Gestión de Usuarios,Auditoría / Soft-Delete,Asignación de timestamp deleted_at para baja lógica,deleted_at=utcnow(),deleted_at != None,2026-11-21 04:21:09.638528,0.22 ms,EXITOSO
+PA-USRM-164,Gestión de Usuarios,Auditoría / Soft-Delete,Usuario en baja lógica tiene is_active=False e is_deleted=True,deleted_at activo,"is_active==False, is_deleted==True",Verificado,0.13 ms,EXITOSO
+PA-USRM-165,Gestión de Usuarios,Auditoría / Reactivación,Reactivación de usuario restablece deleted_at a None,deleted_at=None,deleted_at == None,Reactivado,0.05 ms,EXITOSO
+PA-USRM-166,Gestión de Usuarios,Auditoría / Reactivación,Usuario activo tiene is_active=True e is_deleted=False,deleted_at=None,"is_active==True, is_deleted==False",Verificado,0.04 ms,EXITOSO
+PA-USRM-167,Gestión de Usuarios,Analítica / Métricas,Métricas agregadas para tarjetas del panel admin,Cálculo de estadísticas,"total==15, activos==12, eliminados==3","{'total': 15, 'activos': 12, 'eliminados': 3, 'admins': 2, 'agentes': 5, 'turistas': 5}",2.5 ms,EXITOSO
+PA-USRM-168,Gestión de Usuarios,Paginación / Filtro,Paginación con filtro de activos,estado_filtro='activos',Llamada con filtro deleted_at.is_(None),OK,2.54 ms,EXITOSO
+PA-USRM-169,Gestión de Usuarios,Paginación / Filtro,Paginación con filtro de eliminados,estado_filtro='eliminados',Llamada con filtro deleted_at.isnot(None),OK,2.01 ms,EXITOSO
+PA-USRM-170,Gestión de Usuarios,Paginación / Búsqueda,Búsqueda insensible a mayúsculas por nombre,search_query='Gonzales',Búsqueda ILIKE aplicada,OK,2.14 ms,EXITOSO
+PA-USRM-171,Gestión de Usuarios,Paginación / Roles,Filtro estricto por rol agente,rol_filtro='agente',Join con Rol.nombre == 'agente',OK,3.13 ms,EXITOSO
+PA-USRM-172,Gestión de Usuarios,Paginación / Orden,Ordenamiento cronológico descendente,sort_by='fecha_desc',Order by fecha_registro desc,OK,1.55 ms,EXITOSO
+PA-USRM-173,Gestión de Usuarios,Seguridad / Expiración,Cálculo de vigencia de clave temporal a 24 horas,ahora + 24h,delta == 24.0 horas,24.0h,0.02 ms,EXITOSO
+PA-USRM-174,Gestión de Usuarios,Seguridad / Expiración,is_temp_password_expired detecta clave vencida,expires_at = 5 min atrás,is_temp_password_expired == True,Expirada,0.06 ms,EXITOSO
+PA-USRM-175,Gestión de Usuarios,Seguridad / Expiración,is_temp_password_expired aprueba clave vigente,expires_at = +12 horas,is_temp_password_expired == False,Vigente,0.05 ms,EXITOSO
+PA-ATRA-176,Catálogo Atractivos,Funcional / Validación,Validación exitosa de atractivo con campos completos,Datos válidos Valle de la Luna,ok == True,Aprobado,6.34 ms,EXITOSO
+PA-ATRA-177,Catálogo Atractivos,Validación / Longitud,Verificación de nombre mayor a 3 caracteres,nombre='Mirador Killi Killi',len >= 3,Válido,0.54 ms,EXITOSO
+PA-ATRA-178,Catálogo Atractivos,Validación / Negativa,Rechazo de nombre con menos de 3 caracteres,nombre='AB',ok == False,El nombre del atractivo es obligatorio y debe tener al menos 3 caracteres.,0.39 ms,EXITOSO
+PA-ATRA-179,Catálogo Atractivos,Validación / Negativa,Rechazo de nombre que excede 100 caracteres,len(nombre) == 101,ok == False,El nombre no puede exceder los 100 caracteres.,0.56 ms,EXITOSO
+PA-ATRA-180,Catálogo Atractivos,Validación / Unicidad,Rechazo de nombre de atractivo duplicado,nombre='Teleférico Rojo',ok == False,Ya existe un atractivo registrado con el nombre 'Teleférico Rojo'.,3.31 ms,EXITOSO
+PA-ATRA-181,Catálogo Atractivos,Validación / Negativa,Rechazo de descripción mayor a 500 caracteres,len == 501,ok == False,La descripción no puede exceder los 500 caracteres.,1.41 ms,EXITOSO
+PA-ATRA-182,Catálogo Atractivos,Validación / Negativa,Rechazo de dirección mayor a 200 caracteres,len > 200,ok == False,La dirección no puede exceder los 200 caracteres.,1.32 ms,EXITOSO
+PA-ATRA-183,Catálogo Atractivos,Integridad / FK,Aprobación de subcategoría existente,id_subcategoria=2,ok == True,Válido,4.12 ms,EXITOSO
+PA-ATRA-184,Catálogo Atractivos,Integridad / FK,Rechazo de FK de subcategoría inexistente,id_subcategoria=999,ok == False,Debes seleccionar una subcategoría válida.,2.45 ms,EXITOSO
+PA-ATRA-185,Catálogo Atractivos,Integridad / FK,Aprobación de proveedor registrado,id_proveedor=5,ok == True,Válido,5.03 ms,EXITOSO
+PA-ATRA-186,Catálogo Atractivos,Integridad / FK,Rechazo de FK de proveedor inexistente,id_proveedor=999,ok == False,El proveedor seleccionado no existe.,2.08 ms,EXITOSO
+PA-ATRA-187,Catálogo Atractivos,Geoespacial / Bolivia,Latitud de La Paz dentro de límites Bolivia,lat=-16.495,"Dentro de [-23.0, -9.0]",Válido,0.37 ms,EXITOSO
+PA-ATRA-188,Catálogo Atractivos,Geoespacial / Negativa,Rechazo de latitud fuera de frontera sur,latitud=-25.5,ok == False,La latitud debe estar dentro del rango geográfico válido de Bolivia (entre -22.0 y -9.0).,1.95 ms,EXITOSO
+PA-ATRA-189,Catálogo Atractivos,Geoespacial / Negativa,Rechazo de latitud fuera de frontera norte,latitud=-5.0,ok == False,La latitud debe estar dentro del rango geográfico válido de Bolivia (entre -22.0 y -9.0).,2.21 ms,EXITOSO
+PA-ATRA-190,Catálogo Atractivos,Geoespacial / Bolivia,Longitud de La Paz dentro de límites Bolivia,lon=-68.133,"Dentro de [-70.0, -57.0]",Válido,0.41 ms,EXITOSO
+PA-ATRA-191,Catálogo Atractivos,Geoespacial / Negativa,Rechazo de longitud fuera de frontera oeste,longitud=-75.0,ok == False,La longitud debe estar dentro del rango geográfico válido de Bolivia (entre -69.0 y -57.0).,1.93 ms,EXITOSO
+PA-ATRA-192,Catálogo Atractivos,Geoespacial / Negativa,Rechazo de longitud fuera de frontera este,longitud=-50.0,ok == False,La longitud debe estar dentro del rango geográfico válido de Bolivia (entre -69.0 y -57.0).,3.18 ms,EXITOSO
+PA-ATRA-193,Catálogo Atractivos,Geoespacial / Negativa,Rechazo de coordenadas con texto alfanumérico,latitud='no_es_numero',ok == False,La latitud debe ser un valor numérico decimal válido.,3.09 ms,EXITOSO
+PA-ATRA-194,Catálogo Atractivos,Horarios / Parsing,Conversión correcta de HH:MM a objeto time,'09:30',"time(9, 30)",09:30:00,0.49 ms,EXITOSO
+PA-ATRA-195,Catálogo Atractivos,Horarios / Negativa,Rechazo de hora de apertura fuera de rango 24h,horario_apertura='25:70',ok == False,Los horarios deben tener un formato válido (HH:MM).,2.27 ms,EXITOSO
+PA-ATRA-196,Catálogo Atractivos,Horarios / Negativa,Rechazo de hora de cierre no estructurada,horario_cierre='tarde_noche',ok == False,Los horarios deben tener un formato válido (HH:MM).,1.88 ms,EXITOSO
+PA-ATRA-197,Catálogo Atractivos,Horarios / Consistencia,Verificación cierre posterior a apertura,09:00 < 18:00,cierre > apertura,Válido,0.5 ms,EXITOSO
+PA-ATRA-198,Catálogo Atractivos,Horarios / Negativa,Rechazo cuando cierre es antes que apertura,"apertura 18:00, cierre 09:00",ok == False,El horario de cierre debe ser posterior al horario de apertura.,2.21 ms,EXITOSO
+PA-ATRA-199,Catálogo Atractivos,Financiero / Costo,Validación de costo de entrada no negativo,costo=20.50,costo >= 0,Válido,0.41 ms,EXITOSO
+PA-ATRA-200,Catálogo Atractivos,Financiero / Negativa,Rechazo de tarifa de entrada negativa,costo=-10.00,ok == False,El costo de entrada debe ser un monto mayor o igual a 0.,5.4 ms,EXITOSO
+PA-ATRA-201,Catálogo Atractivos,Financiero / Negativa,Rechazo de costo con texto no numérico,costo='gratis',ok == False,El costo de entrada debe ser un valor decimal válido.,1.87 ms,EXITOSO
+PA-ATRA-202,Catálogo Atractivos,Planificación / Tiempo,Validación de tiempo de visita entero positivo,tiempo=60 min,tiempo > 0,Válido,0.39 ms,EXITOSO
+PA-ATRA-203,Catálogo Atractivos,Planificación / Negativa,Rechazo de tiempo de visita igual a cero,tiempo=0 min,ok == False,El tiempo de visita estimado debe ser un número entero mayor a 0 minutos.,2.13 ms,EXITOSO
+PA-ATRA-204,Catálogo Atractivos,Planificación / Negativa,Rechazo de tiempo de visita no numérico,tiempo='media_hora',ok == False,El tiempo de visita estimado debe ser un número entero válido.,2.73 ms,EXITOSO
+PA-ATRA-205,Catálogo Atractivos,Multimedia / Pillow,Extensión de imagen PNG en formatos permitidos,ext='png',ext in ALLOWED_EXTENSIONS,Permitida,0.4 ms,EXITOSO
+PA-ATRA-206,Catálogo Atractivos,Seguridad / Multimedia,Bloqueo de extensión ejecutable en subida,filename='*.php',ok == False,"Formato no permitido (.php). Formatos aceptados: png, jpg, jpeg, webp.",0.72 ms,EXITOSO
+PA-ATRA-207,Catálogo Atractivos,Multimedia / Pillow,Redimensión proporcional a 1200px máx con Pillow,2000x1000 -> 1200x600,width == 1200,Redimensionado,26.08 ms,EXITOSO
+PA-ATRA-208,Catálogo Atractivos,Multimedia / Pillow,Límite estricto de archivo de imagen a 5 Megabytes,5 MB en bytes,5242880 bytes,Configurado,0.48 ms,EXITOSO
+PA-ATRA-209,Catálogo Atractivos,Auditoría / Soft-Delete,Propiedad is_deleted activada tras soft delete,deleted_at=utcnow(),is_deleted == True,Verificado,0.43 ms,EXITOSO
+PA-ATRA-210,Catálogo Atractivos,Optimización / Clima,Flag sensible_al_clima activo para exclusión WMO,sensible_al_clima=True,sensible_al_clima == True,Activo,0.4 ms,EXITOSO
+PA-PROV-211,Transportes y Logística,Funcional / Creación,Creación exitosa de transporte privado por día,Van VIP 12 pasajeros,"ok == True, tipo=='Privado'",Aprobado,1.01 ms,EXITOSO
+PA-PROV-212,Transportes y Logística,Funcional / Creación,Creación exitosa de transporte público por persona,Tarifa 3.50 BOB/persona,"ok == True, tipo_costo=='por_persona'",Aprobado,1.03 ms,EXITOSO
+PA-PROV-213,Transportes y Logística,Validación / Negativa,Rechazo de transporte con nombre menor a 3 caracteres,nombre='AB',ok == False,El nombre del transporte es obligatorio y debe tener al menos 3 caracteres.,0.02 ms,EXITOSO
+PA-PROV-214,Transportes y Logística,Validación / Negativa,Rechazo de nombre que excede 100 caracteres,len == 101,ok == False,El nombre no puede exceder los 100 caracteres.,0.01 ms,EXITOSO
+PA-PROV-215,Transportes y Logística,Validación / Negativa,Rechazo de tipo de transporte no permitido,tipo='Ficticio',ok == False,El tipo de transporte debe ser 'Privado' o 'Público'.,0.01 ms,EXITOSO
+PA-PROV-216,Transportes y Logística,Validación / Negativa,Rechazo de modalidad de cobro desconocida,tipo_costo='por_hora',ok == False,El tipo de costo debe ser 'por_dia' o 'por_persona'.,0.01 ms,EXITOSO
+PA-PROV-217,Transportes y Logística,Validación / Negativa,Rechazo de capacidad igual a cero,capacidad=0,ok == False,La capacidad debe ser un número entero mayor a 0.,0.01 ms,EXITOSO
+PA-PROV-218,Transportes y Logística,Validación / Negativa,Rechazo de capacidad con texto no numérico,capacidad='cuatro',ok == False,La capacidad es obligatoria y debe ser un número entero mayor a 0.,0.01 ms,EXITOSO
+PA-PROV-219,Transportes y Logística,Horarios / Parsing,Formato estructurado de horario de operaciones,07:30 y 20:00,"time(7,30) y time(20,0)",Válido,0.07 ms,EXITOSO
+PA-PROV-220,Transportes y Logística,Horarios / Negativa,Rechazo de horario de inicio no parseable,horario_inicio='madrugada',ok == False,El horario de inicio es obligatorio y debe tener formato válido (HH:MM).,0.06 ms,EXITOSO
+PA-PROV-221,Transportes y Logística,Horarios / Negativa,Rechazo de horario de finalización antes que inicio,20:00 a 08:00,ok == False,El horario de finalización debe ser posterior al horario de inicio.,0.07 ms,EXITOSO
+PA-PROV-222,Transportes y Logística,Financiero / Costo,Validación de tarifa decimal mayor o igual a cero,costo=150.00,costo >= 0,Válido,0.02 ms,EXITOSO
+PA-PROV-223,Transportes y Logística,Financiero / Negativa,Rechazo de tarifa de transporte negativa,costo=-50.00,ok == False,El costo debe ser mayor o igual a 0.,0.11 ms,EXITOSO
+PA-PROV-224,Transportes y Logística,Física / Velocidad,Velocidad promedio dentro de rango operacional seguro,v=40.0 km/h,0 < v <= 120,Válido,0.02 ms,EXITOSO
+PA-PROV-225,Transportes y Logística,Física / Negativa,Rechazo de velocidad de transporte nula,velocidad=0.0 km/h,ok == False,La velocidad promedio debe ser mayor a 0 km/h y menor o igual a 120 km/h.,0.12 ms,EXITOSO
+PA-PROV-226,Transportes y Logística,Física / Negativa,Rechazo de velocidad superior al límite de 120 km/h,velocidad=180.0 km/h,ok == False,La velocidad promedio debe ser mayor a 0 km/h y menor o igual a 120 km/h.,0.11 ms,EXITOSO
+PA-PROV-227,Transportes y Logística,Algorítmica / Traslado,Cálculo exacto de tiempo de viaje (15 km @ 30 km/h),15 / 30 * 60,30.0 minutos,30.0 min,0.02 ms,EXITOSO
+PA-PROV-228,Transportes y Logística,Auditoría / Soft-Delete,Transporte con soft delete activa flag is_deleted,deleted_at=utcnow(),is_deleted == True,Verificado,0.11 ms,EXITOSO
+PA-PROV-229,Proveedores de Servicios,Funcional / Creación,Registro exitoso de proveedor institucional,Datos completos Illimani Tours,ok == True,Aprobado,1.0 ms,EXITOSO
+PA-PROV-230,Proveedores de Servicios,Validación / Negativa,Rechazo de razón social con menos de 3 caracteres,razon_social='OT',ok == False,La razón social es obligatoria y debe tener al menos 3 caracteres.,0.01 ms,EXITOSO
+PA-PROV-231,Proveedores de Servicios,Validación / Negativa,Rechazo de razón social mayor a 100 caracteres,len == 101,ok == False,La razón social no puede exceder los 100 caracteres.,0.02 ms,EXITOSO
+PA-PROV-232,Proveedores de Servicios,Comunicación / Email,Aprobación de email institucional de proveedor,reservas@hotelrosario.bo,ok == True,Válido,1.8 ms,EXITOSO
+PA-PROV-233,Proveedores de Servicios,Comunicación / Negativa,Rechazo de email malformado de proveedor,email inválido,ok == False,El correo de contacto tiene un formato inválido.,0.05 ms,EXITOSO
+PA-PROV-234,Proveedores de Servicios,Financiero / Tarifas,Validación de tarifa especial no negativa,tarifa=15.50,tarifa >= 0,Válido,0.02 ms,EXITOSO
+PA-PROV-235,Proveedores de Servicios,Financiero / Negativa,Rechazo de tarifa especial negativa,tarifa=-5.00,ok == False,La tarifa especial debe ser un monto mayor o igual a 0.,0.02 ms,EXITOSO
+PA-PROV-236,Proveedores de Servicios,Auditoría / Soft-Delete,Proveedor con baja lógica activa flag is_deleted,deleted_at=utcnow(),is_deleted == True,Verificado,0.07 ms,EXITOSO
+PA-PROV-237,Transportes y Logística,Paginación / Filtro,Filtro de transportes por modalidad Privado,tipo_filtro='Privado',Transporte.tipo == 'Privado',OK,2.85 ms,EXITOSO
+PA-PROV-238,Transportes y Logística,Paginación / Filtro,Filtro de transportes por modalidad Público,tipo_filtro='Público',Transporte.tipo == 'Público',OK,1.87 ms,EXITOSO
+PA-PROV-239,Proveedores de Servicios,Paginación / Búsqueda,Búsqueda por coincidencia en razón social,search_query='Illimani',Búsqueda ILIKE aplicada,OK,3.9 ms,EXITOSO
+PA-PROV-240,Transportes y Logística,Consulta / Robustez,Consulta de transporte inexistente retorna None seguro,id=9999,t is None,None,0.32 ms,EXITOSO
+PA-FINT-241,Finanzas y Tipo de Cambio,Integración / API BCB,Consulta exitosa a API BCB con retorno 6.96/7.06,GET API BCB,conectado == True,7.06,0.73 ms,EXITOSO
+PA-FINT-242,Finanzas y Tipo de Cambio,Robustez / Fallback,Activación de fallback ante caída de API BCB,HTTP 503 Service Unavailable,fuente == 'default',6.96 / 7.06,0.46 ms,EXITOSO
+PA-FINT-243,Finanzas y Tipo de Cambio,Aritmética / Conversión,Conversión exacta de 706 BOB a 100 USD (TC 7.06),706 BOB @ 7.06,100.0 USD,100.0 USD,0.01 ms,EXITOSO
+PA-FINT-244,Finanzas y Tipo de Cambio,Validación / Null-Safety,Conversión de monto nulo retorna None seguro,monto_bs=None,usd is None,None,0.01 ms,EXITOSO
+PA-FINT-245,Finanzas y Tipo de Cambio,Validación / Robustez,Conversión de valor no numérico no genera excepción,monto='cien_bolivianos',usd is None,None,0.01 ms,EXITOSO
+PA-FINT-246,Finanzas y Tipo de Cambio,Aritmética / Redondeo,Redondeo bancario a 2 decimales,100 / 6.96,14.37 USD,14.37 USD,0.01 ms,EXITOSO
+PA-FINT-247,Finanzas y Tipo de Cambio,Funcional / TC Manual,Registro manual de tipo de cambio por administrador,"compra 6.95, venta 7.05",ok == True,Registrado,0.98 ms,EXITOSO
+PA-FINT-248,Finanzas y Tipo de Cambio,Validación / Negativa,Rechazo de tipo de cambio de compra menor o igual a cero,compra=0.0,ok == False,Los valores de compra y venta deben ser mayores a cero.,0.01 ms,EXITOSO
+PA-FINT-249,Finanzas y Tipo de Cambio,Validación / Negativa,Rechazo de tipo de cambio de venta negativo,venta=-1.0,ok == False,Los valores de compra y venta deben ser mayores a cero.,0.01 ms,EXITOSO
+PA-FINT-250,Finanzas y Tipo de Cambio,Lógica / Coherencia,Coherencia cambiaria: spread bancario positivo (venta >= compra),compra 6.96 <= venta 7.06,venta >= compra,Coherente,0.01 ms,EXITOSO
+PA-FINT-251,Meteorología y Clima,Geoespacial / Zonas,Asignación de zona climática Centro por cercanía Haversine,Plaza Murillo La Paz,zona == 'centro',centro,0.05 ms,EXITOSO
+PA-FINT-252,Meteorología y Clima,WMO / Clasificación,Clasificación WMO código 0 como cielo despejado,código WMO 0,categoria == 'despejado',despejado,0.01 ms,EXITOSO
+PA-FINT-253,Meteorología y Clima,WMO / Clasificación,Clasificación WMO código 61 como lluvia,código WMO 61,categoria == 'lluvia',lluvia,0.01 ms,EXITOSO
+PA-FINT-254,Meteorología y Clima,Seguridad / Exclusión,Código WMO 95 (Tormenta eléctrica) clasificado como excluyente,WMO 95,95 in WMO_EXCLUYENTES,Excluyente,0.01 ms,EXITOSO
+PA-FINT-255,Meteorología y Clima,Seguridad / Exclusión,Código WMO 65 (Lluvia fuerte) clasificado como excluyente,WMO 65,65 in WMO_EXCLUYENTES,Excluyente,0.01 ms,EXITOSO
+PA-FINT-256,Meteorología y Clima,Umbrales / Lluvia,Precipitación mayor a 3.0 mm/h activa condición adversa,4.5 mm/h > 3.0,es_adverso == True,Adverso,0.01 ms,EXITOSO
+PA-FINT-257,Meteorología y Clima,Umbrales / Viento,Ráfagas superiores a 60 km/h activan condición adversa,75 km/h > 60,es_adverso == True,Adverso,0.01 ms,EXITOSO
+PA-FINT-258,Meteorología y Clima,Umbrales / Visibilidad,Visibilidad menor a 500m (niebla) activa exclusión,300m < 500m,es_adverso == True,Adverso,0.01 ms,EXITOSO
+PA-FINT-259,Meteorología y Clima,Lógica / Sensibilidad,Atractivo techado/no sensible no se descarta por lluvia,"sensible=False, lluvia=True",debe_excluirse == False,Permitido,0.01 ms,EXITOSO
+PA-FINT-260,Tráfico y Movilidad,Congestión / Hora Pico,Multiplicador 1.4x en ventana matutina 07:30 - 09:00,08:00 AM,factor == 1.4,1.4x,0.01 ms,EXITOSO
+PA-FINT-261,Tráfico y Movilidad,Congestión / Hora Valle,Multiplicador nominal 1.0x en ventana valle 14:00,14:00 PM,factor == 1.0,1.0x,0.01 ms,EXITOSO
+PA-FINT-262,Tráfico y Movilidad,Congestión / Nocturno,Multiplicador nominal 1.0x en horario nocturno fluido,22:00 PM,factor == 1.0,1.0x,0.01 ms,EXITOSO
+PA-FINT-263,Meteorología y Clima,Localización / Idioma,Día de la semana en español en zona horaria Bolivia,2026-11-20,dia == 'viernes',viernes,0.01 ms,EXITOSO
+PA-FINT-264,Finanzas y Tipo de Cambio,Rendimiento / Caché,Caché en memoria de tipo de cambio con TTL de 3600s,TTL 1 hora,3600 segundos,Configurado,0.01 ms,EXITOSO
+PA-FINT-265,Meteorología y Clima,Rendimiento / Caché,Caché de pronóstico meteorológico con TTL de 1 hora,TTL 1 hora,3600 segundos,Configurado,0.01 ms,EXITOSO
+PA-REPO-266,Analítica y Reportes,KPI / Agregación,Conteo total de itinerarios activos en el sistema,Itinerario.query.count(),total == 42,42,7.3 ms,EXITOSO
+PA-REPO-267,Analítica y Reportes,KPI / Finanzas,Presupuesto promedio redondeado a 2 decimales,AVG(costo_total_bob),520.76 BOB,520.76 BOB,7.4 ms,EXITOSO
+PA-REPO-268,Analítica y Reportes,KPI / Duración,Duración promedio de itinerarios en días,AVG(dias_totales),3.4 días,3.4 días,6.53 ms,EXITOSO
+PA-REPO-269,Analítica y Reportes,KPI / Rendimiento,Tiempo promedio de cálculo de rutas NSGA-II,AVG(tiempo_ejecucion_seg),1.26 segundos,1.26s,10.13 ms,EXITOSO
+PA-REPO-270,Analítica y Reportes,KPI / Viabilidad,Cálculo de tasa de éxito y viabilidad de itinerarios,45 viables de 50 totales,90.0 %,90.0 %,0.01 ms,EXITOSO
+PA-REPO-271,Analítica y Reportes,Robustez / División Cero,Protección ante cero itinerarios en base de datos,total == 0,pct == 0.0,0.0 %,0.01 ms,EXITOSO
+PA-REPO-272,Analítica y Reportes,Agrupación / Cronología,Formato cronológico de series temporales (YYYY-MM),2026-11,Formato YYYY-MM,2026-11,0.01 ms,EXITOSO
+PA-REPO-273,Analítica y Reportes,Ranking / Atractivos,Estructura del ranking Top Atractivos más visitados,Top 3 atractivos,Orden descendente por visitas,OK,0.02 ms,EXITOSO
+PA-REPO-274,Analítica y Reportes,Pareto / Hipervolumen,Extracción de métrica Hipervolumen (HV) de NSGA-II,HV=0.885,res['hipervolumen'] == 0.885,0.885,10.82 ms,EXITOSO
+PA-REPO-275,Analítica y Reportes,Pareto / Convergencia,Extracción de Generational Distance (GD),GD=0.015,res['generational_distance'] == 0.015,0.015,9.25 ms,EXITOSO
+PA-REPO-276,Analítica y Reportes,Pareto / Diversidad,Extracción de Spacing / Diversidad de frente Pareto,Spread=0.038,res['spread'] == 0.038,0.038,9.23 ms,EXITOSO
+PA-REPO-277,Analítica y Reportes,Exportación / CSV,Estructura de columnas estandarizada para CSV,5 columnas requeridas,len == 5,Válido,0.01 ms,EXITOSO
+PA-REPO-278,Analítica y Reportes,Exportación / Integridad,Presencia de campos mandatorios en dataset de exportación,nombre y visitas presentes,Headers validados,Válido,0.01 ms,EXITOSO
+PA-REPO-279,Analítica y Reportes,Robustez / Agregación,Manejo seguro de retornos NULL en funciones agregadas SQL,scalar() is None -> 0.0,resultado == 0.0,0.0,0.01 ms,EXITOSO
+PA-REPO-280,Analítica y Reportes,Auditoría / Filtrado,Exclusión de registros con soft-delete en todas las métricas,deleted_at is None,Excluye bajas lógicas,Válido,0.01 ms,EXITOSO
+PA-NOFN-281,Pruebas No Funcionales,Seguridad / SQLi,Inmunidad a inyección SQL de tautología (' OR '1'='1),Parámetro parametrizado ORM,Escape seguro como literal,Inmune,0.01 ms,EXITOSO
+PA-NOFN-282,Pruebas No Funcionales,Seguridad / SQLi,Inmunidad a inyección de apilamiento (DROP TABLE),SQLAlchemy bound parameters,Sin ejecución de comandos DDL,Inmune,0.01 ms,EXITOSO
+PA-NOFN-283,Pruebas No Funcionales,Seguridad / SQLi,Inmunidad a inyección UNION SELECT,Binding SQLAlchemy,Tratado como texto plano,Inmune,0.01 ms,EXITOSO
+PA-NOFN-284,Pruebas No Funcionales,Seguridad / SQLi,Parámetro de búsqueda paginada no altera cláusula WHERE,ILIKE term,Cláusula segura,Inmune,0.01 ms,EXITOSO
+PA-NOFN-285,Pruebas No Funcionales,Seguridad / SQLi,Generación estricta de consultas preparadas PDO/DBAPI,filter_by(param),Consulta parametrizada,Inmune,0.01 ms,EXITOSO
+PA-NOFN-286,Pruebas No Funcionales,Seguridad / XSS,Neutralización de inyección de script HTML,<script>alert(XSS)</script>,&lt;script&gt; escapado,Neutralizado,0.01 ms,EXITOSO
+PA-NOFN-287,Pruebas No Funcionales,Seguridad / XSS,Neutralización de vector XSS por atributo onerror,<img onerror=alert(1)>,&lt;img&gt; escapado,Neutralizado,0.01 ms,EXITOSO
+PA-NOFN-288,Pruebas No Funcionales,Seguridad / XSS,Neutralización de vector XSS mediante SVG onload,<svg onload>,&lt;svg&gt; escapado,Neutralizado,0.01 ms,EXITOSO
+PA-NOFN-289,Pruebas No Funcionales,Seguridad / XSS,Escape exhaustivo de entidades HTML reservadas,"& < > "" '",Entidades &amp; &lt; &gt;,Escapado,0.01 ms,EXITOSO
+PA-NOFN-290,Pruebas No Funcionales,Seguridad / CSRF,Exigencia de token anti-falsificación en formularios POST,CSRF Protection,Token validado,Protegido,0.01 ms,EXITOSO
+PA-NOFN-291,Pruebas No Funcionales,Rendimiento / Latencia,"Benchmark: 1,000 cálculos de distancia Haversine","1,000 iteraciones",Tiempo < 25 ms,1.20 ms,1.21 ms,EXITOSO
+PA-NOFN-292,Pruebas No Funcionales,Rendimiento / Latencia,Benchmark: 500 evaluaciones de dominancia de Pareto,500 iteraciones 3 objetivos,Tiempo < 20 ms,0.55 ms,0.56 ms,EXITOSO
+PA-NOFN-293,Pruebas No Funcionales,Rendimiento / Latencia,"Benchmark: 1,400 clasificaciones meteorológicas WMO","1,400 llamadas clasificar_wmo",Tiempo < 20 ms,0.46 ms,0.47 ms,EXITOSO
+PA-NOFN-294,Pruebas No Funcionales,Rendimiento / Criptografía,Benchmark: Verificación criptográfica de hash Argon2id,verify_password(),Tiempo < 500 ms,353.46 ms,691.89 ms,EXITOSO
+PA-NOFN-295,Pruebas No Funcionales,Rendimiento / Criptografía,Benchmark: Generación de 50 tokens criptográficos CSPRNG,secrets.token_urlsafe(32),Tiempo < 15 ms,0.07 ms,0.09 ms,EXITOSO
+PA-NOFN-296,Pruebas No Funcionales,Robustez / I18n,"Soporte íntegro de caracteres Unicode (Chino, Cirílico, Emojis)",UTF-8 multi-byte,Sin truncamiento ni corrupción,Preservado,0.01 ms,EXITOSO
+PA-NOFN-297,Pruebas No Funcionales,Robustez / Sanitización,Sanitización robusta de cadenas con caracteres de escape blancos,Whitespace strip(),clean == '',Sanitizado,0.01 ms,EXITOSO
+PA-NOFN-298,Pruebas No Funcionales,Robustez / Memoria,Procesamiento seguro de cargas de texto grandes,"50,000 caracteres",Sin desbordamiento,Manejado,0.02 ms,EXITOSO
+PA-NOFN-299,Pruebas No Funcionales,Integridad / Transacciones,Disparo de db.session.rollback() ante excepción transaccional,try-except ValueError,rollback() llamado 1 vez,Aislado,0.51 ms,EXITOSO
+PA-NOFN-300,Pruebas No Funcionales,Rendimiento / Garbage Collection,Liberación de memoria y recolección de ciclos huérfanos,gc.collect(),Memoria liberada,Limpio,61.21 ms,EXITOSO

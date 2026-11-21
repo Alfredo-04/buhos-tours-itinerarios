@@ -2,6 +2,15 @@
 
 {% block title %}Crear Cuenta{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@24.5.0/build/css/intlTelInput.css">
+<style>
+  .iti { width: 100%; display: block; }
+  .iti__dropdown-content { z-index: 1065 !important; }
+  .iti__country-list { max-height: 200px; }
+</style>
+{% endblock %}
+
 {% block content_unauth %}
 <div class="auth-wrapper">
   <div class="auth-card auth-card-lg">
@@ -71,24 +80,21 @@
             </div>
           </div>
 
-          <!-- Teléfono (fila completa, separado del email) -->
+          <!-- Teléfono (fila completa, con selector internacional) -->
           <div class="col-12">
             <div class="form-field-wrapper mb-2">
-              <label for="telefono" class="form-label">Teléfono <span class="text-muted small">(opcional)</span></label>
-              <div class="input-group">
-                <span class="input-group-text bg-white" style="border: 1.5px solid var(--color-border); border-right: 0; color: var(--color-text-muted);">
-                  <i class="bi bi-telephone"></i>
-                </span>
+              <label for="telefono_input" class="form-label">Teléfono <span class="text-muted small">(opcional)</span></label>
+              <input type="hidden" name="telefono" id="telefono" value="{{ form_data.get('telefono', '') }}">
+              <div>
                 <input 
                   type="tel" 
                   class="form-control" 
-                  id="telefono" 
-                  name="telefono" 
-                  value="{{ form_data.get('telefono', '') }}" 
+                  id="telefono_input" 
+                  placeholder="Número telefónico"
                   autocomplete="tel"
                 >
               </div>
-              <span class="form-helper-text"><i class="bi bi-info-circle me-1"></i>Ejemplo: +591 71234567</span>
+              <span class="form-helper-text"><i class="bi bi-info-circle me-1"></i>Selecciona la bandera de tu país y escribe únicamente números.</span>
             </div>
           </div>
 
@@ -222,6 +228,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@24.5.0/build/js/intlTelInput.min.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     const signupForm = document.getElementById('signupForm');
@@ -385,11 +392,51 @@
     pwdInput.addEventListener('input', validatePasswordFields);
     confirmPwdInput.addEventListener('input', validatePasswordFields);
 
+    // Inicialización de selector internacional de teléfono
+    const telInput = document.getElementById('telefono_input');
+    const hiddenTel = document.getElementById('telefono');
+    let itiSignup = null;
+
+    if (telInput && window.intlTelInput) {
+      itiSignup = window.intlTelInput(telInput, {
+        initialCountry: "bo",
+        preferredCountries: ["bo", "pe", "ar", "br", "cl", "us", "es"],
+        separateDialCode: true,
+        utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@24.5.0/build/js/utils.js"
+      });
+
+      if (hiddenTel && hiddenTel.value) {
+        itiSignup.setNumber(hiddenTel.value);
+        telInput.value = telInput.value.replace(/\D/g, '');
+      }
+
+      // Restricción estricta: solo números [0-9]
+      telInput.addEventListener('keypress', function(e) {
+        if (!/[0-9]/.test(e.key)) {
+          e.preventDefault();
+        }
+      });
+      telInput.addEventListener('input', function() {
+        this.value = this.value.replace(/\D/g, '');
+      });
+    }
+
     signupForm.addEventListener('submit', function(e) {
       const v1 = validateNombres();
       const v2 = validateApellidos();
       const v3 = validateEmail();
       const v4 = validatePasswordFields();
+
+      if (itiSignup && telInput && hiddenTel) {
+        const localVal = telInput.value.replace(/\D/g, '').trim();
+        if (localVal) {
+          const cd = itiSignup.getSelectedCountryData();
+          const dialCode = cd.dialCode ? `+${cd.dialCode}` : '';
+          hiddenTel.value = `${dialCode} ${localVal}`;
+        } else {
+          hiddenTel.value = '';
+        }
+      }
 
       if (!v1 || !v2 || !v3 || !v4) {
         e.preventDefault();
