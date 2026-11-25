@@ -146,41 +146,55 @@
           <span>Estado: <strong>{{ estado_actual }}</strong></span>
         </button>
         <ul class="dropdown-menu dropdown-menu-end shadow border-0" aria-labelledby="dropdownCambiarEstado">
-          <li><h6 class="dropdown-header text-uppercase small" style="font-size: 0.72rem;">Transición de Estados</h6></li>
+          <li><h6 class="dropdown-header text-uppercase small" style="font-size: 0.72rem;">Ciclo de Vida del Itinerario</h6></li>
           <li>
-            <button type="button" class="dropdown-item py-2 d-flex align-items-center gap-2 btn-cambiar-estado {% if estado_actual == 'Borrador' %}active{% endif %}" data-estado="Borrador" data-id-itinerario="{{ itinerario.id_itinerario }}">
-              <i class="bi bi-pencil text-secondary"></i>
-              <span>Borrador</span>
+            <button type="button" class="dropdown-item py-2 d-flex align-items-center justify-content-between btn-cambiar-estado {% if estado_actual == 'Borrador' %}active{% endif %}" data-estado="Borrador" data-id-itinerario="{{ itinerario.id_itinerario }}" {% if estado_actual != 'Borrador' %}disabled data-bloqueado="true" data-motivo="No se puede retroceder a Borrador una vez avanzado el itinerario."{% endif %}>
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-pencil text-secondary"></i>
+                <span>Borrador</span>
+              </div>
+              {% if estado_actual == 'Borrador' %}<i class="bi bi-check2 text-primary"></i>{% endif %}
             </button>
           </li>
           <li>
-            <button type="button" class="dropdown-item py-2 d-flex align-items-center justify-content-between btn-cambiar-estado {% if estado_actual == 'Confirmado' %}active{% endif %}" data-estado="Confirmado" data-id-itinerario="{{ itinerario.id_itinerario }}" {% if not conteo or not conteo.completo %}data-bloqueado="true" data-motivo="Faltan {{ conteo.faltantes if conteo else 1 }} acompañante(s) por registrar. Registra a todos los turistas antes de confirmar."{% endif %}>
+            <button type="button" class="dropdown-item py-2 d-flex align-items-center justify-content-between btn-cambiar-estado {% if estado_actual == 'Confirmado' %}active{% endif %}" data-estado="Confirmado" data-id-itinerario="{{ itinerario.id_itinerario }}" {% if estado_actual != 'Borrador' and estado_actual != 'Confirmado' %}disabled data-bloqueado="true" data-motivo="Solo se puede Confirmar un itinerario que se encuentra en Borrador."{% elif not conteo or not conteo.completo %}data-bloqueado="true" data-motivo="Faltan {{ conteo.faltantes if conteo else 1 }} acompañante(s) por registrar. Registra a todos los turistas antes de confirmar."{% endif %}>
               <div class="d-flex align-items-center gap-2">
                 <i class="bi bi-check-circle text-primary"></i>
                 <span class="fw-semibold">Confirmado</span>
               </div>
-              {% if not conteo or not conteo.completo %}
-              <span class="badge bg-warning text-dark small" style="font-size: 0.65rem;">Requiere acompañantes</span>
+              {% if estado_actual == 'Confirmado' %}
+                <i class="bi bi-check2 text-primary"></i>
+              {% elif not conteo or not conteo.completo %}
+                <span class="badge bg-warning text-dark small" style="font-size: 0.65rem;">Requiere acompañantes</span>
               {% endif %}
             </button>
           </li>
           <li>
-            <button type="button" class="dropdown-item py-2 d-flex align-items-center gap-2 btn-cambiar-estado {% if estado_actual == 'En curso' %}active{% endif %}" data-estado="En curso" data-id-itinerario="{{ itinerario.id_itinerario }}">
-              <i class="bi bi-play-circle text-info"></i>
-              <span>En curso</span>
+            <button type="button" class="dropdown-item py-2 d-flex align-items-center justify-content-between btn-cambiar-estado {% if estado_actual == 'En curso' %}active{% endif %}" data-estado="En curso" data-id-itinerario="{{ itinerario.id_itinerario }}" {% if estado_actual != 'Confirmado' and estado_actual != 'En curso' %}disabled data-bloqueado="true" data-motivo="Solo se puede pasar a 'En curso' si el itinerario fue previamente Confirmado."{% endif %}>
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-play-circle text-info"></i>
+                <span>En curso</span>
+              </div>
+              {% if estado_actual == 'En curso' %}<i class="bi bi-check2 text-primary"></i>{% endif %}
             </button>
           </li>
           <li>
-            <button type="button" class="dropdown-item py-2 d-flex align-items-center gap-2 btn-cambiar-estado {% if estado_actual == 'Completado' %}active{% endif %}" data-estado="Completado" data-id-itinerario="{{ itinerario.id_itinerario }}">
-              <i class="bi bi-patch-check text-success"></i>
-              <span>Completado</span>
+            <button type="button" class="dropdown-item py-2 d-flex align-items-center justify-content-between btn-cambiar-estado {% if estado_actual == 'Completado' %}active{% endif %}" data-estado="Completado" data-id-itinerario="{{ itinerario.id_itinerario }}" {% if estado_actual != 'En curso' and estado_actual != 'Completado' %}disabled data-bloqueado="true" data-motivo="Solo se puede marcar como 'Completado' un itinerario que esté 'En curso'."{% endif %}>
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-patch-check text-success"></i>
+                <span>Completado</span>
+              </div>
+              {% if estado_actual == 'Completado' %}<i class="bi bi-check2 text-primary"></i>{% endif %}
             </button>
           </li>
           <li><hr class="dropdown-divider"></li>
           <li>
-            <button type="button" class="dropdown-item py-2 d-flex align-items-center gap-2 text-danger btn-cambiar-estado {% if estado_actual == 'Cancelado' %}active{% endif %}" data-estado="Cancelado" data-id-itinerario="{{ itinerario.id_itinerario }}">
-              <i class="bi bi-x-circle"></i>
-              <span>Cancelado</span>
+            <button type="button" class="dropdown-item py-2 d-flex align-items-center justify-content-between text-danger btn-cambiar-estado {% if estado_actual == 'Cancelado' %}active{% endif %}" data-estado="Cancelado" data-id-itinerario="{{ itinerario.id_itinerario }}" {% if estado_actual in ['Completado', 'Cancelado'] %}disabled data-bloqueado="true" data-motivo="Un itinerario {{ estado_actual }} no se puede cancelar."{% endif %}>
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-x-circle"></i>
+                <span>Cancelado</span>
+              </div>
+              {% if estado_actual == 'Cancelado' %}<i class="bi bi-check2 text-danger"></i>{% endif %}
             </button>
           </li>
         </ul>
@@ -423,13 +437,13 @@
               <i class="bi bi-info-circle me-1"></i>Datos autocompletados desde un turista existente.
             </div>
             <div class="mb-3">
-              <label class="form-label small fw-bold">Nro. Documento (opcional)</label>
-              <input type="text" class="form-control" id="acomp_documento" name="nro_documento" maxlength="20" placeholder="Ej. 12345678">
-              
-            </div>
-            <div class="mb-3">
               <label class="form-label small fw-bold">Procedencia *</label>
               <input type="text" class="form-control" id="acomp_procedencia" name="procedencia" maxlength="50" required placeholder="Ej. Bolivia, Argentina, etc.">
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-bold" id="lblAcompDocumento">Nro. Documento de Identidad *</label>
+              <input type="text" class="form-control" id="acomp_documento" name="nro_documento" maxlength="20" required placeholder="C.I. o Pasaporte">
+              <div class="form-text small text-muted" id="hintAcompDocumento">Si es Bolivia: C.I. (5-8 dígitos). Si es extranjero: Pasaporte/DNI (6-15 caracteres).</div>
             </div>
             <div class="mb-3">
               <label class="form-label small fw-bold">Nombres *</label>

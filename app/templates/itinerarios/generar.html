@@ -368,14 +368,15 @@
               <span class="text-danger small d-none" id="errApellidos">Solo letras y espacios.</span>
             </div>
             <div class="col-md-6">
-              <label class="form-label small fw-bold">Nro. Documento * (Alfanumérico)</label>
-              <input type="text" class="form-control" name="nro_documento" id="inpDocumento" required pattern="^[a-zA-Z0-9-]+$">
-              <span class="text-danger small d-none" id="errDocumento">Solo letras, números y guiones.</span>
+              <label class="form-label small fw-bold">Procedencia / País de Origen *</label>
+              <input type="text" class="form-control" name="procedencia" id="inpProcedencia" required maxlength="50" placeholder="Ej: Bolivia, España, Alemania, etc.">
+              <span class="text-danger small d-none" id="errProcedencia">La procedencia es obligatoria.</span>
             </div>
             <div class="col-md-6">
-              <label class="form-label small fw-bold">Procedencia *</label>
-              <input type="text" class="form-control" name="procedencia" id="inpProcedencia" required maxlength="50">
-              <span class="text-danger small d-none" id="errProcedencia">La procedencia es obligatoria.</span>
+              <label class="form-label small fw-bold" id="lblDocumento">Nro. Documento de Identidad *</label>
+              <input type="text" class="form-control" name="nro_documento" id="inpDocumento" required placeholder="C.I. o Pasaporte">
+              <span class="text-danger small d-none" id="errDocumento">Documento inválido.</span>
+              <div class="form-text small text-muted" id="hintDocumento">Si es Bolivia: C.I. (5-8 dígitos). Si es extranjero: Pasaporte/DNI (6-15 caracteres).</div>
             </div>
             <div class="col-md-6">
               <label class="form-label small fw-bold">Email</label>
@@ -1334,7 +1335,27 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   if (inpDocTurista) inpDocTurista.addEventListener('blur', consultarTuristaGenerador);
-  if (inpProcTurista) inpProcTurista.addEventListener('blur', consultarTuristaGenerador);
+  if (inpProcTurista) {
+    inpProcTurista.addEventListener('blur', consultarTuristaGenerador);
+    inpProcTurista.addEventListener('input', function() {
+      const procVal = this.value.trim().toLowerCase();
+      const lblDoc = document.getElementById('lblDocumento');
+      const hintDoc = document.getElementById('hintDocumento');
+      if (procVal === 'bolivia' || procVal === 'bo' || procVal.indexOf('bolivia') !== -1) {
+        if (lblDoc) lblDoc.textContent = 'Cédula de Identidad (C.I.) *';
+        if (inpDocTurista) inpDocTurista.placeholder = 'Ej: 4892341 o 4892341-1A LP';
+        if (hintDoc) hintDoc.textContent = 'Formato Bolivia: 5 a 8 números (opcional complemento ej. -1A o extensión LP).';
+      } else if (procVal) {
+        if (lblDoc) lblDoc.textContent = 'Pasaporte / DNI Internacional *';
+        if (inpDocTurista) inpDocTurista.placeholder = 'Ej: PA1234567 o C1092384';
+        if (hintDoc) hintDoc.textContent = 'Formato Internacional: 6 a 15 caracteres alfanuméricos.';
+      } else {
+        if (lblDoc) lblDoc.textContent = 'Nro. Documento de Identidad *';
+        if (inpDocTurista) inpDocTurista.placeholder = 'C.I. o Pasaporte';
+        if (hintDoc) hintDoc.textContent = 'Si es Bolivia: C.I. (5-8 dígitos). Si es extranjero: Pasaporte/DNI (6-15 caracteres).';
+      }
+    });
+  }
 
   // Inicialización de selector internacional de teléfono en generador
   const inpTelTurista = document.getElementById('inpTelefono');
@@ -1390,7 +1411,36 @@ document.addEventListener('DOMContentLoaded', function () {
 
       if (!regexTexto.test(nombres.value.trim())) { document.getElementById('errNombres').classList.remove('d-none'); isValid = false; }
       if (!regexTexto.test(apellidos.value.trim())) { document.getElementById('errApellidos').classList.remove('d-none'); isValid = false; }
-      if (!regexDoc.test(doc.value.trim())) { document.getElementById('errDocumento').classList.remove('d-none'); isValid = false; }
+      // Validación realista de Documento según Procedencia
+      const valProc = procedencia.value.trim().toLowerCase();
+      const valDoc = doc.value.trim().toUpperCase();
+      const esBolivia = (valProc === 'bolivia' || valProc === 'bo' || valProc.indexOf('bolivia') !== -1);
+      const errDocEl = document.getElementById('errDocumento');
+
+      if (!valDoc) {
+        if (errDocEl) { errDocEl.textContent = 'El documento es obligatorio.'; errDocEl.classList.remove('d-none'); }
+        isValid = false;
+      } else if (esBolivia) {
+        // C.I. Bolivia: 5 a 8 dígitos, complemento opcional y extensión opcional
+        const regexCIBolivia = /^(\d{5,8})(-[0-9A-Z]{1,2})?(\s+(LP|CB|SC|PT|OR|TJ|CH|BE|PD))?$/i;
+        if (!regexCIBolivia.test(valDoc)) {
+          if (errDocEl) {
+            errDocEl.textContent = 'C.I. inválido. Ingrese entre 5 y 8 números (opcionalmente complemento ej. -1A o extensión LP).';
+            errDocEl.classList.remove('d-none');
+          }
+          isValid = false;
+        }
+      } else {
+        // Pasaporte / DNI internacional: 6 a 15 caracteres alfanuméricos
+        const regexPasaporte = /^[A-Z0-9-]{6,15}$/i;
+        if (!regexPasaporte.test(valDoc)) {
+          if (errDocEl) {
+            errDocEl.textContent = 'Pasaporte/DNI extranjero inválido (debe tener entre 6 y 15 caracteres alfanuméricos).';
+            errDocEl.classList.remove('d-none');
+          }
+          isValid = false;
+        }
+      }
       if (!procedencia.value.trim()) { document.getElementById('errProcedencia').classList.remove('d-none'); isValid = false; }
       
       if (email.value.trim() && !email.checkValidity()) { document.getElementById('errEmail').classList.remove('d-none'); isValid = false; }

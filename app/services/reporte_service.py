@@ -386,6 +386,8 @@ def obtener_metricas_entrenamiento() -> dict:
                 "total_ejecuciones": 0,
                 "total_puntos_pareto": 0,
                 "hv_promedio_ganadoras": 0.0,
+                "gd_promedio_ganadoras": 0.0,
+                "spread_promedio_ganadoras": 0.0,
                 "tiempo_promedio_ganadoras": 0.0,
             },
             "escenarios": [],
@@ -404,6 +406,8 @@ def obtener_metricas_entrenamiento() -> dict:
 
     escenarios_lista = []
     hv_ganadoras = []
+    gd_ganadoras = []
+    spread_ganadoras = []
     tiempos_ganadoras = []
     total_puntos_pareto = 0
     total_ejecuciones = 0
@@ -459,6 +463,10 @@ def obtener_metricas_entrenamiento() -> dict:
         if receta_ganadora_dict:
             if receta_ganadora_dict["hv"] is not None:
                 hv_ganadoras.append(receta_ganadora_dict["hv"])
+            if receta_ganadora_dict["gd"] is not None:
+                gd_ganadoras.append(receta_ganadora_dict["gd"])
+            if receta_ganadora_dict["spread"] is not None:
+                spread_ganadoras.append(receta_ganadora_dict["spread"])
             if receta_ganadora_dict["tiempo"] is not None:
                 tiempos_ganadoras.append(receta_ganadora_dict["tiempo"])
 
@@ -538,6 +546,8 @@ def obtener_metricas_entrenamiento() -> dict:
             "total_ejecuciones": total_ejecuciones,
             "total_puntos_pareto": total_puntos_pareto,
             "hv_promedio_ganadoras": round(sum(hv_ganadoras) / len(hv_ganadoras), 4) if hv_ganadoras else 0.0,
+            "gd_promedio_ganadoras": round(sum(gd_ganadoras) / len(gd_ganadoras), 4) if gd_ganadoras else 0.0,
+            "spread_promedio_ganadoras": round(sum(spread_ganadoras) / len(spread_ganadoras), 4) if spread_ganadoras else 0.0,
             "tiempo_promedio_ganadoras": round(sum(tiempos_ganadoras) / len(tiempos_ganadoras), 2) if tiempos_ganadoras else 0.0,
         },
         "escenarios": escenarios_lista,

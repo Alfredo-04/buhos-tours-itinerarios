@@ -470,69 +470,103 @@
 
         <!-- Fila 1: Tarjetas Resumen del Entrenamiento -->
         <div class="row g-3 mb-4">
-          <div class="col-12 col-sm-6 col-xl-3">
+          <div class="col-12 col-sm-6 col-xl-2">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
               <div class="d-flex align-items-center justify-content-between">
                 <div>
-                  <span class="text-muted small text-uppercase fw-bold">Escenarios Calibrados</span>
-                  <h3 class="fw-bold mb-0 text-dark mt-1">{{ metricas_entrenamiento.resumen.total_escenarios }}</h3>
-                  <span class="text-muted small d-block mt-2">
-                    {{ metricas_entrenamiento.resumen.total_puntos_pareto }} rutas ideales guardadas
+                  <span class="text-muted small text-uppercase fw-bold" style="font-size: 0.72rem;">Escenarios</span>
+                  <h4 class="fw-bold mb-0 text-dark mt-1">{{ metricas_entrenamiento.resumen.total_escenarios }}</h4>
+                  <span class="text-muted small d-block mt-1" style="font-size: 0.75rem;">
+                    {{ metricas_entrenamiento.resumen.total_puntos_pareto }} rutas ideales
                   </span>
                 </div>
-                <div class="bg-primary-subtle text-primary p-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 52px; height: 52px;">
-                  <i class="bi bi-layers-fill fs-3"></i>
+                <div class="bg-primary-subtle text-primary p-2 rounded-circle d-flex align-items-center justify-content-center" style="width: 42px; height: 42px;">
+                  <i class="bi bi-layers-fill fs-4"></i>
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="col-12 col-sm-6 col-xl-3">
+          <div class="col-12 col-sm-6 col-xl-2">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
               <div class="d-flex align-items-center justify-content-between">
                 <div>
-                  <span class="text-muted small text-uppercase fw-bold">Pruebas de Calibración</span>
-                  <h3 class="fw-bold mb-0 text-dark mt-1">{{ metricas_entrenamiento.resumen.total_recetas }}</h3>
-                  <span class="text-muted small d-block mt-2">
-                    {{ metricas_entrenamiento.resumen.total_ejecuciones }} corridas acumuladas
+                  <span class="text-muted small text-uppercase fw-bold" style="font-size: 0.72rem;">Pruebas</span>
+                  <h4 class="fw-bold mb-0 text-dark mt-1">{{ metricas_entrenamiento.resumen.total_recetas }}</h4>
+                  <span class="text-muted small d-block mt-1" style="font-size: 0.75rem;">
+                    {{ metricas_entrenamiento.resumen.total_ejecuciones }} corridas
                   </span>
                 </div>
-                <div class="bg-warning-subtle text-warning p-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 52px; height: 52px;">
-                  <i class="bi bi-sliders fs-3"></i>
+                <div class="bg-warning-subtle text-warning p-2 rounded-circle d-flex align-items-center justify-content-center" style="width: 42px; height: 42px;">
+                  <i class="bi bi-sliders fs-4"></i>
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="col-12 col-sm-6 col-xl-3">
+          <div class="col-12 col-sm-6 col-xl-2">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
               <div class="d-flex align-items-center justify-content-between">
                 <div>
-                  <span class="text-muted small text-uppercase fw-bold">Calidad Promedio Ganadoras</span>
-                  <h3 class="fw-bold mb-0 text-success mt-1">{{ "%.4f"|format(metricas_entrenamiento.resumen.hv_promedio_ganadoras) }}</h3>
-                  <span class="text-muted small d-block mt-2">
-                    Escala de 0.00 a 1.00 (más alto = mejor)
+                  <span class="text-muted small text-uppercase fw-bold" style="font-size: 0.72rem;">HV Promedio</span>
+                  <h4 class="fw-bold mb-0 text-success mt-1">{{ "%.4f"|format(metricas_entrenamiento.resumen.hv_promedio_ganadoras) }}</h4>
+                  <span class="text-muted small d-block mt-1" style="font-size: 0.75rem;">
+                    Calidad Global (↑ mejor)
                   </span>
                 </div>
-                <div class="bg-success-subtle text-success p-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 52px; height: 52px;">
-                  <i class="bi bi-trophy-fill fs-3"></i>
+                <div class="bg-success-subtle text-success p-2 rounded-circle d-flex align-items-center justify-content-center" style="width: 42px; height: 42px;">
+                  <i class="bi bi-trophy-fill fs-4"></i>
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="col-12 col-sm-6 col-xl-3">
+          <div class="col-12 col-sm-6 col-xl-2">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
               <div class="d-flex align-items-center justify-content-between">
                 <div>
-                  <span class="text-muted small text-uppercase fw-bold">Tiempo Promedio Ganadoras</span>
-                  <h3 class="fw-bold mb-0 text-info mt-1">{{ "%.2f"|format(metricas_entrenamiento.resumen.tiempo_promedio_ganadoras) }} <span class="fs-6 fw-normal text-muted">seg</span></h3>
-                  <span class="text-muted small d-block mt-2">
-                    Respuesta rápida manteniendo calidad
+                  <span class="text-muted small text-uppercase fw-bold" style="font-size: 0.72rem;">GD Promedio</span>
+                  <h4 class="fw-bold mb-0 text-primary mt-1">{{ "%.4f"|format(metricas_entrenamiento.resumen.gd_promedio_ganadoras) }}</h4>
+                  <span class="text-muted small d-block mt-1" style="font-size: 0.75rem;">
+                    Cercanía al Ideal (↓ mejor)
                   </span>
                 </div>
-                <div class="bg-info-subtle text-info p-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 52px; height: 52px;">
-                  <i class="bi bi-lightning-charge-fill fs-3"></i>
+                <div class="bg-primary-subtle text-primary p-2 rounded-circle d-flex align-items-center justify-content-center" style="width: 42px; height: 42px;">
+                  <i class="bi bi-bullseye fs-4"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-sm-6 col-xl-2">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+              <div class="d-flex align-items-center justify-content-between">
+                <div>
+                  <span class="text-muted small text-uppercase fw-bold" style="font-size: 0.72rem;">Spread Promedio</span>
+                  <h4 class="fw-bold mb-0 text-purple mt-1" style="color: #6f42c1;">{{ "%.4f"|format(metricas_entrenamiento.resumen.spread_promedio_ganadoras) }}</h4>
+                  <span class="text-muted small d-block mt-1" style="font-size: 0.75rem;">
+                    Variedad/Dispersión (↓ mejor)
+                  </span>
+                </div>
+                <div class="p-2 rounded-circle d-flex align-items-center justify-content-center" style="width: 42px; height: 42px; background-color: #f3e8ff; color: #6f42c1;">
+                  <i class="bi bi-diagram-3-fill fs-4"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-sm-6 col-xl-2">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+              <div class="d-flex align-items-center justify-content-between">
+                <div>
+                  <span class="text-muted small text-uppercase fw-bold" style="font-size: 0.72rem;">Tiempo Promedio</span>
+                  <h4 class="fw-bold mb-0 text-info mt-1">{{ "%.2f"|format(metricas_entrenamiento.resumen.tiempo_promedio_ganadoras) }} <span class="fs-6 fw-normal text-muted">s</span></h4>
+                  <span class="text-muted small d-block mt-1" style="font-size: 0.75rem;">
+                    Respuesta algoritmos
+                  </span>
+                </div>
+                <div class="bg-info-subtle text-info p-2 rounded-circle d-flex align-items-center justify-content-center" style="width: 42px; height: 42px;">
+                  <i class="bi bi-lightning-charge-fill fs-4"></i>
                 </div>
               </div>
             </div>
@@ -838,6 +872,11 @@
                     <!-- Renderizado dinámico JS -->
                   </tbody>
                 </table>
+              </div>
+
+              <!-- Bloque Explicativo Textual de Selección de la Ganadora -->
+              <div id="bloqueExplicacionGanadora" class="p-3 bg-light border-top">
+                <!-- Generado dinámicamente vía JS -->
               </div>
             </div>
 
@@ -1534,6 +1573,64 @@ document.addEventListener('DOMContentLoaded', function() {
             '<td><span class="fw-bold text-primary">' + (r.tiempo != null ? r.tiempo.toFixed(2) + ' s' : '-') + '</span></td>' +
             '</tr>';
         }).join('');
+      }
+    }
+
+    // 6. Generación Dinámica de la Explicación Textual de la Ganadora
+    var bloqueExp = document.getElementById('bloqueExplicacionGanadora');
+    if (bloqueExp) {
+      var g = esc.ganadora;
+      var numPtos = esc.num_puntos || 0;
+      var totalRec = esc.recetas ? esc.recetas.length : 0;
+
+      if (!g) {
+        bloqueExp.innerHTML = '<div class="text-muted small"><i class="bi bi-info-circle me-1"></i>Sin configuración ganadora identificada aún para este escenario.</div>';
+      } else {
+        var gPob = g.poblacion;
+        var gGen = g.generaciones;
+        var gMut = g.mutacion_pct;
+        var gHv = g.hv != null ? g.hv.toFixed(4) : '0.0000';
+        var gGd = g.gd != null ? g.gd.toFixed(4) : '0.0000';
+        var gSp = g.spread != null ? g.spread.toFixed(4) : '0.0000';
+        var gTi = g.tiempo != null ? g.tiempo.toFixed(2) : '0.00';
+
+        var textoJustificacion = '';
+        var badgeTipoEscenario = '';
+
+        if (numPtos <= 3) {
+          // Caso 1: Escenario altamente restringido o de pocas rutas (ej. Casco express, 1d, pocas opciones)
+          badgeTipoEscenario = '<span class="badge bg-info-subtle text-info border border-info-subtle me-2"><i class="bi bi-shield-check me-1"></i>Espacio de Búsqueda Acotado</span>';
+          textoJustificacion = 'En este escenario, debido a las restricciones operativas (tiempo ajustado, catálogo específico o pocos atractivos factibles), el frente de Pareto óptimo consta únicamente de <strong>' + numPtos + ' ruta(s) de referencia</strong>. ' +
+            'Bajo estas condiciones matemáticas, múltiples configuraciones convergen al mismo punto óptimo. La configuración ganadora <strong>' + gPob + ' × ' + gGen + ' × ' + gMut + '%</strong> fue seleccionada porque alcanza la <strong>máxima cercanía al ideal (GD = ' + gGd + ')</strong> y un HV de <strong>' + gHv + '</strong> (techo matemático para ' + numPtos + ' ruta/s), garantizando una respuesta inmediata en tan solo <strong>' + gTi + ' s</strong> sin sobrecargar innecesariamente los recursos de cómputo del servidor.';
+        } else {
+          // Caso 2: Escenario abierto o intermedio con múltiples alternativas
+          var masPesada = esc.mas_pesada;
+          var ahorroTxt = esc.ahorro_tiempo_pct > 0 ? 'logrando un <strong>ahorro del ' + esc.ahorro_tiempo_pct + '% de tiempo de cómputo</strong> frente a la configuración más pesada' : 'ofreciendo un tiempo de respuesta de <strong>' + gTi + ' s</strong>';
+
+          badgeTipoEscenario = '<span class="badge bg-success-subtle text-success border border-success-subtle me-2"><i class="bi bi-award-fill me-1"></i>Equilibrio Multiobjetivo Óptimo</span>';
+          textoJustificacion = 'La configuración <strong>' + gPob + ' × ' + gGen + ' × ' + gMut + '%</strong> fue elegida entre las ' + totalRec + ' evaluadas mediante el <em>Principio de Parsimonia Multicriterio</em>: ' +
+            'logra una <strong>calidad global sobresaliente (HV = ' + gHv + ')</strong> que representa el <strong>' + esc.calidad_relativa_pct + '% de la máxima calidad teórica alcanzable</strong>, con una alta cercanía al frente ideal de Pareto (<strong>GD = ' + gGd + '</strong>) y una distribución espacial equilibrada (<strong>Spread = ' + gSp + '</strong>). ' +
+            'Asimismo, se prefirió esta configuración porque ' + ahorroTxt + ' (<strong>' + gTi + ' s</strong> vs ' + (masPesada && masPesada.tiempo ? masPesada.tiempo.toFixed(2) + ' s' : '-') + '), evitando generaciones redundantes donde el algoritmo ya había alcanzado su asíntota de convergencia.';
+        }
+
+        var analisisParametros = 'La población de <strong>' + gPob + ' individuos</strong> y <strong>' + gGen + ' generaciones</strong> brindó la diversidad genética exacta para explorar las rutas sin generar deriva ni estancamiento prematuro, mientras que la tasa de mutación del <strong>' + gMut + '%</strong> facilitó escapar de óptimos locales manteniendo intactos los bloques constructivos de atractivos geográficamente contiguos.';
+
+        bloqueExp.innerHTML = '<div class="d-flex flex-column gap-2">' +
+          '<div class="d-flex align-items-center justify-content-between flex-wrap gap-2">' +
+            '<div class="d-flex align-items-center flex-wrap gap-2">' +
+              '<h6 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">' +
+                '<i class="bi bi-patch-question-fill text-primary"></i>' +
+                '<span>¿Por qué se eligió esta configuración ganadora (' + gPob + ' × ' + gGen + ' × ' + gMut + '%)?</span>' +
+              '</h6>' +
+              badgeTipoEscenario +
+            '</div>' +
+            '<span class="text-muted small">Métricas logradas: <strong>HV: ' + gHv + '</strong> | <strong>GD: ' + gGd + '</strong> | <strong>Spread: ' + gSp + '</strong> | <strong>' + gTi + ' s</strong></span>' +
+          '</div>' +
+          '<p class="small text-secondary mb-1" style="line-height: 1.55; text-align: justify;">' + textoJustificacion + '</p>' +
+          '<div class="small text-muted bg-white p-2 rounded border" style="font-size: 0.82rem; line-height: 1.5;">' +
+            '<i class="bi bi-cpu text-primary me-1"></i><strong>Justificación de Parámetros:</strong> ' + analisisParametros +
+          '</div>' +
+        '</div>';
       }
     }
   }

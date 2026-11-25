@@ -40,6 +40,28 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  // Sincronizar placeholder y label de documento según procedencia del acompañante
+  if (inpProc) {
+    inpProc.addEventListener('input', function() {
+      const proc = this.value.trim().toLowerCase();
+      const lblDoc = document.getElementById('lblAcompDocumento') || document.querySelector('label[for="acomp_documento"]');
+      const hintDoc = document.getElementById('hintAcompDocumento');
+      if (proc === 'bolivia' || proc === 'bo' || proc.indexOf('bolivia') !== -1) {
+        if (lblDoc) lblDoc.textContent = 'Cédula de Identidad (C.I.) *';
+        if (inpDoc) inpDoc.placeholder = 'Ej: 4892341 o 4892341-1A LP';
+        if (hintDoc) hintDoc.textContent = 'Formato Bolivia: 5 a 8 números (opcional complemento ej. -1A o extensión LP).';
+      } else if (proc) {
+        if (lblDoc) lblDoc.textContent = 'Pasaporte / DNI Extranjero *';
+        if (inpDoc) inpDoc.placeholder = 'Ej: PA1234567 o C1092384';
+        if (hintDoc) hintDoc.textContent = 'Formato Internacional: 6 a 15 caracteres alfanuméricos.';
+      } else {
+        if (lblDoc) lblDoc.textContent = 'Nro. Documento de Identidad *';
+        if (inpDoc) inpDoc.placeholder = 'C.I. o Pasaporte';
+        if (hintDoc) hintDoc.textContent = 'Si es Bolivia: C.I. (5-8 dígitos). Si es extranjero: Pasaporte/DNI (6-15 caracteres).';
+      }
+    });
+  }
+
   const contenedorBanners = document.getElementById('contenedorBannersTuristas');
   const txtBtnAcompConteo = document.getElementById('txtBtnAcompConteo');
   const txtBtnTuristasConteo = document.getElementById('txtBtnTuristasConteo');
@@ -163,7 +185,9 @@ document.addEventListener('DOMContentLoaded', function () {
       const localTel = inpTelInput ? inpTelInput.value.replace(/\D/g, '').trim() : '';
 
       const regexTexto = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
-      const regexDoc = /^[A-Za-z0-9-]+$/;
+      const esBolivia = (procedencia.toLowerCase() === 'bolivia' || procedencia.toLowerCase() === 'bo' || procedencia.toLowerCase().indexOf('bolivia') !== -1);
+      const regexCIBolivia = /^(\d{5,8})(-[0-9A-Z]{1,2})?(\s+(LP|CB|SC|PT|OR|TJ|CH|BE|PD))?$/i;
+      const regexPasaporte = /^[A-Z0-9-]{6,15}$/i;
 
       let errorMsg = '';
       let telFinal = null;
@@ -174,8 +198,14 @@ document.addEventListener('DOMContentLoaded', function () {
         errorMsg = 'Los nombres y apellidos no pueden contener números.';
       } else if (!procedencia) {
         errorMsg = 'La procedencia es obligatoria.';
-      } else if (doc && !regexDoc.test(doc)) {
-        errorMsg = 'El documento solo admite letras, números y guiones.';
+      } else if (!doc) {
+        errorMsg = esBolivia
+          ? 'El número de Cédula de Identidad (C.I.) es obligatorio para acompañantes de Bolivia.'
+          : 'El número de Pasaporte o DNI es obligatorio para acompañantes internacionales.';
+      } else if (esBolivia && !regexCIBolivia.test(doc)) {
+        errorMsg = 'Para Bolivia, el C.I. debe contener entre 5 y 8 números (opcionalmente complemento ej. -1A o extensión LP).';
+      } else if (!esBolivia && !regexPasaporte.test(doc)) {
+        errorMsg = 'Para turistas extranjeros, el Pasaporte/DNI debe tener entre 6 y 15 caracteres alfanuméricos.';
       } else if (email && inpEmail && !inpEmail.checkValidity()) {
         errorMsg = 'El correo electrónico no tiene un formato válido.';
       } else if (localTel) {

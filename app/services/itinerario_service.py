@@ -442,6 +442,50 @@ def generar_itinerarios(
     return resultado
 
 
+def validar_documento_por_procedencia(doc: str | None, procedencia: str | None) -> tuple[bool, str, str]:
+    """
+    Valida y formatea el documento de identidad según la procedencia del turista.
+    Retorna: (es_valido: bool, doc_limpio: str, mensaje_error: str)
+    
+    Reglas del mundo real:
+    - Bolivia: Cédula de Identidad (C.I.).
+      Debe contener entre 5 y 8 dígitos base numéricos.
+      Opcionalmente puede tener complemento (ej. -1A) y/o extensión (ej. LP, SC, CB, etc.).
+    - Extranjero: Pasaporte o DNI Internacional.
+      Debe ser alfanumérico limpio de 6 a 15 caracteres (sin caracteres raros).
+    """
+    if not doc:
+        return True, "", ""
+    
+    doc_limpio = str(doc).strip().upper()
+    proc = str(procedencia or "").strip().lower()
+    es_bolivia = (proc == "bolivia" or proc == "bo" or "bolivia" in proc)
+
+    if es_bolivia:
+        # Formato C.I. Bolivia:
+        # Ejemplos válidos: 4892341, 10923842, 4892341-1A, 4892341 LP, 4892341-1A LP
+        # Patrón: ^(\d{5,8})(-[0-9A-Z]{1,2})?(\s*(LP|CB|SC|PT|OR|TJ|CH|BE|PD))?$
+        patron_ci = r'^(\d{5,8})(-[0-9A-Z]{1,2})?(\s+(LP|CB|SC|PT|OR|TJ|CH|BE|PD))?$'
+        if not re.match(patron_ci, doc_limpio):
+            return False, doc_limpio, (
+                "Para Bolivia, el Carnet de Identidad (C.I.) debe contener entre 5 y 8 números "
+                "(opcionalmente complemento ej. '-1A' y extensión ej. 'LP')."
+            )
+        return True, doc_limpio, ""
+    else:
+        # Formato Internacional (Pasaporte / DNI):
+        # 6 a 15 caracteres alfanuméricos
+        patron_pasaporte = r'^[A-Z0-9-]{6,15}$'
+        if not re.match(patron_pasaporte, doc_limpio):
+            return False, doc_limpio, (
+                "Para turistas extranjeros, el Pasaporte / DNI debe ser alfanumérico de 6 a 15 caracteres."
+            )
+        # Rechazar si son solo letras o contiene caracteres inválidos
+        if doc_limpio.isalpha() and len(doc_limpio) > 10:
+            return False, doc_limpio, "El documento extranjero no parece ser válido (solo texto largo)."
+        return True, doc_limpio, ""
+
+
 def buscar_turista(nro_documento: str | None, procedencia: str | None) -> dict:
     """
     Busca un turista existente por combinación de documento y procedencia.
@@ -599,6 +643,11 @@ def guardar_itinerario(
 
         doc = str(turista_data.get('nro_documento') or '').strip()
         if doc:
+            valido_doc, doc_formateado, err_doc = validar_documento_por_procedencia(doc, procedencia)
+            if not valido_doc:
+                raise ValueError(err_doc)
+            doc = doc_formateado
+
             resultado_busqueda = buscar_turista(doc, procedencia)
             if resultado_busqueda.get("motivo") == "conflicto_procedencia":
                 raise ValueError(
@@ -1101,8 +1150,11 @@ def agregar_acompanante(
         raise ValueError("La procedencia es obligatoria.")
     if any(c.isdigit() for c in nombres + apellidos):
         raise ValueError("Los nombres y apellidos no pueden contener números.")
-    if doc and not re.match(r'^[A-Za-z0-9-]+$', doc):
-        raise ValueError("El documento solo admite letras, números y guiones.")
+    if doc:
+        valido_doc, doc_formateado, err_doc = validar_documento_por_procedencia(doc, procedencia)
+        if not valido_doc:
+            raise ValueError(err_doc)
+        doc = doc_formateado
 
     # 7.6. Resolver el Turista
     if doc:
@@ -1205,6 +1257,41 @@ def cambiar_estado_itinerario(id_itinerario: int, nuevo_estado: str, usuario_act
     if nuevo_estado not in estados_validos:
         raise ValueError(f"Estado '{nuevo_estado}' no válido. Opciones: {', '.join(estados_validos)}")
 
+    estado_actual = itinerario.estado or 'Borrador'
+
+    if estado_actual == nuevo_estado:
+        return {
+            "success": True,
+            "id_itinerario": itinerario.id_itinerario,
+            "estado": itinerario.estado,
+            "codigo_confirmacion": str(itinerario.codigo_confirmacion) if itinerario.codigo_confirmacion else None,
+            "voucher_generado": itinerario.voucher_generado,
+            "mensaje": f"El itinerario ya se encuentra en estado '{nuevo_estado}'."
+        }
+
+    # Transiciones secuenciales permitidas en el ciclo de vida del itinerario:
+    # Borrador   -> Confirmado (requiere acompañantes completos), Cancelado
+    # Confirmado -> En curso, Cancelado
+    # En curso   -> Completado, Cancelado
+    # Completado -> (Terminal, no se puede cambiar)
+    # Cancelado  -> (Terminal, no se puede cambiar)
+    transiciones_permitidas = {
+        'Borrador': ['Confirmado', 'Cancelado'],
+        'Confirmado': ['En curso', 'Cancelado'],
+        'En curso': ['Completado', 'Cancelado'],
+        'Completado': [],
+        'Cancelado': []
+    }
+
+    permitidos = transiciones_permitidas.get(estado_actual, [])
+    if nuevo_estado not in permitidos:
+        if not permitidos:
+            raise ValueError(f"No se puede cambiar el estado de un itinerario '{estado_actual}', es un estado final cerrado.")
+        raise ValueError(
+            f"Transición de estado no permitida: no se puede pasar directamente de '{estado_actual}' a '{nuevo_estado}'. "
+            f"Transiciones válidas desde '{estado_actual}': {', '.join(permitidos)}."
+        )
+
     # Validar grupo completo antes de confirmar
     if nuevo_estado == 'Confirmado':
         conteo = calcular_faltantes(id_itinerario)
@@ -1263,7 +1350,16 @@ def generar_voucher_pdf(id_itinerario: int) -> bytes:
 
     turista_titular = turistas[0] if turistas else None
     nombre_titular = f"{turista_titular['nombres']} {turista_titular['apellidos']}" if turista_titular else "Cliente General"
-    doc_titular = turista_titular['nro_documento'] if turista_titular else "S/D"
+    
+    # Formateo profesional de documento según procedencia
+    if turista_titular and turista_titular.get('nro_documento'):
+        proc_tit = (turista_titular.get('procedencia') or '').strip().lower()
+        if 'bolivia' in proc_tit or proc_tit == 'bo':
+            doc_titular = f"C.I. {turista_titular['nro_documento']} (Bolivia)"
+        else:
+            doc_titular = f"Pasaporte {turista_titular['nro_documento']} ({turista_titular.get('procedencia') or 'Extranjero'})"
+    else:
+        doc_titular = "S/D"
 
     # Generar Código QR
     tc = 6.96
@@ -1467,8 +1563,18 @@ def generar_voucher_pdf(id_itinerario: int) -> bytes:
         tipo_lbl = "Titular" if t_item.get("rol") == "titular" else "Acompañante"
         tipo_str = f"<b>{tipo_lbl}</b>"
         nombre_str = f"{t_item.get('nombres', '')} {t_item.get('apellidos', '')}"
-        doc_str = t_item.get("nro_documento") or "S/D"
-        proc_str = t_item.get("procedencia") or "No especificada"
+        
+        proc_t = (t_item.get("procedencia") or "").strip()
+        doc_raw = t_item.get("nro_documento")
+        if doc_raw:
+            if 'bolivia' in proc_t.lower() or proc_t.lower() == 'bo':
+                doc_str = f"<b>C.I.</b> {doc_raw}"
+            else:
+                doc_str = f"<b>Pasaporte:</b> {doc_raw}"
+        else:
+            doc_str = "S/D"
+
+        proc_str = proc_t or "No especificada"
         contacto_parts = []
         if t_item.get("email"):
             contacto_parts.append(t_item["email"])
