@@ -103,6 +103,11 @@
               <span>Métricas y Reportes</span>
             </a>
 
+            <a href="{{ url_for('calidad.index') }}" class="nav-link-custom {% if request.endpoint and 'calidad.' in request.endpoint %}active{% endif %}">
+              <i class="bi bi-patch-check-fill text-teal" style="color: #0d9488;"></i>
+              <span>Control de Calidad</span>
+            </a>
+
             <div class="sidebar-category-header text-uppercase small px-3 mt-3 mb-1 text-muted" style="font-size: 0.72rem; letter-spacing: 0.08em;">Vistas Públicas</div>
 
             <a href="{{ url_for('catalogo.atractivos_list') }}" class="nav-link-custom {% if 'catalogo.atractivo' in request.endpoint %}active{% endif %}">

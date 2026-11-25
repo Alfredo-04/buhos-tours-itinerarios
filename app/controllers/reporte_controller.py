@@ -1,7 +1,7 @@
 import io
 import csv
 from datetime import datetime
-from flask import Blueprint, render_template, Response, abort, request
+from flask import Blueprint, render_template, Response, abort, request, redirect, url_for
 from flask_login import login_required
 from app.services.reporte_service import (
     obtener_metricas_negocio,
@@ -37,33 +37,23 @@ reportes_bp = Blueprint('reportes', __name__, url_prefix='/reportes')
 @login_required
 def dashboard_view():
     """
-    Renderiza el Dashboard ejecutivo con métricas de negocio, académicas del NSGA-II
-    y la Lista de Cotejo de Viabilidad Operativa.
+    Renderiza el Dashboard ejecutivo con métricas de negocio y académicas del NSGA-II.
+    (La Lista de Cotejo de Viabilidad Operativa fue trasladada al módulo Control de Calidad).
     """
-    fuente_cotejo = request.args.get('fuente_cotejo', 'auto')
-    fecha_cotejo = request.args.get('fecha_cotejo')
-    id_consulta_raw = request.args.get('id_consulta_cotejo')
-    id_consulta_cotejo = int(id_consulta_raw) if (id_consulta_raw and id_consulta_raw.isdigit()) else None
+    if request.args.get('tab') == 'cotejo':
+        return redirect(url_for('calidad.index', **request.args))
 
     metricas_negocio = obtener_metricas_negocio()
-    metricas_algoritmo = obtener_metricas_algoritmo(limit=20)
+    metricas_algoritmo = obtener_metricas_algoritmo(limit=None)
     metricas_entrenamiento = obtener_metricas_entrenamiento()
     resumen_consultas = obtener_resumen_consultas_produccion()
-    auditoria_cotejo = obtener_auditoria_lista_cotejo(
-        fuente=fuente_cotejo,
-        fecha_filtro=fecha_cotejo,
-        id_consulta=id_consulta_cotejo,
-    )
+
     return render_template(
         'reportes/dashboard.html',
         metricas_negocio=metricas_negocio,
         metricas_algoritmo=metricas_algoritmo,
         metricas_entrenamiento=metricas_entrenamiento,
         resumen_consultas=resumen_consultas,
-        auditoria_cotejo=auditoria_cotejo,
-        fuente_cotejo=fuente_cotejo,
-        fecha_cotejo=auditoria_cotejo['resumen'].get('fecha_filtro'),
-        id_consulta_cotejo=id_consulta_cotejo,
     )
 
 
@@ -74,7 +64,7 @@ def exportar_csv():
     Genera y descarga un reporte consolidado en formato CSV con secciones delimitadas.
     """
     metricas_negocio = obtener_metricas_negocio()
-    metricas_algoritmo = obtener_metricas_algoritmo(limit=50)
+    metricas_algoritmo = obtener_metricas_algoritmo(limit=None)
 
     output = io.StringIO()
     writer = csv.writer(output, delimiter=',', quoting=csv.QUOTE_MINIMAL)
@@ -382,7 +372,7 @@ def exportar_cotejo_csv():
     Exporta la Lista de Cotejo de Viabilidad Operativa en formato CSV respetando los filtros activos.
     """
     fuente = request.args.get('fuente', 'auto')
-    fecha_cotejo = request.args.get('fecha_cotejo')
+    fecha_cotejo = request.args.get('fecha_cotejo') or 'todas'
     id_consulta_raw = request.args.get('id_consulta_cotejo')
     id_consulta = int(id_consulta_raw) if (id_consulta_raw and id_consulta_raw.isdigit()) else None
 
@@ -472,7 +462,7 @@ def exportar_cotejo_pdf():
     Genera y descarga el Reporte Formal de la Lista de Cotejo de Viabilidad Operativa en PDF respetando los filtros activos.
     """
     fuente = request.args.get('fuente', 'auto')
-    fecha_cotejo = request.args.get('fecha_cotejo')
+    fecha_cotejo = request.args.get('fecha_cotejo') or 'todas'
     id_consulta_raw = request.args.get('id_consulta_cotejo')
     id_consulta = int(id_consulta_raw) if (id_consulta_raw and id_consulta_raw.isdigit()) else None
 

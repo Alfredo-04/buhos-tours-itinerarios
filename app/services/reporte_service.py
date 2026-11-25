@@ -104,15 +104,19 @@ def obtener_metricas_negocio() -> dict:
     }
 
 
-def obtener_metricas_algoritmo(limit: int = 20) -> list[dict]:
+def obtener_metricas_algoritmo(limit: int | None = None) -> list[dict]:
     """
-    Retorna los últimos registros de ConsultaNSGA2 (generaciones reales en producción)
+    Retorna los registros de ConsultaNSGA2 (generaciones reales en producción)
     con los parámetros elegidos por KNN, métricas de calidad y escenario de referencia vinculado.
+    Por defecto retorna todas las consultas registradas si limit es None.
     """
-    consultas = ConsultaNSGA2.query.order_by(
+    q = ConsultaNSGA2.query.order_by(
         desc(ConsultaNSGA2.fecha),
         desc(ConsultaNSGA2.id_consulta),
-    ).limit(limit).all()
+    )
+    if limit is not None:
+        q = q.limit(limit)
+    consultas = q.all()
 
     filas = []
     for c in consultas:
@@ -822,24 +826,32 @@ def obtener_auditoria_lista_cotejo(
     cat_transportes = {t.id_transporte: t for t in Transporte.query.all()}
 
     # 1. Obtener todas las fechas de ejecución disponibles en consulta_nsga2
-    fechas_raw = db.session.query(cast(ConsultaNSGA2.fecha, Date)).distinct().order_by(cast(ConsultaNSGA2.fecha, Date).desc()).all()
-    fechas_disponibles = [f[0].strftime('%Y-%m-%d') for f in fechas_raw if f[0]]
+    fechas_disponibles = []
+    try:
+        fechas_raw = ConsultaNSGA2.query.with_entities(ConsultaNSGA2.fecha).distinct().all()
+        fechas_unicas = set()
+        for f in fechas_raw:
+            val = f[0]
+            if val:
+                if hasattr(val, 'strftime'):
+                    fechas_unicas.add(val.strftime('%Y-%m-%d'))
+                else:
+                    fechas_unicas.add(str(val)[:10])
+        fechas_disponibles = sorted(list(fechas_unicas), reverse=True)
+    except Exception:
+        fechas_disponibles = []
 
-    hoy_str = datetime.now().strftime('%Y-%m-%d')
-    if fecha_filtro is None:
-        if hoy_str in fechas_disponibles:
-            fecha_filtro = hoy_str
-        elif fechas_disponibles:
-            fecha_filtro = fechas_disponibles[0]
-        else:
-            fecha_filtro = 'todas'
+    if not fecha_filtro or fecha_filtro == 'todas':
+        fecha_filtro = 'todas'
 
     # 2. Filtrar consultas según la fecha para el selector de consultas
     q_selector = ConsultaNSGA2.query
-    if fecha_filtro and fecha_filtro != 'todas':
+    if fecha_filtro != 'todas':
         try:
             f_date = datetime.strptime(fecha_filtro, '%Y-%m-%d').date()
-            q_selector = q_selector.filter(cast(ConsultaNSGA2.fecha, Date) == f_date)
+            dt_inicio = datetime.combine(f_date, datetime.min.time())
+            dt_fin = datetime.combine(f_date, datetime.max.time())
+            q_selector = q_selector.filter(ConsultaNSGA2.fecha >= dt_inicio, ConsultaNSGA2.fecha <= dt_fin)
         except Exception:
             pass
     consultas_del_filtro = q_selector.order_by(ConsultaNSGA2.id_consulta.desc()).all()
@@ -926,9 +938,11 @@ def obtener_auditoria_lista_cotejo(
                         "c4": evaluacion["c4"],
                         "es_viable": evaluacion["es_viable"],
                         "estado": evaluacion["estado"],
+                        "estado_texto": evaluacion["estado"],
                         "observaciones": evaluacion["observaciones"],
                         "total_conflictos": evaluacion["total_conflictos"],
                         "paradas_detalle": evaluacion["paradas_evaluadas"],
+                        "paradas_desglose": evaluacion["paradas_evaluadas"],
                     })
             except Exception:
                 continue
@@ -985,9 +999,11 @@ def obtener_auditoria_lista_cotejo(
                 "c4": evaluacion["c4"],
                 "es_viable": evaluacion["es_viable"],
                 "estado": evaluacion["estado"],
+                "estado_texto": evaluacion["estado"],
                 "observaciones": evaluacion["observaciones"],
                 "total_conflictos": evaluacion["total_conflictos"],
                 "paradas_detalle": evaluacion["paradas_evaluadas"],
+                "paradas_desglose": evaluacion["paradas_evaluadas"],
             })
 
     # 5. Consolidación cuantitativa de cumplimiento

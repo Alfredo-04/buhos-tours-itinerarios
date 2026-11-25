@@ -89,6 +89,7 @@ def create_app(config_class=Config):
     from app.controllers.catalogo_controller import catalogo_bp
     from app.controllers.itinerario_controller import itinerarios_bp, turistas_api_bp
     from app.controllers.reporte_controller import reportes_bp
+    from app.controllers.calidad_controller import calidad_bp
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
@@ -99,6 +100,7 @@ def create_app(config_class=Config):
     app.register_blueprint(itinerarios_bp)
     app.register_blueprint(turistas_api_bp)
     app.register_blueprint(reportes_bp)
+    app.register_blueprint(calidad_bp)
 
     # Middleware de seguridad global
     @app.before_request

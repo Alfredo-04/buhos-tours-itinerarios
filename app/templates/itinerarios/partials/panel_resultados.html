@@ -159,7 +159,12 @@
         <div class="d-flex align-items-baseline gap-2">
           <h3 class="fw-bold mb-0" id="kpi_tiempo_computo">0.00s</h3>
         </div>
-        <small class="text-muted" style="font-size: 0.75rem;">Tiempo de ejecución NSGA-II + OSRM</small>
+        <div class="d-flex justify-content-between align-items-center mt-1 flex-wrap gap-1">
+          <small class="text-muted" style="font-size: 0.73rem;">Cómputo NSGA-II + OSRM</small>
+          <span class="badge bg-light text-dark border px-2 py-0" id="badge_tiempo_consulta" style="font-size: 0.70rem;" title="Tiempo de atención acumulado durante la consulta activa">
+            <i class="bi bi-clock-history text-primary me-1"></i><span id="kpi_tiempo_consulta">0s</span>
+          </span>
+        </div>
       </div>
     </div>
 

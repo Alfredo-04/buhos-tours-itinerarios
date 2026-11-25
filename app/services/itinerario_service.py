@@ -515,7 +515,9 @@ def guardar_itinerario(
     datos_turista: dict | None = None,
     id_usuario: int | None = None,
     turista_data: dict | None = None,
-    forzar_nuevo: bool = False
+    forzar_nuevo: bool = False,
+    tiempo_consulta_seg: float | None = None,
+    iteraciones_optimizacion: int | None = None
 ) -> dict:
     """
     Toma una solución del JSON de caché y la guarda en las tablas definitivas de itinerario.
@@ -652,6 +654,68 @@ def guardar_itinerario(
     parametros_usados = resultados.get('parametros_usados', {})
     num_personas = int(parametros_usados.get('num_personas', 1) or 1)
 
+    # Auditoría de consulta e interacción (Alcance 1.7.1 y Postest de Tesis)
+    LIMITE_INACTIVIDAD_SEG = 900.0  # Límite máximo de inactividad: 15 minutos
+    t_seg = None
+    if tiempo_consulta_seg is not None:
+        try:
+            t_seg = float(tiempo_consulta_seg)
+        except (ValueError, TypeError):
+            t_seg = None
+
+    if t_seg is None or t_seg < 0:
+        try:
+            delta = (datetime.now() - generacion.fecha_generacion).total_seconds()
+            t_seg = max(0.0, delta)
+        except Exception:
+            t_seg = 0.0
+
+    inactividad = bool(t_seg > LIMITE_INACTIVIDAD_SEG)
+    minutos = int(t_seg // 60)
+    segundos = int(t_seg % 60)
+    if inactividad:
+        tiempo_texto = f">15 min ({minutos}m {segundos}s)"
+    elif minutos > 0:
+        tiempo_texto = f"{minutos}m {segundos:02d}s"
+    else:
+        tiempo_texto = f"{segundos}s"
+
+    num_iter = 1
+    if iteraciones_optimizacion is not None:
+        try:
+            num_iter = max(1, int(iteraciones_optimizacion))
+        except (ValueError, TypeError):
+            num_iter = 1
+
+    tiempo_computo = None
+    if consulta and consulta.tiempo_ejecucion_seg is not None:
+        try:
+            tiempo_computo = round(float(consulta.tiempo_ejecucion_seg), 3)
+        except Exception:
+            tiempo_computo = None
+
+    auditoria_data = {
+        'tiempo_consulta_seg': round(t_seg, 2),
+        'tiempo_consulta_formato': tiempo_texto,
+        'tiempo_computo_algoritmo_seg': tiempo_computo,
+        'iteraciones_optimizacion': num_iter,
+        'inactividad_detectada': inactividad
+    }
+
+    # Inyectar auditoría en el snapshot de la solución
+    sol['auditoria_consulta'] = auditoria_data
+
+    # Registrar en generacion.observaciones sin sobreescribir texto previo
+    try:
+        texto_obs = f"[Consulta: {tiempo_texto} | {num_iter} optimización(es)]"
+        if generacion.observaciones:
+            if "[Consulta:" not in generacion.observaciones:
+                generacion.observaciones = f"{generacion.observaciones} | {texto_obs}"
+        else:
+            generacion.observaciones = texto_obs
+    except Exception:
+        pass
+
     # BLOQUE 4: Crear Itinerario con snapshot_json
     nuevo_itinerario = Itinerario(
         id_generacion=id_generacion,
@@ -778,7 +842,8 @@ def guardar_itinerario(
         "success": True,
         "codigo_confirmacion": str(nuevo_itinerario.codigo_confirmacion),
         "advertencia_acompanantes": advertencia_acompanantes,
-        "num_personas": int(num_personas)
+        "num_personas": int(num_personas),
+        "auditoria_consulta": auditoria_data
     }
 
 

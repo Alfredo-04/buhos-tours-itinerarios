@@ -528,6 +528,8 @@ document.addEventListener('DOMContentLoaded', function () {
   let chartDiversidadInstance = null;
   let ultimasSoluciones = [];
   let ultimoResultadoData = null;
+  let inicioConsultaMs = Date.now();
+  let iteracionesOptimizacion = 0;
 
   // Configuración de listeners del modal de itinerario (una sola vez al cargar el DOM)
   const modalElDetalle = document.getElementById('modalDetalleItinerario');
@@ -1063,6 +1065,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // ==========================================
   if (btnGenerar) {
     btnGenerar.addEventListener('click', async function () {
+      iteracionesOptimizacion++;
       const atractivosIds = Array.from(document.querySelectorAll('.chk-atractivo:checked')).map(el => parseInt(el.value));
       if (atractivosIds.length === 1) {
         mostrarAlertaValidacion('Debes marcar <strong>al menos 2 atractivos</strong> o dejar ninguno seleccionado (en cuyo caso el algoritmo elegirá del catálogo completo).', 'warning');
@@ -1428,9 +1431,12 @@ document.addEventListener('DOMContentLoaded', function () {
       const formData = new FormData(form);
       const telFinal = inpHidTelTurista && inpHidTelTurista.value ? inpHidTelTurista.value : null;
 
+      const tiempoConsultaSeg = Math.max(1, Math.round((Date.now() - inicioConsultaMs) / 1000));
       const payload = {
         id_generacion: parseInt(itinerarioPendiente.id_gen),
         numero_solucion: parseInt(itinerarioPendiente.num_sol),
+        tiempo_consulta_seg: tiempoConsultaSeg,
+        iteraciones_optimizacion: Math.max(1, iteracionesOptimizacion),
         turista: {
           nombres: formData.get('nombres'),
           apellidos: formData.get('apellidos'),
@@ -2462,6 +2468,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const solsParaKPI = data.hay_viables ? solucionesViables : solucionesNoViables;
     if (kpiSoluciones) kpiSoluciones.textContent = solsParaKPI.length;
     if (kpiComputo) kpiComputo.textContent = `${data.tiempo_ejecucion_seg}s`;
+    const kpiTiempoConsulta = document.getElementById('kpi_tiempo_consulta');
+    if (kpiTiempoConsulta) {
+      const transcurrido = Math.max(1, Math.round((Date.now() - inicioConsultaMs) / 1000));
+      const m = Math.floor(transcurrido / 60);
+      const s = transcurrido % 60;
+      const txt = m > 0 ? `${m}m ${s < 10 ? '0' : ''}${s}s` : `${s}s`;
+      kpiTiempoConsulta.textContent = `${txt} (${iteracionesOptimizacion} int.)`;
+    }
     if (solsParaKPI.length > 0) {
       const maxAf = Math.max(...solsParaKPI.map(s => s.afinidad));
       const minT = Math.min(...solsParaKPI.map(s => s.tiempo_total_min));

@@ -1491,14 +1491,76 @@ def ejecutar_nsga2(
             if ranks is not None and len(ranks) == len(res.pop):
                 f2 = [res.pop[i] for i in range(len(res.pop)) if ranks[i] == 1]
                 candidatos.extend(f2)
-                if len(candidatos) < 15:
+                if len(candidatos) < 25 or forzar_atractivos:
                     f3 = [res.pop[i] for i in range(len(res.pop)) if ranks[i] == 2]
                     candidatos.extend(f3)
+                if len(candidatos) < 25 or forzar_atractivos:
+                    f4 = [res.pop[i] for i in range(len(res.pop)) if ranks[i] == 3]
+                    candidatos.extend(f4)
             else:
                 candidatos.extend(list(res.pop))
         except Exception as e:
             logger.debug(f"Aviso al extraer soluciones de frentes adicionales: {e}")
             candidatos.extend(list(res.pop))
+
+    # 5.1 Enriquecimiento de diversidad desde el historial evolutivo (res.history) y mutación local.
+    # Cuando forzar_atractivos=True o los atractivos son fijos, f1 (afinidad) es idéntico (1.0) para todas
+    # las secuencias válidas. Por ende, NSGA-II colapsa la población final hacia una sola secuencia óptima de TSP.
+    # Para ofrecer al turista verdaderas alternativas viables (orden geográfico, balance diario, ritmo),
+    # rescatamos del historial evolutivo todas las secuencias válidas exploradas durante las generaciones:
+    vistos_candidatos_prev = set()
+    for sol in candidatos:
+        try:
+            r_c, _ = problem.decodificar_individuo(np.array(sol.X))
+            vistos_candidatos_prev.add(tuple(r_c))
+            vistos_candidatos_prev.add(tuple(reversed(r_c)))
+        except Exception:
+            pass
+
+    if len(vistos_candidatos_prev) < 30 and res.history is not None:
+        for gen in reversed(res.history):
+            if len(vistos_candidatos_prev) >= 50:
+                break
+            if gen.pop is not None and len(gen.pop) > 0:
+                for sol_hist in gen.pop:
+                    try:
+                        r_hist, _ = problem.decodificar_individuo(np.array(sol_hist.X))
+                        t_hist = tuple(r_hist)
+                        t_hist_rev = tuple(reversed(r_hist))
+                        if t_hist not in vistos_candidatos_prev and t_hist_rev not in vistos_candidatos_prev:
+                            vistos_candidatos_prev.add(t_hist)
+                            vistos_candidatos_prev.add(t_hist_rev)
+                            candidatos.append(sol_hist)
+                            if len(vistos_candidatos_prev) >= 50:
+                                break
+                    except Exception:
+                        pass
+
+    # Si aún no hay suficientes secuencias alternativas (< 15), generar perturbaciones heurísticas (2-opt)
+    # a partir de la mejor solución encontrada para explorar permutaciones locales viables:
+    if len(vistos_candidatos_prev) < 15 and len(candidatos) > 0:
+        class _CandidatoMutado:
+            def __init__(self, X: np.ndarray):
+                self.X = X
+
+        ind_base = np.array(candidatos[0].X, dtype=float).copy()
+        n_atr = problem.n_atractivos
+        for i_swap in range(n_atr):
+            for j_swap in range(i_swap + 1, n_atr):
+                if len(vistos_candidatos_prev) >= 40:
+                    break
+                ind_nuevo = ind_base.copy()
+                ind_nuevo[i_swap], ind_nuevo[j_swap] = ind_nuevo[j_swap], ind_nuevo[i_swap]
+                try:
+                    r_mut, _ = problem.decodificar_individuo(ind_nuevo)
+                    t_mut = tuple(r_mut)
+                    t_mut_rev = tuple(reversed(r_mut))
+                    if t_mut not in vistos_candidatos_prev and t_mut_rev not in vistos_candidatos_prev:
+                        vistos_candidatos_prev.add(t_mut)
+                        vistos_candidatos_prev.add(t_mut_rev)
+                        candidatos.append(_CandidatoMutado(ind_nuevo))
+                except Exception:
+                    pass
 
     soluciones_procesadas = []
     vistos_rutas = set()
@@ -2382,9 +2444,10 @@ def ejecutar_nsga2(
     # 1. Procesar Soluciones Viables (diversidad por K y composición distinta)
     soluciones_viables_final = []
     if len(soluciones_viables_raw) > 0:
-        MAX_POR_K = 3
+        # Si se fuerzan atractivos o solo hay un K posible, permitir hasta 5 alternativas de ruta
+        MAX_POR_K = 5 if (forzar_atractivos or problem.forzar_todos) else 3
         MAX_TOTAL = 20
-        UMBRAL_DIFERENCIA = 0.35  # al menos 35% de atractivos distintos
+        UMBRAL_DIFERENCIA = 0.35  # al menos 35% de atractivos distintos cuando K es variable
 
         def _jaccard_distintos(set_a: set, set_b: set) -> float:
             """Retorna la fracción de atractivos distintos entre dos conjuntos."""
@@ -2399,11 +2462,15 @@ def ejecutar_nsga2(
         for sol in soluciones_viables_raw:
             sol_por_k.setdefault(sol["num_atractivos"], []).append(sol)
 
+        # Si solo hay 1 tamaño de K (ej. cuando se fuerzan atractivos o K es fijo), subir límite por K
+        if len(sol_por_k) == 1:
+            MAX_POR_K = 5
+
         # Ordenar cada grupo por calidad (afinidad desc, tiempo asc)
         for k_val in sol_por_k:
             sol_por_k[k_val].sort(key=lambda s: (-s["afinidad"], s["tiempo_total_min"]))
 
-        # Seleccionar hasta MAX_POR_K por K con composición distinta
+        # Seleccionar hasta MAX_POR_K por K con composición o secuencia distinta
         for k_val in sorted(sol_por_k.keys(), reverse=True):  # K grande primero
             if len(soluciones_viables_final) >= MAX_TOTAL:
                 break
@@ -2419,13 +2486,42 @@ def ejecutar_nsga2(
 
                 ids_sol = set(sol["atractivos_ids"])
 
-                # Verificar que sea distinta a las ya seleccionadas de este K
+                # Verificar si es suficientemente distinta a las ya seleccionadas
                 es_suficientemente_distinta = True
                 for prev in seleccionadas_grupo:
                     ids_prev = set(prev["atractivos_ids"])
-                    if _jaccard_distintos(ids_sol, ids_prev) < UMBRAL_DIFERENCIA:
-                        es_suficientemente_distinta = False
-                        break
+                    d_jaccard = _jaccard_distintos(ids_sol, ids_prev)
+
+                    # 1. Si tienen composición de atractivos diferente (>= 35%), es distinta
+                    if d_jaccard >= UMBRAL_DIFERENCIA:
+                        continue
+
+                    # 2. Si comparten los mismos atractivos (típico con forzar_atractivos=True o K único):
+                    # Evaluar si ofrecen una alternativa real de viaje por orden, días o ritmo
+                    es_misma_coleccion = (forzar_atractivos or problem.forzar_todos or len(sol_por_k) == 1 or len(ids_sol ^ ids_prev) == 0)
+                    if es_misma_coleccion:
+                        # 2.1 Diferente distribución de paradas por día (ej. 4-3-3 vs 3-4-3)
+                        dias_sol = tuple(p.get("dia", 1) for p in sol.get("paradas", []))
+                        dias_prev = tuple(p.get("dia", 1) for p in prev.get("paradas", []))
+                        if dias_sol != dias_prev:
+                            continue
+
+                        # 2.2 Secuencia de recorrido sustancialmente distinta (al menos 2 posiciones cambiadas)
+                        seq_sol = sol.get("atractivos_ids", [])
+                        seq_prev = prev.get("atractivos_ids", [])
+                        if len(seq_sol) == len(seq_prev) and len(seq_sol) >= 3:
+                            pos_cambiadas = sum(1 for a, b in zip(seq_sol, seq_prev) if a != b)
+                            if pos_cambiadas >= max(2, int(len(seq_sol) * 0.25)):
+                                continue
+
+                        # 2.3 Diferencia perceptible en tiempo de recorrido (ritmo de viaje distinto >= 8 min)
+                        diff_min = abs(sol.get("tiempo_total_min", 0) - prev.get("tiempo_total_min", 0))
+                        if diff_min >= 8.0:
+                            continue
+
+                    # Si no cumple ninguna condición de diversidad, es duplicada
+                    es_suficientemente_distinta = False
+                    break
 
                 if es_suficientemente_distinta:
                     seleccionadas_grupo.append(sol)

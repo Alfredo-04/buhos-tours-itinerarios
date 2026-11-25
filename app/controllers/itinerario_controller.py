@@ -274,6 +274,8 @@ def guardar():
     numero_solucion = payload.get('numero_solucion')
     turista_data = payload.get('turista')
     forzar_nuevo = bool(payload.get('forzar_nuevo', False))
+    tiempo_consulta_seg = payload.get('tiempo_consulta_seg')
+    iteraciones_optimizacion = payload.get('iteraciones_optimizacion')
 
     if not id_generacion or numero_solucion is None:
         return jsonify({
@@ -287,7 +289,9 @@ def guardar():
             numero_solucion=int(numero_solucion),
             id_usuario=current_user.id_usuario,
             turista_data=turista_data,
-            forzar_nuevo=forzar_nuevo
+            forzar_nuevo=forzar_nuevo,
+            tiempo_consulta_seg=tiempo_consulta_seg,
+            iteraciones_optimizacion=iteraciones_optimizacion
         )
 
         if res.get("duplicado_admin"):
@@ -301,7 +305,8 @@ def guardar():
             "success": True,
             "id_itinerario": res['id_itinerario'],
             "codigo_confirmacion": res.get("codigo_confirmacion"),
-            "advertencia_acompanantes": res.get("advertencia_acompanantes")
+            "advertencia_acompanantes": res.get("advertencia_acompanantes"),
+            "auditoria_consulta": res.get("auditoria_consulta")
         }), 200
     except ValueError as ve:
         return jsonify({"success": False, "error": str(ve)}), 400

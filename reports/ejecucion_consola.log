@@ -313,6 +313,6 @@ test_299_robustez_db_rollback_ante_error_transaccional (tests.test_10_pruebas_no
 test_300_limite_memoria_recoleccion_recursos (tests.test_10_pruebas_no_funcionales.TestPruebasNoFuncionales) ... ok
 
 ----------------------------------------------------------------------
-Ran 300 tests in 6.576s
+Ran 300 tests in 7.676s
 
 OK

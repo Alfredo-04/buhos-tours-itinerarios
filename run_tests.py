@@ -26,6 +26,8 @@ if BASE_DIR not in sys.path:
 
 # Importar lista compartida de resultados
 from tests.conftest_base import REGISTRO_RESULTADOS_300
+from tests.benchmark_optimizacion import generar_graficos_cientificos_optimizacion
+from tests.benchmark_sqa import generar_graficos_sqa
 
 
 class DualOutput(io.StringIO):
@@ -157,9 +159,45 @@ def main():
                 ])
         print(f"[GENERADO] Matriz de pruebas CSV generada exitosamente en: {csv_file}")
         print(f"           (Total de casos documentados en matriz: {len(REGISTRO_RESULTADOS_300)})")
+
+        # 3. Generar Gráficos Científicos de Optimización Multiobjetivo (300 DPI)
+        try:
+            graficos_creados = generar_graficos_cientificos_optimizacion(reports_dir)
+            if graficos_creados:
+                print(f"[GENERADO] {len(graficos_creados)} Gráficos científicos de optimización guardados en reports/:")
+                for g in graficos_creados:
+                    print(f"           • {os.path.basename(g)}")
+        except Exception as e_graf:
+            print(f"[ADVERTENCIA] Error generando gráficos científicos: {e_graf}")
+
+        # 4. Generar Gráficos Formales de Calidad de Software (SQA - ISO/IEC 25010) (300 DPI)
+        try:
+            graficos_sqa_creados = generar_graficos_sqa(reports_dir, REGISTRO_RESULTADOS_300)
+            if graficos_sqa_creados:
+                print(f"[GENERADO] {len(graficos_sqa_creados)} Gráficos de Aseguramiento de Calidad (SQA) guardados en reports/:")
+                for g in graficos_sqa_creados:
+                    print(f"           • {os.path.basename(g)}")
+        except Exception as e_sqa:
+            print(f"[ADVERTENCIA] Error generando gráficos SQA: {e_sqa}")
     else:
         print("\n[INFO] Los archivos de reporte ya existen en la carpeta 'reports/'.")
         print("       Las pruebas se ejecutaron correctamente sin sobreescribir los archivos existentes.")
+
+        # Verificar si falta algún gráfico en reports/ y crearlo de forma complementaria sin sobreescribir los demás
+        try:
+            graficos_faltantes = generar_graficos_cientificos_optimizacion(reports_dir)
+            if graficos_faltantes:
+                print(f"[GENERADO] {len(graficos_faltantes)} Gráficos de optimización faltantes generados en reports/:")
+                for g in graficos_faltantes:
+                    print(f"           • {os.path.basename(g)}")
+            
+            graficos_sqa_faltantes = generar_graficos_sqa(reports_dir, REGISTRO_RESULTADOS_300)
+            if graficos_sqa_faltantes:
+                print(f"[GENERADO] {len(graficos_sqa_faltantes)} Gráficos SQA faltantes generados en reports/:")
+                for g in graficos_sqa_faltantes:
+                    print(f"           • {os.path.basename(g)}")
+        except Exception as e_graf:
+            pass
 
     print("\nProceso finalizado con éxito.")
 

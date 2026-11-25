@@ -107,6 +107,23 @@
         Código de confirmación: <strong>{{ itinerario.codigo_confirmacion }}</strong>
       </small>
       {% endif %}
+      {% if itinerario.auditoria_consulta %}
+      <div class="mt-2 d-flex flex-wrap align-items-center gap-2">
+        <span class="badge bg-light text-dark border px-2 py-1" title="Tiempo activo de atención de la consulta en ventanilla (Postest)">
+          <i class="bi bi-clock-history text-primary me-1"></i>Atención al Turista: <strong>{{ itinerario.auditoria_consulta.tiempo_consulta_formato }}</strong>
+        </span>
+        {% if itinerario.auditoria_consulta.tiempo_computo_algoritmo_seg %}
+        <span class="badge bg-light text-dark border px-2 py-1" title="Tiempo de procesamiento algorítmico NSGA-II">
+          <i class="bi bi-cpu text-info me-1"></i>Cómputo NSGA-II: <strong>{{ itinerario.auditoria_consulta.tiempo_computo_algoritmo_seg }}s</strong>
+        </span>
+        {% endif %}
+        {% if itinerario.auditoria_consulta.iteraciones_optimizacion %}
+        <span class="badge bg-light text-secondary border px-2 py-1" title="Número de optimizaciones y ajustes realizados durante la consulta">
+          <i class="bi bi-arrow-repeat me-1"></i>{{ itinerario.auditoria_consulta.iteraciones_optimizacion }} ajuste(s)
+        </span>
+        {% endif %}
+      </div>
+      {% endif %}
     </div>
 
     <div class="d-flex align-items-center gap-2 flex-wrap">

@@ -4,10 +4,6 @@ from app import create_app
 app = create_app()
 
 if __name__ == '__main__':
-    # =========================================================================
-    # INTERRUPTOR DE SSL / HTTPS LOCAL (True para activar, False para desactivar)
-    # Mantener en False durante desarrollo y presentaciones locales para máxima velocidad.
-    # =========================================================================
     ENABLE_SSL = False
 
     base_dir = os.path.dirname(os.path.abspath(__file__))
